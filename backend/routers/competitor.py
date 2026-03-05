@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
-from pydantic import BaseModel
-from datetime import date, timedelta
+from pydantic import BaseModel, field_serializer
+from datetime import date, datetime, timedelta
 from ..database import get_db
 from ..models import CompetitorPrice
 from ..services.scraper import scrape_dates_range
@@ -13,12 +13,20 @@ router = APIRouter(prefix="/properties/{property_id}/competitor", tags=["competi
 class CompetitorPriceOut(BaseModel):
     id: int
     competitor_name: str
-    target_date: str
+    target_date: date
     price: int
     available_rooms: int | None
-    scraped_at: str
+    scraped_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("target_date")
+    def serialize_date(self, v: date) -> str:
+        return v.isoformat()
+
+    @field_serializer("scraped_at")
+    def serialize_datetime(self, v: datetime) -> str:
+        return v.isoformat()
 
 
 class CompetitorAvgOut(BaseModel):

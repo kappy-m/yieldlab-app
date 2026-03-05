@@ -52,6 +52,7 @@ app = FastAPI(
     version="0.1.0",
     description="Hotel dynamic pricing SaaS backend",
     lifespan=lifespan,
+    redirect_slashes=False,  # trailing slash の有無を自動吸収
 )
 
 app.add_middleware(
