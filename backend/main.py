@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from .database import init_db
+from .database import init_db, engine
 from .config import settings
 from .routers import properties, pricing, recommendations, competitor, comp_set
 from .services.scheduler import create_scheduler
@@ -88,3 +88,19 @@ async def trigger_pipeline(property_id: int):
     import asyncio
     asyncio.create_task(run_daily_pipeline(property_id))
     return {"status": "pipeline_started", "property_id": property_id}
+
+
+@app.post("/admin/reset-seed")
+async def reset_seed():
+    """DB全削除 → 最新シードを再投入（comp-set変更時のリセット用）"""
+    from sqlalchemy import text
+    from .database import AsyncSessionLocal, init_db
+    _logger.warning("[Admin] reset-seed called — dropping and re-seeding DB")
+    async with engine.begin() as conn:
+        from . import models  # noqa
+        await conn.run_sync(models.Base.metadata.drop_all)
+        await conn.run_sync(models.Base.metadata.create_all)
+    from .seed_runner import run_seed
+    await run_seed()
+    _logger.info("[Admin] reset-seed completed")
+    return {"status": "reset_complete"}
