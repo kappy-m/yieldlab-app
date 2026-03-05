@@ -44,33 +44,33 @@ INITIAL_LEVELS = [
 
 COMP_HOTELS = [
     {
-        "name": "セルリアンタワー東急ホテル",
-        "expedia_id": "661016",
-        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Cerulean-Tower-Tokyu-Hotel.h661016.Hotel-Information",
+        "name": "ロイヤルパークホテル 東京日本橋",
+        "expedia_id": "21288",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Royal-Park-Hotel-Tokyo-Nihonbashi.h21288.Hotel-Information",
         "sort": 0,
     },
     {
-        "name": "渋谷エクセルホテル東急",
-        "expedia_id": "486569",
-        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Shibuya-Excel-Hotel-Tokyu.h486569.Hotel-Information",
+        "name": "ザ ロイヤルパーク ホテル 銀座6丁目",
+        "expedia_id": "96969455",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-The-Royal-Park-Hotel-Ginza-6-Chome.h96969455.Hotel-Information",
         "sort": 1,
     },
     {
-        "name": "渋谷グランベルホテル",
-        "expedia_id": "8150500",
-        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Shibuya-Granbell-Hotel.h8150500.Hotel-Information",
+        "name": "ザ ロイヤルパーク ホテル 東京羽田",
+        "expedia_id": "8080801",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-The-Royal-Park-Hotel-Tokyo-Haneda.h8080801.Hotel-Information",
         "sort": 2,
     },
     {
-        "name": "ヒルトン東京",
-        "expedia_id": "22597",
-        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Hilton-Tokyo.h22597.Hotel-Information",
+        "name": "ロイヤルパーク キャンバス 渋谷桜丘",
+        "expedia_id": "96969456",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Royal-Park-Canvas-Shibuya-Sakuragaoka.h96969456.Hotel-Information",
         "sort": 3,
     },
     {
-        "name": "パークハイアット東京",
-        "expedia_id": "108657",
-        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Park-Hyatt-Tokyo.h108657.Hotel-Information",
+        "name": "ロイヤルパーク キャンバス 大手町",
+        "expedia_id": "96969457",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Royal-Park-Canvas-Otemachi.h96969457.Hotel-Information",
         "sort": 4,
     },
 ]
