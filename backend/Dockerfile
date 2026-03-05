@@ -21,9 +21,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Railwayはリポジトリルートをビルドコンテキストとして渡すため、
-# backend/ プレフィックスを付けて参照する
-COPY backend/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 ARG INSTALL_PLAYWRIGHT_BROWSERS=false
@@ -31,10 +29,10 @@ RUN if [ "$INSTALL_PLAYWRIGHT_BROWSERS" = "true" ]; then \
       playwright install chromium --with-deps; \
     fi
 
-# ソース全体をコピー（backend/ と同階層の構造を維持）
 COPY . .
 
 # PORT は Railway が自動設定。デフォルト8000
 ENV PORT=8000
 
-CMD uvicorn backend.main:app --host 0.0.0.0 --port ${PORT}
+# rootDirectory=backend/ でビルドされるため、モジュールパスは backend. なし
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT}
