@@ -27,6 +27,10 @@ export interface PropertyOut {
   cm_property_code: string | null;
 }
 
+export function fetchProperties() {
+  return apiFetch<PropertyOut[]>(`/properties/`);
+}
+
 export function fetchProperty(id: number) {
   return apiFetch<PropertyOut>(`/properties/${id}`);
 }
