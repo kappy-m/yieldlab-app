@@ -21,16 +21,17 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-COPY requirements.txt .
+# Railwayはリポジトリルートをビルドコンテキストとして渡すため、
+# backend/ プレフィックスを付けて参照する
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# SCRAPER_MODE=playwright の場合のみブラウザをインストール
-# デフォルトはmockモードなのでスキップ可能（ビルド引数で制御）
 ARG INSTALL_PLAYWRIGHT_BROWSERS=false
 RUN if [ "$INSTALL_PLAYWRIGHT_BROWSERS" = "true" ]; then \
       playwright install chromium --with-deps; \
     fi
 
+# ソース全体をコピー（backend/ と同階層の構造を維持）
 COPY . .
 
 # PORT は Railway が自動設定。デフォルト8000
