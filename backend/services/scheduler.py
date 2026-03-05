@@ -59,8 +59,7 @@ async def _scrape_and_store(db, prop: "Property"):
         mock_hotels = [
             {
                 "name": c.name,
-                "base_price": 15000,
-                "variance": 0.18,
+                # base_price / variance は mock_scraper の HOTEL_PRICE_CATALOG から自動取得
                 "expedia_id": c.expedia_hotel_id,
                 "mode": c.scrape_mode,
             }
