@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/backend/:path*",
-      "destination": "https://your-backend.railway.app/:path*"
+      "destination": "https://yieldlab-app-production.up.railway.app/:path*"
     }
   ]
 }
