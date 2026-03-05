@@ -25,6 +25,13 @@ export interface PropertyOut {
   org_id: number;
   name: string;
   cm_property_code: string | null;
+  brand: string | null;
+  address: string | null;
+  star_rating: number | null;
+  total_rooms: number | null;
+  checkin_time: string | null;
+  checkout_time: string | null;
+  website_url: string | null;
 }
 
 export function fetchProperties() {
@@ -205,7 +212,8 @@ export interface CompSetOut {
   name: string;
   expedia_hotel_id: string | null;
   expedia_url: string | null;
-  scrape_mode: string;
+  rakuten_hotel_no: string | null;
+  scrape_mode: string;   // "mock" | "rakuten" | "live"
   is_active: boolean;
   sort_order: number;
 }
@@ -240,6 +248,25 @@ export function deleteCompHotel(propertyId: number, compId: number) {
 
 export function triggerPipeline(propertyId: number) {
   return apiFetch<{ status: string }>(`/admin/run-pipeline/${propertyId}`, { method: "POST" });
+}
+
+export interface CompetitorPriceOut {
+  id: number;
+  competitor_name: string;
+  target_date: string;
+  price: number;
+  available_rooms: number | null;
+  scraped_at: string;
+}
+
+export function fetchCompetitorPrices(
+  propertyId: number,
+  params?: { date_from?: string; date_to?: string; competitor_name?: string }
+) {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v != null)) as Record<string, string>
+  ).toString();
+  return apiFetch<CompetitorPriceOut[]>(`/properties/${propertyId}/competitor/prices${qs ? `?${qs}` : ""}`);
 }
 
 // ---- Competitor Prices ----

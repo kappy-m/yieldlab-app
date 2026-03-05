@@ -13,6 +13,7 @@ class CompSetOut(BaseModel):
     name: str
     expedia_hotel_id: str | None
     expedia_url: str | None
+    rakuten_hotel_no: str | None = None
     scrape_mode: str
     is_active: bool
     sort_order: int
@@ -24,6 +25,7 @@ class CompSetCreate(BaseModel):
     name: str
     expedia_hotel_id: str | None = None
     expedia_url: str | None = None
+    rakuten_hotel_no: str | None = None
     scrape_mode: str = "mock"
     sort_order: int = 0
 
@@ -32,6 +34,7 @@ class CompSetUpdate(BaseModel):
     name: str | None = None
     expedia_hotel_id: str | None = None
     expedia_url: str | None = None
+    rakuten_hotel_no: str | None = None
     scrape_mode: str | None = None
     is_active: bool | None = None
     sort_order: int | None = None

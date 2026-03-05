@@ -52,15 +52,14 @@ async def _scrape_and_store(db, prop: "Property"):
     comp_hotels_db = comp_result.scalars().all()
 
     if not comp_hotels_db:
-        # Comp Setが未設定の場合はデフォルトを使用
         mock_hotels = DEFAULT_COMP_HOTELS
         logger.warning(f"[Scheduler] No comp set for property {prop.id}, using defaults")
     else:
         mock_hotels = [
             {
                 "name": c.name,
-                # base_price / variance は mock_scraper の HOTEL_PRICE_CATALOG から自動取得
                 "expedia_id": c.expedia_hotel_id,
+                "rakuten_no": c.rakuten_hotel_no,
                 "mode": c.scrape_mode,
             }
             for c in comp_hotels_db
@@ -68,37 +67,80 @@ async def _scrape_and_store(db, prop: "Property"):
 
     today = date.today()
 
-    # モックモードのホテルはmock_scraperで処理
-    mock_list = [h for h in mock_hotels if h.get("mode", "mock") == "mock"]
+    # ①モードごとに分類
+    mock_list    = [h for h in mock_hotels if h.get("mode", "mock") == "mock"]
+    rakuten_list = [h for h in mock_hotels if h.get("mode") == "rakuten"]
+    live_list    = [h for h in mock_hotels if h.get("mode") == "live"]
+
+    # ② mock → mock_scraper
     if mock_list:
         prices = generate_mock_prices(mock_list, today, days=30)
         for p in prices:
-            record = CompetitorPrice(
+            db.add(CompetitorPrice(
                 property_id=prop.id,
                 target_date=date.fromisoformat(p.target_date),
                 competitor_name=p.competitor_name,
                 price=p.price,
                 available_rooms=p.available_rooms,
                 source_url=p.source_url,
-            )
-            db.add(record)
+            ))
 
-    # liveモードのホテルはPlaywrightスクレイパーで処理（未実装時はスキップ）
-    live_list = [h for h in mock_hotels if h.get("mode") == "live"]
+    # ③ rakuten → 楽天トラベル公式APIスクレイパー（90日分）
+    if rakuten_list:
+        try:
+            from ..services.rakuten_scraper import scrape_rakuten_comp_set
+            from datetime import timedelta
+            check_in_dates = [
+                (today + timedelta(days=i)).isoformat() for i in range(90)
+            ]
+            rakuten_input = [
+                {"name": h["name"], "rakuten_no": h["rakuten_no"]}
+                for h in rakuten_list
+                if h.get("rakuten_no")
+            ]
+            if rakuten_input:
+                rakuten_prices = await scrape_rakuten_comp_set(
+                    rakuten_input, check_in_dates
+                )
+                for p in rakuten_prices:
+                    db.add(CompetitorPrice(
+                        property_id=prop.id,
+                        target_date=date.fromisoformat(p.target_date),
+                        competitor_name=p.competitor_name,
+                        price=p.price,
+                        available_rooms=p.available_rooms,
+                        source_url=p.source_url,
+                    ))
+            # rakuten_no未設定のものはmockにフォールバック
+            no_rakuten = [h for h in rakuten_list if not h.get("rakuten_no")]
+            if no_rakuten:
+                fallback_prices = generate_mock_prices(no_rakuten, today, days=30)
+                for p in fallback_prices:
+                    db.add(CompetitorPrice(
+                        property_id=prop.id,
+                        target_date=date.fromisoformat(p.target_date),
+                        competitor_name=p.competitor_name,
+                        price=p.price,
+                        available_rooms=p.available_rooms,
+                        source_url="mock://fallback",
+                    ))
+        except Exception as e:
+            logger.error(f"[Scheduler] Rakuten scraping failed: {e}")
+
+    # ④ live → Playwright/Expediaスクレイパー
     if live_list:
         try:
             from ..services.scraper import scrape_dates_range
             live_prices = await scrape_dates_range(live_list, today, days=30)
             for p in live_prices:
-                record = CompetitorPrice(
+                db.add(CompetitorPrice(
                     property_id=prop.id,
                     target_date=p.target_date,
                     competitor_name=p.competitor_name,
                     price=p.price,
                     available_rooms=p.available_rooms,
                     source_url=p.source_url,
-                )
-                db.add(record)
+                ))
         except Exception as e:
             logger.error(f"[Scheduler] Live scraping failed: {e}")
 

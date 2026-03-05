@@ -47,30 +47,40 @@ COMP_HOTELS = [
         "name": "パレスホテル東京",
         "expedia_id": "69969",
         "url": "https://www.expedia.co.jp/Tokyo-Hotels-Palace-Hotel-Tokyo.h69969.Hotel-Information",
+        "rakuten_no": "184685",   # ✅ 楽天トラベル掲載確認済み
+        "scrape_mode": "rakuten",
         "sort": 0,
     },
     {
-        "name": "マンダリン オリエンタル 東京",
-        "expedia_id": "8045938",
-        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Mandarin-Oriental-Tokyo.h8045938.Hotel-Information",
+        "name": "ザ・ペニンシュラ東京",
+        "expedia_id": "1631412",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-The-Peninsula-Tokyo.h1631412.Hotel-Information",
+        "rakuten_no": "184598",   # ✅ 楽天トラベル掲載確認済み
+        "scrape_mode": "rakuten",
         "sort": 1,
     },
     {
         "name": "コンラッド東京",
         "expedia_id": "3895551",
         "url": "https://www.expedia.co.jp/Tokyo-Hotels-Conrad-Tokyo.h3895551.Hotel-Information",
+        "rakuten_no": "78151",    # ✅ 楽天トラベル掲載確認済み
+        "scrape_mode": "rakuten",
         "sort": 2,
+    },
+    {
+        "name": "マンダリン オリエンタル 東京",
+        "expedia_id": "8045938",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Mandarin-Oriental-Tokyo.h8045938.Hotel-Information",
+        "rakuten_no": None,       # 楽天非掲載 → mockフォールバック
+        "scrape_mode": "mock",
+        "sort": 3,
     },
     {
         "name": "シャングリ・ラ 東京",
         "expedia_id": "8080797",
         "url": "https://www.expedia.co.jp/Tokyo-Hotels-Shangri-La-Hotel-Tokyo.h8080797.Hotel-Information",
-        "sort": 3,
-    },
-    {
-        "name": "ザ・ペニンシュラ東京",
-        "expedia_id": "1631412",
-        "url": "https://www.expedia.co.jp/Tokyo-Hotels-The-Peninsula-Tokyo.h1631412.Hotel-Information",
+        "rakuten_no": None,       # 楽天非掲載 → mockフォールバック
+        "scrape_mode": "mock",
         "sort": 4,
     },
 ]
@@ -116,7 +126,8 @@ async def run_seed():
                 name=ch["name"],
                 expedia_hotel_id=ch["expedia_id"],
                 expedia_url=ch["url"],
-                scrape_mode="mock",
+                rakuten_hotel_no=ch.get("rakuten_no"),
+                scrape_mode=ch.get("scrape_mode", "mock"),
                 is_active=True,
                 sort_order=ch["sort"],
             ))
