@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 
 
 class Settings(BaseSettings):
@@ -15,6 +16,19 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def fix_database_url(cls, v: str) -> str:
+        # 空の場合はSQLiteフォールバック
+        if not v or v.strip() == "":
+            return "sqlite+aiosqlite:///./yieldlab.db"
+        # Railway/Herokuが返す postgres:// を asyncpg 対応形式に変換
+        if v.startswith("postgres://"):
+            v = v.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif v.startswith("postgresql://") and "+asyncpg" not in v:
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
 
     def allowed_origins(self) -> list[str]:
         origins = [self.FRONTEND_URL, "http://localhost:3000", "http://localhost:3100"]
