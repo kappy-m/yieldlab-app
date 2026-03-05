@@ -25,10 +25,23 @@ async def _auto_seed_if_empty():
             logger.info("Seed completed.")
 
 
+import logging
+_logger = logging.getLogger(__name__)
+
+_db_ready = False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
-    await _auto_seed_if_empty()
+    global _db_ready
+    # DB接続失敗でもアプリを起動させる（ヘルスチェック通過のため）
+    try:
+        await init_db()
+        await _auto_seed_if_empty()
+        _db_ready = True
+        _logger.info("Database initialized and seeded.")
+    except Exception as e:
+        _logger.warning(f"DB init failed on startup (will retry on first request): {e}")
     _scheduler.start()
     yield
     _scheduler.shutdown(wait=False)
@@ -59,7 +72,12 @@ app.include_router(comp_set.router)
 @app.get("/health")
 async def health():
     jobs = [{"id": j.id, "next_run": str(j.next_run_time)} for j in _scheduler.get_jobs()]
-    return {"status": "ok", "service": "yieldlab-api", "scheduled_jobs": jobs}
+    return {
+        "status": "ok",
+        "service": "yieldlab-api",
+        "db_ready": _db_ready,
+        "scheduled_jobs": jobs,
+    }
 
 
 @app.post("/admin/run-pipeline/{property_id}")
