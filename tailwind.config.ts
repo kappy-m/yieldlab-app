@@ -9,7 +9,15 @@ const config: Config = {
   ],
   theme: {
   	extend: {
+  		fontFamily: {
+  			sans: ["var(--font-plus-jakarta)", "Noto Sans JP", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+  		},
   		colors: {
+  			// Yieldlab manage brand tokens
+  			brand: {
+  				navy: "#1E3A8A",
+  				gold: "#CA8A04",
+  			},
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
   			// YieldLab design tokens

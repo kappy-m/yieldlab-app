@@ -70,7 +70,38 @@ HOTEL_PRICE_CATALOG: list[dict] = [
         "variance": 0.22,
         "category": "luxury",
     },
-    # ===== 渋谷エリア競合ホテル =====
+    # ===== 日本橋・丸の内エリア競合ホテル（Royal Park Hotel Nihonbashi 競合セット）=====
+    {
+        "pattern": "パレスホテル東京",
+        "base_price": 72000,
+        "variance": 0.28,
+        "category": "ultra-luxury",
+    },
+    {
+        "pattern": "マンダリン オリエンタル",
+        "base_price": 85000,
+        "variance": 0.30,
+        "category": "ultra-luxury",
+    },
+    {
+        "pattern": "コンラッド東京",
+        "base_price": 55000,
+        "variance": 0.28,
+        "category": "luxury",
+    },
+    {
+        "pattern": "シャングリ・ラ 東京",
+        "base_price": 68000,
+        "variance": 0.30,
+        "category": "ultra-luxury",
+    },
+    {
+        "pattern": "ペニンシュラ東京",
+        "base_price": 90000,
+        "variance": 0.32,
+        "category": "ultra-luxury",
+    },
+    # ===== 渋谷エリア競合ホテル（参考） =====
     {
         "pattern": "セルリアンタワー東急",
         "base_price": 35000,

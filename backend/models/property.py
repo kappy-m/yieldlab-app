@@ -12,6 +12,15 @@ class Property(Base):
     timezone: Mapped[str] = mapped_column(String(50), default="Asia/Tokyo")
     created_at: Mapped[str] = mapped_column(DateTime, default=func.now())
 
+    # ホテル詳細情報（自社物件のリアルデータ用）
+    brand: Mapped[str | None] = mapped_column(String(100))          # ブランド名
+    address: Mapped[str | None] = mapped_column(String(300))        # 住所
+    star_rating: Mapped[int | None] = mapped_column(Integer)        # 星数
+    total_rooms: Mapped[int | None] = mapped_column(Integer)        # 総客室数
+    checkin_time: Mapped[str | None] = mapped_column(String(10))    # チェックイン時刻
+    checkout_time: Mapped[str | None] = mapped_column(String(10))   # チェックアウト時刻
+    website_url: Mapped[str | None] = mapped_column(String(300))    # 公式サイト
+
     organization: Mapped["Organization"] = relationship(back_populates="properties")
     bar_ladders: Mapped[list["BarLadder"]] = relationship(back_populates="property")
     room_types: Mapped[list["RoomType"]] = relationship(back_populates="property")

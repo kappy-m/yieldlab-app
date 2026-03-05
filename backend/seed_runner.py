@@ -44,33 +44,33 @@ INITIAL_LEVELS = [
 
 COMP_HOTELS = [
     {
-        "name": "ロイヤルパークホテル 東京日本橋",
-        "expedia_id": "21288",
-        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Royal-Park-Hotel-Tokyo-Nihonbashi.h21288.Hotel-Information",
+        "name": "パレスホテル東京",
+        "expedia_id": "69969",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Palace-Hotel-Tokyo.h69969.Hotel-Information",
         "sort": 0,
     },
     {
-        "name": "ザ ロイヤルパーク ホテル 銀座6丁目",
-        "expedia_id": "96969455",
-        "url": "https://www.expedia.co.jp/Tokyo-Hotels-The-Royal-Park-Hotel-Ginza-6-Chome.h96969455.Hotel-Information",
+        "name": "マンダリン オリエンタル 東京",
+        "expedia_id": "8045938",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Mandarin-Oriental-Tokyo.h8045938.Hotel-Information",
         "sort": 1,
     },
     {
-        "name": "ザ ロイヤルパーク ホテル 東京羽田",
-        "expedia_id": "8080801",
-        "url": "https://www.expedia.co.jp/Tokyo-Hotels-The-Royal-Park-Hotel-Tokyo-Haneda.h8080801.Hotel-Information",
+        "name": "コンラッド東京",
+        "expedia_id": "3895551",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Conrad-Tokyo.h3895551.Hotel-Information",
         "sort": 2,
     },
     {
-        "name": "ロイヤルパーク キャンバス 渋谷桜丘",
-        "expedia_id": "96969456",
-        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Royal-Park-Canvas-Shibuya-Sakuragaoka.h96969456.Hotel-Information",
+        "name": "シャングリ・ラ 東京",
+        "expedia_id": "8080797",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Shangri-La-Hotel-Tokyo.h8080797.Hotel-Information",
         "sort": 3,
     },
     {
-        "name": "ロイヤルパーク キャンバス 大手町",
-        "expedia_id": "96969457",
-        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Royal-Park-Canvas-Otemachi.h96969457.Hotel-Information",
+        "name": "ザ・ペニンシュラ東京",
+        "expedia_id": "1631412",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-The-Peninsula-Tokyo.h1631412.Hotel-Information",
         "sort": 4,
     },
 ]
@@ -83,15 +83,22 @@ BAR_LEVEL_LABELS = {
 
 async def run_seed():
     async with AsyncSessionLocal() as session:
-        org = Organization(name="サンプルホテルグループ", plan_tier="pro")
+        org = Organization(name="ロイヤルパークホテルズ アンド リゾーツ", plan_tier="pro")
         session.add(org)
         await session.flush()
 
         prop = Property(
             org_id=org.id,
-            name="東京・渋谷ホテル",
-            cm_property_code="TL_SHIBUYA_001",
+            name="ロイヤルパークホテル 東京日本橋",
+            cm_property_code="RPH_NIHONBASHI_001",
             timezone="Asia/Tokyo",
+            brand="ロイヤルパークホテル",
+            address="東京都中央区日本橋蛎殻町2-1-1",
+            star_rating=4,
+            total_rooms=413,
+            checkin_time="14:00",
+            checkout_time="12:00",
+            website_url="https://www.royalparkhotel.ne.jp/hotel/tokyo/",
         )
         session.add(prop)
         await session.flush()

@@ -13,6 +13,13 @@ class PropertyOut(BaseModel):
     org_id: int
     name: str
     cm_property_code: str | None
+    brand: str | None = None
+    address: str | None = None
+    star_rating: int | None = None
+    total_rooms: int | None = None
+    checkin_time: str | None = None
+    checkout_time: str | None = None
+    website_url: str | None = None
 
     model_config = {"from_attributes": True}
 
