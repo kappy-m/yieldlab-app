@@ -98,6 +98,20 @@ async def get_competitor_averages(
     ]
 
 
+@router.delete("/prices/clear")
+async def clear_competitor_prices(
+    property_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """競合価格データを全削除（comp-set変更後のリセット用）"""
+    from sqlalchemy import delete
+    result = await db.execute(
+        delete(CompetitorPrice).where(CompetitorPrice.property_id == property_id)
+    )
+    await db.commit()
+    return {"status": "cleared", "deleted_rows": result.rowcount}
+
+
 @router.post("/scrape")
 async def trigger_scrape(
     property_id: int,
