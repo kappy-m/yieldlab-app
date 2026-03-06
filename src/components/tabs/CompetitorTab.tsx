@@ -11,6 +11,7 @@ import {
   fetchCompetitorAverages,
   fetchCompSet,
   fetchPricingGrid,
+  fetchProperty,
   triggerPipeline,
   type CompetitorPriceOut,
   type CompetitorAvgOut,
@@ -75,6 +76,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
   const [averages, setAverages] = useState<CompetitorAvgOut[]>([]);
   const [compSet, setCompSet] = useState<CompSetOut[]>([]);
   const [ownGrid, setOwnGrid] = useState<PricingCellOut[]>([]);
+  const [propertyName, setPropertyName] = useState<string>("自社");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>("");
@@ -88,16 +90,18 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
   const load = useCallback(async () => {
     try {
       // 1つのAPIが失敗しても他のデータを表示できるようallSettledを使用
-      const [pricesRes, averagesRes, compSetRes, gridRes] = await Promise.allSettled([
+      const [pricesRes, averagesRes, compSetRes, gridRes, propRes] = await Promise.allSettled([
         fetchCompetitorPrices(propertyId, { date_from: dateFrom, date_to: dateTo }),
         fetchCompetitorAverages(propertyId, { date_from: dateFrom, date_to: dateTo }),
         fetchCompSet(propertyId),
         fetchPricingGrid(propertyId, { date_from: dateFrom, date_to: dateTo }),
+        fetchProperty(propertyId),
       ]);
       const p = pricesRes.status === "fulfilled" ? pricesRes.value : [];
       const a = averagesRes.status === "fulfilled" ? averagesRes.value : [];
       const cs = compSetRes.status === "fulfilled" ? compSetRes.value : [];
       const grid = gridRes.status === "fulfilled" ? gridRes.value : [];
+      if (propRes.status === "fulfilled") setPropertyName(propRes.value.name);
       setPrices(p);
       setAverages(a);
       setCompSet(cs);
@@ -108,7 +112,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo]);
+  }, [propertyId, dateFrom, dateTo]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -419,7 +423,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
                 <td className="px-4 py-2.5 sticky left-0 bg-blue-50/50 z-10">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: OWN_COLOR }} />
-                    <span className="font-semibold text-[#1E3A8A]">自社（RPH日本橋）</span>
+                    <span className="font-semibold text-[#1E3A8A]">自社（{propertyName}）</span>
                   </div>
                 </td>
                 {displayAverages.map(avg => {
@@ -484,7 +488,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
         <div className="px-5 py-2 border-t border-slate-100">
           <div className="flex items-center gap-4 text-[10px] text-slate-400">
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[#1E3A8A] inline-block" />自社
+              <span className="w-2 h-2 rounded-full bg-[#1E3A8A] inline-block" />自社（{propertyName}）
             </span>
             <span>緑色の競合価格 = 自社より低い（要注意）</span>
             <span className="flex items-center gap-1">
