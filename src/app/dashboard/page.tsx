@@ -12,19 +12,20 @@ import { PlaceholderTab } from "@/components/tabs/PlaceholderTab";
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<TabId>("daily");
+  const [propertyId, setPropertyId] = useState<number>(1);
 
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
-      <DashboardHeader />
+      <DashboardHeader propertyId={propertyId} onPropertyChange={setPropertyId} />
       <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="max-w-[1400px] mx-auto px-6 py-5">
-        {activeTab === "daily" && <DailyTab />}
-        {activeTab === "pricing" && <PricingTab />}
-        {activeTab === "competitor" && <CompetitorTab />}
-        {activeTab === "booking" && <BookingTab />}
-        {activeTab === "market" && <MarketTab />}
-        {activeTab === "cost" && <PlaceholderTab label="コスト分析" phase="Phase 3" />}
-        {activeTab === "budget" && <PlaceholderTab label="予算設定" phase="Phase 3" />}
+        {activeTab === "daily"      && <DailyTab propertyId={propertyId} />}
+        {activeTab === "pricing"    && <PricingTab propertyId={propertyId} />}
+        {activeTab === "competitor" && <CompetitorTab propertyId={propertyId} />}
+        {activeTab === "booking"    && <BookingTab />}
+        {activeTab === "market"     && <MarketTab propertyId={propertyId} />}
+        {activeTab === "cost"       && <PlaceholderTab label="コスト分析" phase="Phase 3" />}
+        {activeTab === "budget"     && <PlaceholderTab label="予算設定" phase="Phase 3" />}
       </main>
     </div>
   );

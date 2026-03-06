@@ -5,7 +5,7 @@ import { AiSummaryCard } from "@/components/shared/AiSummaryCard";
 import { KpiCard } from "@/components/shared/KpiCard";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { TrendingUp, TrendingDown, Calendar, RefreshCw } from "lucide-react";
-import { PROPERTY_ID } from "@/lib/api";
+
 
 // ブッキングカーブ（デモ用固定データ）
 const curveData = [
@@ -123,7 +123,7 @@ interface PricingRow {
   bar_level: string;
 }
 
-export function DailyTab() {
+export function DailyTab({ propertyId }: { propertyId: number }) {
   const today = new Date();
   const todayLabel = today.toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
   const kpi = seededKpi(today);
@@ -139,8 +139,8 @@ export function DailyTab() {
     setLoading(true);
     try {
       const [compRes, priceRes] = await Promise.all([
-        fetch(`${BASE}/properties/${PROPERTY_ID}/competitor/averages`),
-        fetch(`${BASE}/properties/${PROPERTY_ID}/pricing/?days=14`),
+        fetch(`${BASE}/properties/${propertyId}/competitor/averages`),
+        fetch(`${BASE}/properties/${propertyId}/pricing/?days=14`),
       ]);
       if (compRes.ok) setCompAvgs(await compRes.json());
       if (priceRes.ok) setPricingRows(await priceRes.json());

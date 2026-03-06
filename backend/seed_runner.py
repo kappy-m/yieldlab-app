@@ -42,6 +42,7 @@ INITIAL_LEVELS = [
     "A","C","B","D","C","A","B","C","D","B","C",
 ]
 
+# ===== 日本橋 競合セット =====
 COMP_HOTELS = [
     {
         "name": "パレスホテル東京",
@@ -80,6 +81,67 @@ COMP_HOTELS = [
         "expedia_id": "8080797",
         "url": "https://www.expedia.co.jp/Tokyo-Hotels-Shangri-La-Hotel-Tokyo.h8080797.Hotel-Information",
         "rakuten_no": None,       # 楽天非掲載 → mockフォールバック
+        "scrape_mode": "mock",
+        "sort": 4,
+    },
+]
+
+# ===== 銀座Canvas 客室タイプ・価格 =====
+CANVAS_ROOM_TYPES = [
+    ("スタンダードルーム",       "STD",     60, 0),
+    ("デラックスルーム",         "DLX",     40, 1),
+    ("コーナーデラックスルーム", "CNR_DLX", 20, 2),
+    ("スタジオスイート",         "STU_STE", 10, 3),
+    ("スイートルーム",           "STE",      4, 4),
+]
+
+CANVAS_BAR_PRICES: dict[str, dict[str, int]] = {
+    "スタンダードルーム":       {"A": 22000, "B": 18000, "C": 14000, "D": 11000, "E": 8500},
+    "デラックスルーム":         {"A": 28000, "B": 23000, "C": 18000, "D": 14000, "E": 11000},
+    "コーナーデラックスルーム": {"A": 34000, "B": 28000, "C": 22000, "D": 18000, "E": 14000},
+    "スタジオスイート":         {"A": 45000, "B": 37000, "C": 30000, "D": 24000, "E": 19000},
+    "スイートルーム":           {"A": 60000, "B": 50000, "C": 40000, "D": 33000, "E": 26000},
+}
+
+# ===== 銀座Canvas 競合セット（同価格帯の銀座エリアホテル）=====
+CANVAS_COMP_HOTELS = [
+    {
+        "name": "ホテルモントレ銀座",
+        "expedia_id": "470223",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Hotel-Monterey-Ginza.h470223.Hotel-Information",
+        "rakuten_no": None,   # 要確認 → mockフォールバック
+        "scrape_mode": "mock",
+        "sort": 0,
+    },
+    {
+        "name": "ヴィラフォンテーヌプレミア東京汐留",
+        "expedia_id": "449889",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Villa-Fontaine-Premier-Shiodome.h449889.Hotel-Information",
+        "rakuten_no": None,   # 要確認 → mockフォールバック
+        "scrape_mode": "mock",
+        "sort": 1,
+    },
+    {
+        "name": "東急ステイ銀座",
+        "expedia_id": "2556234",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Tokyu-Stay-Ginza.h2556234.Hotel-Information",
+        "rakuten_no": None,   # 要確認 → mockフォールバック
+        "scrape_mode": "mock",
+        "sort": 2,
+    },
+    {
+        "name": "ダイワロイネットホテル銀座",
+        "expedia_id": "571978",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Daiwa-Roynet-Hotel-Ginza.h571978.Hotel-Information",
+        "rakuten_no": None,   # 要確認 → mockフォールバック
+        "scrape_mode": "mock",
+        "sort": 3,
+    },
+    {
+        "name": "クインテッサホテル東京銀座",
+        "expedia_id": "19292452",
+        "url": "https://www.expedia.co.jp/Tokyo-Hotels-Quintessa-Hotel-Tokyo-Ginza.h19292452.Hotel-Information",
+        "rakuten_no": None,   # 要確認 → mockフォールバック
         "scrape_mode": "mock",
         "sort": 4,
     },
@@ -162,6 +224,78 @@ async def run_seed():
                 session.add(PricingGrid(
                     property_id=prop.id,
                     room_type_id=rt.id,
+                    target_date=d,
+                    bar_level=lvl,
+                    price=price,
+                    available_rooms=stock,
+                    updated_by="manual",
+                ))
+
+        # ===== 物件2: ザ ロイヤルパークキャンバス 銀座コリドー =====
+        canvas = Property(
+            org_id=org.id,
+            name="ザ ロイヤルパークキャンバス 銀座コリドー",
+            cm_property_code="RPH_CANVAS_GINZA_001",
+            timezone="Asia/Tokyo",
+            brand="ロイヤルパークキャンバス",
+            address="東京都中央区銀座6-2-11",
+            star_rating=4,
+            total_rooms=134,
+            checkin_time="15:00",
+            checkout_time="11:00",
+            website_url="https://canvas.royalparkhotels.co.jp/ginzacorridor/",
+        )
+        session.add(canvas)
+        await session.flush()
+
+        session.add(ApprovalSetting(
+            property_id=canvas.id,
+            auto_approve_threshold_levels=1,
+            notification_channel="email",
+            notification_email="rm@example.com",
+        ))
+
+        for ch in CANVAS_COMP_HOTELS:
+            session.add(CompSet(
+                property_id=canvas.id,
+                name=ch["name"],
+                expedia_hotel_id=ch["expedia_id"],
+                expedia_url=ch["url"],
+                rakuten_hotel_no=ch.get("rakuten_no"),
+                scrape_mode=ch.get("scrape_mode", "mock"),
+                is_active=True,
+                sort_order=ch["sort"],
+            ))
+
+        for room_name, cm_code, total, sort in CANVAS_ROOM_TYPES:
+            rt2 = RoomType(
+                property_id=canvas.id,
+                name=room_name,
+                cm_room_type_code=cm_code,
+                total_rooms=total,
+                sort_order=sort,
+            )
+            session.add(rt2)
+            await session.flush()
+
+            prices2 = CANVAS_BAR_PRICES.get(room_name, {})
+            for level, price in prices2.items():
+                session.add(BarLadder(
+                    property_id=canvas.id,
+                    room_type_id=rt2.id,
+                    level=level,
+                    price=price,
+                    label=BAR_LEVEL_LABELS[level],
+                ))
+
+            for day_offset in range(90):
+                d = today + timedelta(days=day_offset)
+                lvl = INITIAL_LEVELS[(sort * 5 + day_offset) % len(INITIAL_LEVELS)]
+                price = prices2.get(lvl, prices2.get("C", 14000))
+                stock = max(1, total - day_offset // 15)
+                session.add(PricingGrid(
+                    property_id=canvas.id,
+                    room_type_id=rt2.id,
                     target_date=d,
                     bar_level=lvl,
                     price=price,

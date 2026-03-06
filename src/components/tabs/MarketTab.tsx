@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Calendar, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchMarketEvents, PROPERTY_ID, type MarketEventOut } from "@/lib/api";
+import { fetchMarketEvents, type MarketEventOut } from "@/lib/api";
 
 const IMPACT_BADGE: Record<string, string> = {
   "影響大": "text-green-700 bg-green-50 border border-green-200",
@@ -31,7 +31,7 @@ function daysUntil(dateStr: string): number {
   return Math.ceil((target.getTime() - today.getTime()) / 86400000);
 }
 
-export function MarketTab() {
+export function MarketTab({ propertyId }: { propertyId: number }) {
   const [events, setEvents] = useState<MarketEventOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState("");
@@ -40,7 +40,7 @@ export function MarketTab() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = await fetchMarketEvents(PROPERTY_ID, 90);
+      const data = await fetchMarketEvents(propertyId, 90);
       setEvents(data);
       setLastUpdated(new Date().toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }));
     } catch (e) {

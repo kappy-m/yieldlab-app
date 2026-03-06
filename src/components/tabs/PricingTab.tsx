@@ -11,7 +11,7 @@ import {
   generateRecommendations,
   actOnRecommendation,
   updatePricingCell,
-  PROPERTY_ID,
+
   type PricingCellOut,
   type RecommendationOut,
   type RoomTypeOut,
@@ -43,7 +43,7 @@ function getDateRange(days = 14): { from: string; to: string; labels: string[] }
   return { from, to, labels };
 }
 
-export function PricingTab() {
+export function PricingTab({ propertyId }: { propertyId: number }) {
   const [roomTypes, setRoomTypes] = useState<RoomTypeOut[]>([]);
   const [grid, setGrid] = useState<PricingCellOut[]>([]);
   const [recommendations, setRecommendations] = useState<RecommendationOut[]>([]);
@@ -56,9 +56,9 @@ export function PricingTab() {
     setLoading(true);
     try {
       const [rts, cells, recs] = await Promise.all([
-        fetchRoomTypes(PROPERTY_ID),
-        fetchPricingGrid(PROPERTY_ID, { date_from: from, date_to: to }),
-        fetchRecommendations(PROPERTY_ID, "pending"),
+        fetchRoomTypes(propertyId),
+        fetchPricingGrid(propertyId, { date_from: from, date_to: to }),
+        fetchRecommendations(propertyId, "pending"),
       ]);
       setRoomTypes(rts);
       setGrid(cells);
@@ -105,7 +105,7 @@ export function PricingTab() {
     const dateStr = d.toISOString().slice(0, 10);
 
     try {
-      const updatedCell = await updatePricingCell(PROPERTY_ID, rt.id, dateStr, {
+      const updatedCell = await updatePricingCell(propertyId, rt.id, dateStr, {
         bar_level: updated.level,
         price: updated.price,
         available_rooms: updated.stock,
@@ -125,7 +125,7 @@ export function PricingTab() {
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const recs = await generateRecommendations(PROPERTY_ID, 30);
+      const recs = await generateRecommendations(propertyId, 30);
       setRecommendations(recs.filter(r => r.status === "pending"));
     } catch (e) {
       console.error("Failed to generate recommendations", e);
@@ -136,7 +136,7 @@ export function PricingTab() {
 
   const handleApprove = async (recId: number) => {
     try {
-      await actOnRecommendation(PROPERTY_ID, recId, { action: "approved" });
+      await actOnRecommendation(propertyId, recId, { action: "approved" });
       setRecommendations(prev => prev.filter(r => r.id !== recId));
       await loadData();
     } catch (e) {
@@ -146,7 +146,7 @@ export function PricingTab() {
 
   const handleReject = async (recId: number) => {
     try {
-      await actOnRecommendation(PROPERTY_ID, recId, { action: "rejected" });
+      await actOnRecommendation(propertyId, recId, { action: "rejected" });
       setRecommendations(prev => prev.filter(r => r.id !== recId));
     } catch (e) {
       console.error("Failed to reject", e);

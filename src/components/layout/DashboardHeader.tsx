@@ -1,8 +1,8 @@
 "use client";
 
-import { Settings, Building2, Star, MapPin } from "lucide-react";
+import { Settings, Building2, Star, MapPin, ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { fetchProperties } from "@/lib/api";
 
 interface Property {
@@ -14,14 +14,34 @@ interface Property {
   total_rooms?: number | null;
 }
 
-export function DashboardHeader() {
-  const [property, setProperty] = useState<Property | null>(null);
+interface DashboardHeaderProps {
+  propertyId: number;
+  onPropertyChange: (id: number) => void;
+}
+
+export function DashboardHeader({ propertyId, onPropertyChange }: DashboardHeaderProps) {
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchProperties().then((list) => {
-      if (list && list.length > 0) setProperty(list[0]);
+      if (list && list.length > 0) setProperties(list);
     }).catch(() => {});
   }, []);
+
+  // 外側クリックで閉じる
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const current = properties.find(p => p.id === propertyId) ?? properties[0];
 
   return (
     <header
@@ -29,65 +49,95 @@ export function DashboardHeader() {
       style={{ background: "linear-gradient(135deg, #1E3A8A 0%, #1e40af 100%)" }}
     >
       <div className="px-6 py-0 flex items-center justify-between h-14">
-        {/* ロゴ・サービス名（クリックでダッシュボードTOPへ） */}
+        {/* ロゴ（クリックでダッシュボードTOPへ） */}
         <Link href="/dashboard" className="flex items-center gap-3 group">
-          {/* ロゴマーク */}
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 border border-white/20 group-hover:bg-white/20 transition-colors">
             <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
-              <path
-                d="M3 18L9 6L15 14L19 8L21 18H3Z"
-                fill="#CA8A04"
-                stroke="#CA8A04"
-                strokeWidth="1.5"
-                strokeLinejoin="round"
-              />
+              <path d="M3 18L9 6L15 14L19 8L21 18H3Z" fill="#CA8A04" stroke="#CA8A04" strokeWidth="1.5" strokeLinejoin="round" />
             </svg>
           </div>
-          {/* サービス名 */}
           <div className="flex items-baseline gap-1.5">
-            <span className="text-white font-semibold text-base tracking-tight leading-none">
-              Yieldlab
-            </span>
-            <span
-              className="text-sm font-light leading-none"
-              style={{ color: "#CA8A04" }}
-            >
-              manage
-            </span>
+            <span className="text-white font-semibold text-base tracking-tight leading-none">Yieldlab</span>
+            <span className="text-sm font-light leading-none" style={{ color: "#CA8A04" }}>manage</span>
           </div>
         </Link>
 
-        {/* 右側：自社ホテル情報 + 設定 */}
+        {/* 右側：プロパティスイッチャー + 設定 + アバター */}
         <div className="flex items-center gap-3">
-          {/* ホテル情報バッジ */}
-          {property && (
-            <div className="flex items-center gap-2.5 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5">
-              <Building2 className="w-3.5 h-3.5 text-white/70 flex-shrink-0" />
-              <div className="flex flex-col leading-tight">
-                <span className="text-white text-xs font-medium">{property.name}</span>
-                <div className="flex items-center gap-2 mt-0.5">
-                  {property.address && (
-                    <span className="text-white/50 text-[10px] flex items-center gap-0.5">
-                      <MapPin className="w-2.5 h-2.5" />
-                      {property.address.replace("東京都", "").split("区")[0]}区
-                    </span>
-                  )}
-                  {property.star_rating && (
-                    <span className="flex items-center gap-0.5">
-                      {Array.from({ length: property.star_rating }).map((_, i) => (
-                        <Star
-                          key={i}
-                          className="w-2.5 h-2.5 fill-current"
-                          style={{ color: "#CA8A04" }}
-                        />
-                      ))}
-                    </span>
-                  )}
-                  {property.total_rooms && (
-                    <span className="text-white/50 text-[10px]">{property.total_rooms}室</span>
-                  )}
+
+          {/* プロパティスイッチャー */}
+          {current && (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setOpen(v => !v)}
+                className="flex items-center gap-2.5 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 hover:bg-white/20 transition-colors cursor-pointer"
+              >
+                <Building2 className="w-3.5 h-3.5 text-white/70 flex-shrink-0" />
+                <div className="flex flex-col leading-tight text-left">
+                  <span className="text-white text-xs font-medium">{current.name}</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {current.address && (
+                      <span className="text-white/50 text-[10px] flex items-center gap-0.5">
+                        <MapPin className="w-2.5 h-2.5" />
+                        {current.address.replace("東京都", "").split("区")[0]}区
+                      </span>
+                    )}
+                    {current.star_rating && (
+                      <span className="flex items-center gap-0.5">
+                        {Array.from({ length: current.star_rating }).map((_, i) => (
+                          <Star key={i} className="w-2.5 h-2.5 fill-current" style={{ color: "#CA8A04" }} />
+                        ))}
+                      </span>
+                    )}
+                    {current.total_rooms && (
+                      <span className="text-white/50 text-[10px]">{current.total_rooms}室</span>
+                    )}
+                  </div>
                 </div>
-              </div>
+                {properties.length > 1 && (
+                  <ChevronDown className={`w-3.5 h-3.5 text-white/60 transition-transform flex-shrink-0 ${open ? "rotate-180" : ""}`} />
+                )}
+              </button>
+
+              {/* ドロップダウン */}
+              {open && properties.length > 1 && (
+                <div className="absolute right-0 top-full mt-1.5 w-72 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50">
+                  <div className="px-3 py-2 bg-slate-50 border-b border-slate-100">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">物件を切り替える</p>
+                  </div>
+                  {properties.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => { onPropertyChange(p.id); setOpen(false); }}
+                      className={`w-full flex items-start gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left cursor-pointer ${p.id === propertyId ? "bg-blue-50/60" : ""}`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${p.id === propertyId ? "bg-blue-100" : "bg-slate-100"}`}>
+                        <Building2 className={`w-4 h-4 ${p.id === propertyId ? "text-blue-600" : "text-slate-400"}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`text-sm font-semibold leading-tight ${p.id === propertyId ? "text-blue-700" : "text-slate-700"}`}>
+                            {p.name}
+                          </span>
+                          {p.id === propertyId && (
+                            <span className="text-[10px] font-medium text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded flex-shrink-0">表示中</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          {p.address && (
+                            <span className="text-[11px] text-slate-400 flex items-center gap-0.5">
+                              <MapPin className="w-2.5 h-2.5" />{p.address}
+                            </span>
+                          )}
+                        </div>
+                        {p.total_rooms && (
+                          <span className="text-[11px] text-slate-400">{p.total_rooms}室</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

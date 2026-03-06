@@ -12,7 +12,6 @@ import {
   fetchCompSet,
   fetchPricingGrid,
   triggerPipeline,
-  PROPERTY_ID,
   type CompetitorPriceOut,
   type CompetitorAvgOut,
   type CompSetOut,
@@ -71,7 +70,7 @@ const RANGE_OPTIONS = [
   { label: "90日", days: 90 },
 ] as const;
 
-export function CompetitorTab() {
+export function CompetitorTab({ propertyId }: { propertyId: number }) {
   const [prices, setPrices] = useState<CompetitorPriceOut[]>([]);
   const [averages, setAverages] = useState<CompetitorAvgOut[]>([]);
   const [compSet, setCompSet] = useState<CompSetOut[]>([]);
@@ -90,10 +89,10 @@ export function CompetitorTab() {
     try {
       // 1つのAPIが失敗しても他のデータを表示できるようallSettledを使用
       const [pricesRes, averagesRes, compSetRes, gridRes] = await Promise.allSettled([
-        fetchCompetitorPrices(PROPERTY_ID, { date_from: dateFrom, date_to: dateTo }),
-        fetchCompetitorAverages(PROPERTY_ID, { date_from: dateFrom, date_to: dateTo }),
-        fetchCompSet(PROPERTY_ID),
-        fetchPricingGrid(PROPERTY_ID, { date_from: dateFrom, date_to: dateTo }),
+        fetchCompetitorPrices(propertyId, { date_from: dateFrom, date_to: dateTo }),
+        fetchCompetitorAverages(propertyId, { date_from: dateFrom, date_to: dateTo }),
+        fetchCompSet(propertyId),
+        fetchPricingGrid(propertyId, { date_from: dateFrom, date_to: dateTo }),
       ]);
       const p = pricesRes.status === "fulfilled" ? pricesRes.value : [];
       const a = averagesRes.status === "fulfilled" ? averagesRes.value : [];
@@ -116,7 +115,7 @@ export function CompetitorTab() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await triggerPipeline(PROPERTY_ID);
+      await triggerPipeline(propertyId);
       await new Promise(r => setTimeout(r, 25000));
       await load();
     } finally {

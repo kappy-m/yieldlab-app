@@ -763,7 +763,7 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
-      <DashboardHeader />
+      <DashboardHeader propertyId={1} onPropertyChange={() => {}} />
       <div className="max-w-[1200px] mx-auto px-6 py-6">
         <div className="mb-6">
           <h1 className="text-lg font-bold text-gray-900">設定</h1>

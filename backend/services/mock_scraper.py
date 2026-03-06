@@ -101,6 +101,37 @@ HOTEL_PRICE_CATALOG: list[dict] = [
         "variance": 0.32,
         "category": "ultra-luxury",
     },
+    # ===== 銀座エリア競合ホテル（Canvas 銀座コリドー 競合セット）=====
+    {
+        "pattern": "ホテルモントレ銀座",
+        "base_price": 20000,
+        "variance": 0.20,
+        "category": "upscale",
+    },
+    {
+        "pattern": "ヴィラフォンテーヌプレミア東京汐留",
+        "base_price": 23000,
+        "variance": 0.22,
+        "category": "upscale",
+    },
+    {
+        "pattern": "東急ステイ銀座",
+        "base_price": 18000,
+        "variance": 0.18,
+        "category": "upscale",
+    },
+    {
+        "pattern": "ダイワロイネットホテル銀座",
+        "base_price": 16000,
+        "variance": 0.18,
+        "category": "midscale",
+    },
+    {
+        "pattern": "クインテッサホテル東京銀座",
+        "base_price": 19000,
+        "variance": 0.20,
+        "category": "upscale",
+    },
     # ===== 渋谷エリア競合ホテル（参考） =====
     {
         "pattern": "セルリアンタワー東急",
