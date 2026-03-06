@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from .database import init_db, engine
 from .config import settings
-from .routers import properties, pricing, recommendations, competitor, comp_set
+from .routers import properties, pricing, recommendations, competitor, comp_set, market
 from .services.scheduler import create_scheduler
 
 _scheduler = create_scheduler()
@@ -68,6 +68,7 @@ app.include_router(pricing.router)
 app.include_router(recommendations.router)
 app.include_router(competitor.router)
 app.include_router(comp_set.router)
+app.include_router(market.router)
 
 
 @app.get("/health")

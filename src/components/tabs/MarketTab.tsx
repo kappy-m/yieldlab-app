@@ -1,114 +1,105 @@
 "use client";
 
-import { AiSummaryCard } from "@/components/shared/AiSummaryCard";
-import { Calendar, TrendingUp, Building2, Music, Briefcase, AlertTriangle } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { Calendar, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fetchMarketEvents, PROPERTY_ID, type MarketEventOut } from "@/lib/api";
 
-const EVENTS = [
-  {
-    name: "東京モーターショー",
-    type: "イベント",
-    dates: "10/23〜10/25",
-    venue: "東京ビッグサイト",
-    desc: "大規模イベント。周辺ホテルの稼働率上昇が予想されます。",
-    impact: "影響大",
-    impactAmount: "+¥17.0M",
-    icon: Building2,
-    color: "text-purple-600 bg-purple-50",
-    impactColor: "text-green-600",
-  },
-  {
-    name: "日本医師会総会",
-    type: "会議",
-    dates: "10/28〜10/30",
-    venue: "パシフィコ横浜",
-    desc: "医療関係者3,000名が参加予定。ビジネス需要が見込まれます。",
-    impact: "影響大",
-    impactAmount: "+¥9.2M",
-    icon: Briefcase,
-    color: "text-blue-600 bg-blue-50",
-    impactColor: "text-green-600",
-  },
-  {
-    name: "人気アーティストライブ",
-    type: "コンサート",
-    dates: "11/5〜11/6",
-    venue: "東京ドーム",
-    desc: "2日間で10万人規模のライブイベント。若年層の宿泊需要が増加します。",
-    impact: "影響大",
-    impactAmount: "+¥13.0M",
-    icon: Music,
-    color: "text-pink-600 bg-pink-50",
-    impactColor: "text-green-600",
-  },
-  {
-    name: "国際IT展示会",
-    type: "会議",
-    dates: "11/12〜11/14",
-    venue: "幕張メッセ",
-    desc: "テクノロジー系のビジネス客が中心。平日需要が高まります。",
-    impact: "影響中",
-    impactAmount: "+¥5.8M",
-    icon: Briefcase,
-    color: "text-indigo-600 bg-indigo-50",
-    impactColor: "text-yellow-600",
-  },
-  {
-    name: "クリスマスマーケット開催",
-    type: "イベント",
-    dates: "12/1〜12/25",
-    venue: "日比谷公園",
-    desc: "長期イベント。週末の観光客増加が見込まれます。",
-    impact: "影響中",
-    impactAmount: "+¥8.5M",
-    icon: Calendar,
-    color: "text-red-600 bg-red-50",
-    impactColor: "text-yellow-600",
-  },
-  {
-    name: "年末年始の交通規制",
-    type: "注意",
-    dates: "12/28〜1/3",
-    venue: "都心部全域",
-    desc: "交通規制により一部アクセスに影響。事前の案内が必要です。",
-    impact: "影響小",
-    impactAmount: "¥-0.2M",
-    icon: AlertTriangle,
-    color: "text-orange-600 bg-orange-50",
-    impactColor: "text-red-500",
-  },
-];
-
-const impactBadge: Record<string, string> = {
+const IMPACT_BADGE: Record<string, string> = {
   "影響大": "text-green-700 bg-green-50 border border-green-200",
   "影響中": "text-yellow-700 bg-yellow-50 border border-yellow-200",
   "影響小": "text-gray-500 bg-gray-50 border border-gray-200",
 };
 
+const SOURCE_BADGE: Record<string, { label: string; cls: string }> = {
+  holiday: { label: "祝日", cls: "text-red-600 bg-red-50 border border-red-200" },
+  seasonal: { label: "季節需要", cls: "text-blue-600 bg-blue-50 border border-blue-200" },
+};
+
+function formatDateRange(start: string, end: string): string {
+  const s = new Date(start);
+  const e = new Date(end);
+  const fmt = (d: Date) =>
+    `${d.getMonth() + 1}/${d.getDate()}(${["日","月","火","水","木","金","土"][d.getDay()]})`;
+  return start === end ? fmt(s) : `${fmt(s)}〜${fmt(e)}`;
+}
+
+function daysUntil(dateStr: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  return Math.ceil((target.getTime() - today.getTime()) / 86400000);
+}
+
 export function MarketTab() {
-  const bigImpact = EVENTS.filter((e) => e.impact === "影響大");
-  const totalImpact = EVENTS.filter((e) => e.impactAmount.startsWith("+"))
-    .reduce((sum, e) => sum + parseFloat(e.impactAmount.replace(/[^0-9.]/g, "")), 0);
+  const [events, setEvents] = useState<MarketEventOut[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState("");
+  const [filterImpact, setFilterImpact] = useState<string>("all");
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await fetchMarketEvents(PROPERTY_ID, 90);
+      setEvents(data);
+      setLastUpdated(new Date().toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }));
+    } catch (e) {
+      console.error("Market events fetch failed:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const filtered = useMemo(() =>
+    filterImpact === "all" ? events : events.filter(e => e.impact === filterImpact),
+    [events, filterImpact]
+  );
+
+  const bigCount = events.filter(e => e.impact === "影響大").length;
+  const medCount = events.filter(e => e.impact === "影響中").length;
+  const holidayCount = events.filter(e => e.source === "holiday").length;
+
+  // 直近7日以内の高インパクトイベント
+  const urgent = events.filter(e => e.impact === "影響大" && daysUntil(e.date_start) <= 14);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64 gap-3 text-slate-400">
+        <RefreshCw className="w-5 h-5 animate-spin" />
+        <span className="text-sm">マーケット情報を取得中...</span>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <AiSummaryCard
-        summary="今後90日間で6件の大型イベントが検出されており、合計+¥53.3Mの売上インパクトが見込まれます。特に10月23-25日の東京モーターショーは周辺ホテル稼働率95%近えの予測で、当ホテルへの需要集中が期待されます。また、11月5-6日の東京ドームライブは若年層中心のため、SNS映えする体験型プラン追加が効果的です。"
-        bullets={[
-          "影響大イベント3件により、デラックス以上の部屋タイプで20-30%の価格引き上げ推薦",
-          "国際医療機器展（11/18-20）は新規検出。ビジネス客向けの早期対応で先行予約確得",
-          "12/28-1/3の交通規制について、宿泊者への事前案内でキャンセル率低減を図ります",
-        ]}
-      />
+    <div className="space-y-5">
+      {/* ヘッダー */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs text-slate-400 mt-0.5">
+            祝日・季節イベント・需要トレンド（今後90日間）{lastUpdated && `　最終更新: ${lastUpdated}`}
+          </p>
+        </div>
+        <button
+          onClick={load}
+          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          更新
+        </button>
+      </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      {/* KPI カード */}
+      <div className="grid grid-cols-3 gap-4">
         <div className="yl-card p-4 flex items-center gap-3">
           <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center flex-shrink-0">
             <Calendar className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <div className="text-xs text-gray-400 mb-0.5">今後のイベント</div>
-            <div className="text-2xl font-bold text-gray-900">{EVENTS.length}件</div>
+            <div className="text-xs text-gray-400 mb-0.5">祝日・連休</div>
+            <div className="text-2xl font-bold text-gray-900">{holidayCount}<span className="text-sm font-normal text-gray-400 ml-1">件</span></div>
           </div>
         </div>
         <div className="yl-card p-4 flex items-center gap-3">
@@ -117,51 +108,124 @@ export function MarketTab() {
           </div>
           <div>
             <div className="text-xs text-gray-400 mb-0.5">影響大イベント</div>
-            <div className="text-2xl font-bold text-gray-900">{bigImpact.length}件</div>
+            <div className="text-2xl font-bold text-green-600">{bigCount}<span className="text-sm font-normal text-gray-400 ml-1">件</span></div>
           </div>
         </div>
         <div className="yl-card p-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-purple-50 rounded-xl flex items-center justify-center flex-shrink-0">
-            <Building2 className="w-5 h-5 text-purple-600" />
+          <div className="w-10 h-10 bg-yellow-50 rounded-xl flex items-center justify-center flex-shrink-0">
+            <AlertTriangle className="w-5 h-5 text-yellow-500" />
           </div>
           <div>
-            <div className="text-xs text-gray-400 mb-0.5">予想売上インパクト</div>
-            <div className="text-2xl font-bold text-green-600">+¥{totalImpact.toFixed(1)}M</div>
+            <div className="text-xs text-gray-400 mb-0.5">影響中イベント</div>
+            <div className="text-2xl font-bold text-yellow-600">{medCount}<span className="text-sm font-normal text-gray-400 ml-1">件</span></div>
           </div>
         </div>
       </div>
 
-      <div className="yl-card overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900">周辺イベント・ニュース</h3>
+      {/* 直近アラート */}
+      {urgent.length > 0 && (
+        <div className="yl-card p-4 border-l-4 border-green-400 bg-green-50/30">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-4 h-4 text-green-600" />
+            <span className="text-sm font-semibold text-green-700">直近14日の高インパクトイベント</span>
+          </div>
+          <div className="space-y-1">
+            {urgent.map(ev => {
+              const days = daysUntil(ev.date_start);
+              return (
+                <div key={ev.id} className="flex items-center justify-between text-sm">
+                  <span className="text-slate-700">{ev.icon} {ev.name}</span>
+                  <span className="text-green-600 font-medium text-xs">
+                    {days <= 0 ? "開催中" : `あと${days}日`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-        <div className="divide-y divide-gray-50">
-          {EVENTS.map((ev) => (
-            <div key={ev.name} className="px-5 py-4 hover:bg-gray-50/50 transition-colors">
-              <div className="flex items-start gap-3">
-                <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5", ev.color)}>
-                  <ev.icon className="w-4.5 h-4.5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-gray-900">{ev.name}</span>
-                      <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">{ev.type}</span>
+      )}
+
+      {/* フィルター + イベントリスト */}
+      <div className="yl-card overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-900">
+            周辺イベント・需要カレンダー
+            <span className="text-xs font-normal text-gray-400 ml-2">今後90日間</span>
+          </h3>
+          {/* フィルター */}
+          <div className="flex gap-1 bg-slate-100 p-0.5 rounded-lg">
+            {["all", "影響大", "影響中", "影響小"].map(f => (
+              <button
+                key={f}
+                onClick={() => setFilterImpact(f)}
+                className={cn(
+                  "text-xs px-2.5 py-1 rounded-md transition-all cursor-pointer",
+                  filterImpact === f
+                    ? "bg-white text-slate-800 font-semibold shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                {f === "all" ? "すべて" : f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="flex items-center justify-center h-32 text-slate-400 text-sm">
+            該当するイベントがありません
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {filtered.map((ev) => {
+              const days = daysUntil(ev.date_start);
+              const dateLabel = formatDateRange(ev.date_start, ev.date_end);
+              const src = SOURCE_BADGE[ev.source] ?? SOURCE_BADGE.seasonal;
+
+              return (
+                <div key={ev.id} className="px-5 py-4 hover:bg-gray-50/50 transition-colors">
+                  <div className="flex items-start gap-3">
+                    {/* アイコン */}
+                    <div className="text-2xl w-9 flex-shrink-0 flex items-center justify-center mt-0.5">
+                      {ev.icon}
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                      <span className={cn("text-xs font-medium px-2 py-0.5 rounded", impactBadge[ev.impact])}>{ev.impact}</span>
-                      <span className={cn("text-sm font-bold", ev.impactColor)}>{ev.impactAmount}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold text-gray-900">{ev.name}</span>
+                          <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded border", src.cls)}>
+                            {src.label}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={cn("text-xs font-medium px-2 py-0.5 rounded border", IMPACT_BADGE[ev.impact])}>
+                            {ev.impact}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-gray-400 mb-1.5">
+                        <span>📅 {dateLabel}</span>
+                        {ev.venue !== "国民の祝日" && <span>📍 {ev.venue}</span>}
+                        <span className={cn(
+                          "font-medium",
+                          days < 0 ? "text-slate-400" : days <= 7 ? "text-red-500" : days <= 30 ? "text-orange-500" : "text-slate-400"
+                        )}>
+                          {days < 0 ? "開催中" : days === 0 ? "本日" : `あと${days}日`}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 leading-relaxed">{ev.desc}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-400 mb-1.5">
-                    <span>📅 {ev.dates}</span>
-                    <span>📍 {ev.venue}</span>
-                  </div>
-                  <p className="text-xs text-gray-500 leading-relaxed">{ev.desc}</p>
                 </div>
-              </div>
-            </div>
-          ))}
+              );
+            })}
+          </div>
+        )}
+
+        <div className="px-5 py-2 border-t border-slate-100 bg-slate-50/50">
+          <p className="text-[10px] text-slate-400">
+            祝日データ: holidays-jp.github.io（内閣府「国民の祝日」準拠）　季節イベント: 日本橋エリア需要パターン
+          </p>
         </div>
       </div>
     </div>

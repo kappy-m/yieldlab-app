@@ -280,3 +280,23 @@ export function fetchCompetitorAverages(
   ).toString();
   return apiFetch<CompetitorAvgOut[]>(`/properties/${propertyId}/competitor/averages${qs ? `?${qs}` : ""}`);
 }
+
+// ---- Market Events ----
+
+export interface MarketEventOut {
+  id: string;
+  name: string;
+  type: string;
+  date_start: string;
+  date_end: string;
+  date_label: string;
+  venue: string;
+  desc: string;
+  impact: "影響大" | "影響中" | "影響小";
+  icon: string;
+  source: "holiday" | "seasonal";
+}
+
+export function fetchMarketEvents(propertyId: number, days = 90) {
+  return apiFetch<MarketEventOut[]>(`/properties/${propertyId}/market/events?days=${days}`);
+}
