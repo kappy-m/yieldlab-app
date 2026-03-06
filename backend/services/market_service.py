@@ -151,6 +151,137 @@ SEASONAL_EVENTS = [
     },
 ]
 
+# ===== 銀座エリア特化イベント（Canvas 銀座コリドー用）=====
+GINZA_SEASONAL_EVENTS = [
+    # === 春 ===
+    {
+        "name": "日比谷公園 桜・チューリップフェスタ",
+        "type": "季節需要",
+        "month_start": 3, "day_start": 22,
+        "month_end": 4, "day_end": 10,
+        "venue": "日比谷公園（銀座徒歩圏）",
+        "desc": "銀座・日比谷エリアの花見スポットへの集客増。週末は銀座通り〜日比谷公園が観光客で混雑。早期予約が集中します。",
+        "impact": "影響大",
+        "icon": "cherry_blossom",
+    },
+    {
+        "name": "東京マラソン（銀座コース通過）",
+        "type": "スポーツ",
+        "month_start": 3, "day_start": 1,
+        "month_end": 3, "day_end": 1,
+        "venue": "銀座中央通り・コリドー街付近",
+        "desc": "マラソンコースが銀座中央通りを通過。出走者・観客・ボランティアで銀座エリアが混雑。当日は交通規制あり。",
+        "impact": "影響大",
+        "icon": "sports",
+    },
+    # === GW ===
+    {
+        "name": "ゴールデンウィーク（銀座集客期）",
+        "type": "連休",
+        "month_start": 4, "day_start": 29,
+        "month_end": 5, "day_end": 5,
+        "venue": "銀座・有楽町・日比谷",
+        "desc": "銀座の百貨店・ブティックが特別セールを実施。歩行者天国と合わせて年間最大の集客期。早期満室が確実。",
+        "impact": "影響大",
+        "icon": "holiday",
+    },
+    # === 初夏 ===
+    {
+        "name": "銀座コリドー祭り",
+        "type": "地域イベント",
+        "month_start": 6, "day_start": 1,
+        "month_end": 6, "day_end": 30,
+        "venue": "銀座コリドー街（ホテル目の前）",
+        "desc": "ホテル目の前のコリドー街で屋外イベント・音楽ライブが開催。直接的な需要押し上げ効果が期待できます。",
+        "impact": "影響大",
+        "icon": "event",
+    },
+    # === 夏 ===
+    {
+        "name": "夏の銀座セール＆夏休み需要",
+        "type": "季節需要",
+        "month_start": 7, "day_start": 19,
+        "month_end": 8, "day_end": 31,
+        "venue": "銀座・有楽町エリア",
+        "desc": "銀座の主要百貨店（三越・松屋・伊東屋）が夏のセールを実施。インバウンド＋国内観光客の二重需要で稼働率90%超が見込まれます。",
+        "impact": "影響大",
+        "icon": "summer",
+    },
+    {
+        "name": "豊洲・お台場 花火シーズン",
+        "type": "花火・フェスティバル",
+        "month_start": 7, "day_start": 1,
+        "month_end": 8, "day_end": 31,
+        "venue": "豊洲・お台場（銀座から近郊）",
+        "desc": "東京湾周辺での花火大会が集中。銀座は宿泊拠点として需要増。週末花火に合わせた前泊需要が発生します。",
+        "impact": "影響中",
+        "icon": "fireworks",
+    },
+    # === 秋 ===
+    {
+        "name": "東京国際映画祭（日比谷・銀座）",
+        "type": "大型イベント",
+        "month_start": 10, "day_start": 25,
+        "month_end": 11, "day_end": 5,
+        "venue": "日比谷・有楽町・銀座エリア",
+        "desc": "国際映画祭の会場が日比谷・銀座エリアに集中。映画関係者・セレブ・観光客が銀座周辺に集まります。",
+        "impact": "影響大",
+        "icon": "event",
+    },
+    {
+        "name": "銀座アートフェア・ギャラリー展示シーズン",
+        "type": "文化イベント",
+        "month_start": 10, "day_start": 1,
+        "month_end": 11, "day_end": 30,
+        "venue": "銀座ギャラリー街・アートスポット",
+        "desc": "秋のギャラリー展示シーズン。国内外のコレクター・アートファンが銀座に集中。週末を中心に宿泊需要が増加。",
+        "impact": "影響中",
+        "icon": "event",
+    },
+    # === 冬 ===
+    {
+        "name": "銀座クリスマスイルミネーション",
+        "type": "季節需要",
+        "month_start": 11, "day_start": 25,
+        "month_end": 12, "day_end": 25,
+        "venue": "銀座中央通り・マロニエ通り",
+        "desc": "銀座のイルミネーションが点灯。カップル・観光客の需要が急増。特にクリスマス前後の週末は満室必至。",
+        "impact": "影響大",
+        "icon": "new_year",
+    },
+    {
+        "name": "年末年始 銀座カウントダウン",
+        "type": "季節需要",
+        "month_start": 12, "day_start": 28,
+        "month_end": 1, "day_end": 5,
+        "venue": "銀座・有楽町・日比谷",
+        "desc": "年越し・初詣需要と銀座ショッピングが重なる特需期。有楽町や日比谷での年越しイベントも集客に貢献。",
+        "impact": "影響大",
+        "icon": "new_year",
+    },
+    # === バレンタイン・ホワイトデー ===
+    {
+        "name": "バレンタイン商戦（銀座スイーツ）",
+        "type": "季節需要",
+        "month_start": 2, "day_start": 10,
+        "month_end": 2, "day_end": 14,
+        "venue": "銀座三越・松屋・伊東屋周辺",
+        "desc": "高級チョコレートブランドが銀座に集中するため、バレンタイン時期の集客力は全国随一。カップル宿泊需要が急増。",
+        "impact": "影響大",
+        "icon": "event",
+    },
+    {
+        "name": "ホワイトデー＆春の銀座週間",
+        "type": "季節需要",
+        "month_start": 3, "day_start": 13,
+        "month_end": 3, "day_end": 16,
+        "venue": "銀座エリア全域",
+        "desc": "ホワイトデーの贈り物需要で銀座の高級ブランド店・スイーツ店が繁忙。桜シーズン直前と重なり週末需要が高まります。",
+        "impact": "影響中",
+        "icon": "event",
+    },
+]
+
 ICON_MAP = {
     "cherry_blossom": "🌸",
     "sports": "🏃",
@@ -261,10 +392,12 @@ def _group_consecutive_holidays(
     return events
 
 
-def _seasonal_events_in_range(start: date, end: date) -> list[dict]:
+def _seasonal_events_in_range(start: date, end: date, catalog: list | None = None) -> list[dict]:
     """期間内の季節イベントを返す。"""
+    if catalog is None:
+        catalog = SEASONAL_EVENTS
     results = []
-    for ev in SEASONAL_EVENTS:
+    for ev in catalog:
         # 今年・来年で2回チェック
         for year in [start.year, start.year + 1]:
             # 年末年始は翌年1月も含む
@@ -302,7 +435,7 @@ def _seasonal_events_in_range(start: date, end: date) -> list[dict]:
     return results
 
 
-async def get_market_events(days_ahead: int = 90) -> list[dict]:
+async def get_market_events(days_ahead: int = 90, property_id: int = 1) -> list[dict]:
     """今日から days_ahead 日分のマーケットイベントを取得。"""
     today = date.today()
     end = today + timedelta(days=days_ahead)
@@ -312,7 +445,10 @@ async def get_market_events(days_ahead: int = 90) -> list[dict]:
     holidays = await holidays_task
 
     holiday_events = _group_consecutive_holidays(holidays)
-    seasonal = _seasonal_events_in_range(today, end)
+
+    # property_id=2（銀座Canvas）は銀座特化イベント、それ以外は日本橋エリアイベント
+    event_catalog = GINZA_SEASONAL_EVENTS if property_id == 2 else SEASONAL_EVENTS
+    seasonal = _seasonal_events_in_range(today, end, event_catalog)
 
     # 合体してdate_startでソート
     all_events = holiday_events + seasonal

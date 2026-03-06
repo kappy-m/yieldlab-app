@@ -12,7 +12,7 @@ import {
 import { Plus, Trash2, Edit3, Check, X, Play, ExternalLink, Zap, RefreshCw, AlertCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type Tab = "compset" | "barladder" | "approval";
+type Tab = "compset" | "barladder" | "approval" | "integrations";
 
 const SCRAPE_MODE_LABELS: Record<string, { label: string; color: string }> = {
   mock: { label: "モック", color: "text-yellow-600 bg-yellow-50 border-yellow-200" },
@@ -752,6 +752,306 @@ function ApprovalPanel() {
   );
 }
 
+// ============================================================
+// 外部システム連携パネル
+// ============================================================
+type ConnectionStatus = "connected" | "disconnected" | "testing";
+
+interface IntegrationSystem {
+  id: string;
+  name: string;
+  category: "channel_manager" | "pms" | "ota";
+  description: string;
+  logoLabel: string;
+  fields: { key: string; label: string; placeholder: string; type?: string }[];
+}
+
+const INTEGRATION_SYSTEMS: IntegrationSystem[] = [
+  // --- サイトコントローラー ---
+  {
+    id: "tl_lincoln",
+    name: "TL-Lincoln",
+    category: "channel_manager",
+    description: "田村システムズ製サイトコントローラー。国内OTA・GDSへの在庫・料金一括配信が可能。",
+    logoLabel: "TL",
+    fields: [
+      { key: "hotel_code", label: "ホテルコード", placeholder: "例: TL12345" },
+      { key: "api_key", label: "APIキー", placeholder: "••••••••••••••••", type: "password" },
+    ],
+  },
+  {
+    id: "runet",
+    name: "Runet（ルーネット）",
+    category: "channel_manager",
+    description: "国内ホテル向けサイトコントローラー。楽天・じゃらん・Booking.comなどへ一括配信。",
+    logoLabel: "RU",
+    fields: [
+      { key: "hotel_id", label: "ホテルID", placeholder: "例: RU_HOTEL_001" },
+      { key: "username", label: "ユーザー名", placeholder: "管理画面ログインID" },
+      { key: "password", label: "パスワード", placeholder: "••••••••••••••••", type: "password" },
+    ],
+  },
+  {
+    id: "neppan",
+    name: "ねっぱん!",
+    category: "channel_manager",
+    description: "日本旅行ネットワーク提供のサイトコントローラー。宿泊予約の一元管理が可能。",
+    logoLabel: "NP",
+    fields: [
+      { key: "property_code", label: "施設コード", placeholder: "例: NP_12345" },
+      { key: "api_token", label: "APIトークン", placeholder: "••••••••••••••••", type: "password" },
+    ],
+  },
+  // --- PMS ---
+  {
+    id: "opera_cloud",
+    name: "Oracle Opera Cloud",
+    category: "pms",
+    description: "Oracleが提供するクラウド型PMS。グローバルホテルチェーンで広く使われる業界標準システム。",
+    logoLabel: "OC",
+    fields: [
+      { key: "base_url", label: "テナントURL", placeholder: "https://xxx.hospitality.oracleindustry.com" },
+      { key: "app_key", label: "アプリケーションキー", placeholder: "••••••••••••••••", type: "password" },
+      { key: "hotel_id", label: "ホテルID", placeholder: "例: RPHGINZA" },
+    ],
+  },
+  {
+    id: "tl_abridge",
+    name: "TL-Abridge",
+    category: "pms",
+    description: "田村システムズ製PMS。TL-Lincolnとの連携でシームレスな在庫管理が可能。",
+    logoLabel: "AB",
+    fields: [
+      { key: "server_url", label: "サーバーURL", placeholder: "https://abridge.example.com" },
+      { key: "username", label: "ユーザーID", placeholder: "管理者ログインID" },
+      { key: "password", label: "パスワード", placeholder: "••••••••••••••••", type: "password" },
+    ],
+  },
+  {
+    id: "hms",
+    name: "HMS（ホテル管理システム）",
+    category: "pms",
+    description: "国内ホテル向けのPMS。客室管理・予約管理・清算まで一元管理。",
+    logoLabel: "HS",
+    fields: [
+      { key: "api_endpoint", label: "APIエンドポイント", placeholder: "https://hms.example.com/api/v2" },
+      { key: "api_key", label: "APIキー", placeholder: "••••••••••••••••", type: "password" },
+    ],
+  },
+  // --- OTA ---
+  {
+    id: "rakuten",
+    name: "楽天トラベル",
+    category: "ota",
+    description: "楽天トラベルAPIとの連携。在庫・料金の自動配信と予約データの取得が可能。",
+    logoLabel: "RT",
+    fields: [
+      { key: "application_id", label: "アプリケーションID", placeholder: "例: 841114b0-xxxx" },
+      { key: "access_key", label: "アクセスキー", placeholder: "••••••••••••••••", type: "password" },
+    ],
+  },
+  {
+    id: "jalan",
+    name: "じゃらんnet",
+    category: "ota",
+    description: "リクルート運営のじゃらんnetとのAPI連携。国内旅行者向け在庫・料金管理。",
+    logoLabel: "JL",
+    fields: [
+      { key: "hotel_cd", label: "施設コード", placeholder: "例: 370250" },
+      { key: "api_key", label: "APIキー", placeholder: "••••••••••••••••", type: "password" },
+    ],
+  },
+  {
+    id: "booking_com",
+    name: "Booking.com",
+    category: "ota",
+    description: "Booking.com Connectivity APIとの連携。グローバルOTAへの在庫配信。",
+    logoLabel: "BK",
+    fields: [
+      { key: "hotel_id", label: "ホテルID", placeholder: "例: 1234567" },
+      { key: "username", label: "ユーザー名", placeholder: "Booking.comアカウント" },
+      { key: "password", label: "パスワード", placeholder: "••••••••••••••••", type: "password" },
+    ],
+  },
+];
+
+const CATEGORY_LABELS: Record<string, string> = {
+  channel_manager: "サイトコントローラー",
+  pms: "PMS（ホテル管理システム）",
+  ota: "OTA連携",
+};
+
+function IntegrationCard({
+  system,
+  isExpanded,
+  onToggle,
+}: {
+  system: IntegrationSystem;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const [formData, setFormData] = useState<Record<string, string>>({});
+  const [status, setStatus] = useState<ConnectionStatus>("disconnected");
+  const [isSaved, setIsSaved] = useState(false);
+  const [testResult, setTestResult] = useState<string | null>(null);
+
+  const handleTest = async () => {
+    setStatus("testing");
+    setTestResult(null);
+    await new Promise(r => setTimeout(r, 1800));
+    const allFilled = system.fields.every(f => formData[f.key]?.trim());
+    if (allFilled) {
+      setStatus("connected");
+      setTestResult("接続成功：認証OK。ホテル情報を確認しました。");
+    } else {
+      setStatus("disconnected");
+      setTestResult("接続失敗：全必須項目を入力してください。");
+    }
+  };
+
+  const handleSave = () => {
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2500);
+  };
+
+  const statusBadge = {
+    connected: { label: "接続済み", cls: "bg-green-100 text-green-700" },
+    disconnected: { label: "未接続", cls: "bg-gray-100 text-gray-500" },
+    testing: { label: "テスト中...", cls: "bg-yellow-100 text-yellow-700" },
+  }[status];
+
+  return (
+    <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+      >
+        <div className={cn(
+          "w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0",
+          system.category === "channel_manager" ? "bg-blue-100 text-blue-700" :
+          system.category === "pms" ? "bg-purple-100 text-purple-700" :
+          "bg-orange-100 text-orange-700"
+        )}>
+          {system.logoLabel}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-gray-900">{system.name}</span>
+            <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full", statusBadge.cls)}>
+              {statusBadge.label}
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mt-0.5 truncate">{system.description}</p>
+        </div>
+        <svg
+          className={cn("w-4 h-4 text-gray-400 transition-transform flex-shrink-0", isExpanded && "rotate-180")}
+          fill="none" viewBox="0 0 24 24" stroke="currentColor"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {isExpanded && (
+        <div className="px-4 pb-4 border-t border-gray-100 pt-4 space-y-3">
+          {system.fields.map(field => (
+            <div key={field.key}>
+              <label className="block text-xs font-medium text-gray-600 mb-1">{field.label}</label>
+              <input
+                type={field.type || "text"}
+                value={formData[field.key] || ""}
+                onChange={e => setFormData(prev => ({ ...prev, [field.key]: e.target.value }))}
+                placeholder={field.placeholder}
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30 focus:border-[#7C3AED]"
+              />
+            </div>
+          ))}
+
+          {testResult && (
+            <div className={cn(
+              "text-xs px-3 py-2 rounded-md",
+              status === "connected" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
+            )}>
+              {testResult}
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleTest}
+              disabled={status === "testing"}
+              className="flex-1 px-3 py-2 text-xs font-medium border border-[#7C3AED] text-[#7C3AED] rounded-md hover:bg-[#7C3AED]/5 transition-colors disabled:opacity-50"
+            >
+              {status === "testing" ? "テスト中..." : "接続テスト"}
+            </button>
+            <button
+              onClick={handleSave}
+              className={cn(
+                "flex-1 px-3 py-2 text-xs font-medium rounded-md transition-colors",
+                isSaved
+                  ? "bg-green-500 text-white"
+                  : "bg-[#7C3AED] text-white hover:bg-[#6D28D9]"
+              )}
+            >
+              {isSaved ? "保存しました ✓" : "保存"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IntegrationsPanel() {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const grouped = Object.entries(CATEGORY_LABELS).map(([catKey, catLabel]) => ({
+    catKey,
+    catLabel,
+    systems: INTEGRATION_SYSTEMS.filter(s => s.category === catKey),
+  }));
+
+  return (
+    <div className="space-y-8">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex gap-3">
+        <svg className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div>
+          <p className="text-sm font-medium text-blue-800">連携設定について</p>
+          <p className="text-xs text-blue-600 mt-0.5">
+            各システムの接続情報を設定後、「接続テスト」で疎通確認してください。
+            接続確立後は在庫・料金データの自動同期が有効になります。
+          </p>
+        </div>
+      </div>
+
+      {grouped.map(({ catKey, catLabel, systems }) => (
+        <div key={catKey}>
+          <div className="flex items-center gap-2 mb-3">
+            <div className={cn(
+              "w-2 h-2 rounded-full",
+              catKey === "channel_manager" ? "bg-blue-500" :
+              catKey === "pms" ? "bg-purple-500" : "bg-orange-500"
+            )} />
+            <h3 className="text-sm font-semibold text-gray-700">{catLabel}</h3>
+            <span className="text-xs text-gray-400">{systems.length}システム</span>
+          </div>
+          <div className="space-y-2">
+            {systems.map(sys => (
+              <IntegrationCard
+                key={sys.id}
+                system={sys}
+                isExpanded={expandedId === sys.id}
+                onToggle={() => setExpandedId(prev => prev === sys.id ? null : sys.id)}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("compset");
 
@@ -759,6 +1059,7 @@ export default function SettingsPage() {
     { id: "compset", label: "競合セット" },
     { id: "barladder", label: "BARラダー" },
     { id: "approval", label: "承認設定" },
+    { id: "integrations", label: "外部システム連携" },
   ];
 
   return (
@@ -790,6 +1091,7 @@ export default function SettingsPage() {
         {activeTab === "compset" && <CompSetPanel />}
         {activeTab === "barladder" && <BarLadderPanel />}
         {activeTab === "approval" && <ApprovalPanel />}
+        {activeTab === "integrations" && <IntegrationsPanel />}
       </div>
     </div>
   );

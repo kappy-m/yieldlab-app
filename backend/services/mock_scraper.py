@@ -109,7 +109,7 @@ HOTEL_PRICE_CATALOG: list[dict] = [
         "category": "upscale",
     },
     {
-        "pattern": "ヴィラフォンテーヌプレミア東京汐留",
+        "pattern": "ヴィラフォンテーヌグランド東京汐留",
         "base_price": 23000,
         "variance": 0.22,
         "category": "upscale",

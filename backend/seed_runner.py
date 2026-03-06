@@ -109,40 +109,40 @@ CANVAS_COMP_HOTELS = [
         "name": "ホテルモントレ銀座",
         "expedia_id": "470223",
         "url": "https://www.expedia.co.jp/Tokyo-Hotels-Hotel-Monterey-Ginza.h470223.Hotel-Information",
-        "rakuten_no": None,   # 要確認 → mockフォールバック
-        "scrape_mode": "mock",
+        "rakuten_no": "5002",     # ✅ 楽天トラベル確認済み
+        "scrape_mode": "rakuten",
         "sort": 0,
     },
     {
-        "name": "ヴィラフォンテーヌプレミア東京汐留",
+        "name": "住友不動産ホテル ヴィラフォンテーヌグランド東京汐留",
         "expedia_id": "449889",
         "url": "https://www.expedia.co.jp/Tokyo-Hotels-Villa-Fontaine-Premier-Shiodome.h449889.Hotel-Information",
-        "rakuten_no": None,   # 要確認 → mockフォールバック
-        "scrape_mode": "mock",
+        "rakuten_no": "80756",    # ✅ 楽天トラベル確認済み
+        "scrape_mode": "rakuten",
         "sort": 1,
     },
     {
         "name": "東急ステイ銀座",
         "expedia_id": "2556234",
         "url": "https://www.expedia.co.jp/Tokyo-Hotels-Tokyu-Stay-Ginza.h2556234.Hotel-Information",
-        "rakuten_no": None,   # 要確認 → mockフォールバック
-        "scrape_mode": "mock",
+        "rakuten_no": "149481",   # ✅ 楽天トラベル確認済み
+        "scrape_mode": "rakuten",
         "sort": 2,
     },
     {
-        "name": "ダイワロイネットホテル銀座",
+        "name": "ダイワロイネットホテル銀座　PREMIER",
         "expedia_id": "571978",
         "url": "https://www.expedia.co.jp/Tokyo-Hotels-Daiwa-Roynet-Hotel-Ginza.h571978.Hotel-Information",
-        "rakuten_no": None,   # 要確認 → mockフォールバック
-        "scrape_mode": "mock",
+        "rakuten_no": "149164",   # ✅ 楽天トラベル確認済み
+        "scrape_mode": "rakuten",
         "sort": 3,
     },
     {
         "name": "クインテッサホテル東京銀座",
         "expedia_id": "19292452",
         "url": "https://www.expedia.co.jp/Tokyo-Hotels-Quintessa-Hotel-Tokyo-Ginza.h19292452.Hotel-Information",
-        "rakuten_no": None,   # 要確認 → mockフォールバック
-        "scrape_mode": "mock",
+        "rakuten_no": "176983",   # ✅ 楽天トラベル確認済み
+        "scrape_mode": "rakuten",
         "sort": 4,
     },
 ]

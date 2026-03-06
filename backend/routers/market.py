@@ -25,5 +25,5 @@ async def get_market_events(
 ):
     """今後 days 日分のマーケットイベント（祝日・季節需要）を返す"""
     from ..services.market_service import get_market_events
-    events = await get_market_events(days_ahead=days)
+    events = await get_market_events(days_ahead=days, property_id=property_id)
     return events
