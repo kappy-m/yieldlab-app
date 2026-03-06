@@ -135,10 +135,17 @@ def _parse_hotels(raw_hotels: list) -> dict[int, dict]:
 async def fetch_rakuten_prices_batch(
     hotel_nos: list[str],
     check_in: str,
+    max_retries: int = 3,
 ) -> dict[str, dict]:
     """
     複数ホテルを1リクエストで取得。{hotelNo_str: {"price": int, "plans_available": int}} を返す。
     最大15ホテル同時取得可能。
+
+    リトライ仕様:
+      - 429 Too Many Requests : 指数バックオフ（5s, 10s, 20s）
+      - 5xx Server Error      : 指数バックオフ（2s, 4s, 8s）
+      - 404                   : 空室なしとして {} を返す（リトライなし）
+      - その他 4xx            : 即時失敗
     """
     try:
         import httpx
@@ -160,28 +167,60 @@ async def fetch_rakuten_prices_batch(
         "roomNum":       "1",
         "format":        "json",
         "formatVersion": "2",
-        # middle: hotelReserveInfo(reserveRecordCount) + roomInfo(dailyCharge) が取得可能
-        # large と同等の在庫情報だが、不要フィールドが少なくレスポンスが軽い
         "responseType":  "middle",
-        "sort":          "+roomCharge",  # 最安順
-        "hits":          "3",            # 最安3プランのみ取得（価格取得目的なので十分）
-        # ※ hits=3 でも reserveRecordCount は全件数を正確に返す（仕様確認済み）
+        "sort":          "+roomCharge",
+        "hits":          "3",
     }
     headers = {"Authorization": f"Bearer {access_key}"}
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        resp = await client.get(RAKUTEN_API_ENDPOINT, params=params, headers=headers)
+    last_exc: Exception | None = None
+    for attempt in range(max_retries):
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                resp = await client.get(RAKUTEN_API_ENDPOINT, params=params, headers=headers)
 
-    if resp.status_code == 404:
-        logger.info(f"[Rakuten API] 空室なし: {check_in}")
-        return {}
+            if resp.status_code == 404:
+                logger.info(f"[Rakuten API] 空室なし（404）: {check_in}")
+                return {}
 
-    resp.raise_for_status()
-    data = resp.json()
-    parsed = _parse_hotels(data.get("hotels", []))
-    logger.debug(f"[Rakuten API] {check_in}: {len(parsed)}ホテル取得 "
-                 f"reserve_record_counts={[v.get('reserve_record_count') for v in parsed.values()]}")
-    return {str(no): hotel_info for no, hotel_info in parsed.items()}
+            if resp.status_code == 429:
+                wait = 5 * (2 ** attempt)
+                logger.warning(f"[Rakuten API] レート制限（429）: {check_in} → {wait}秒待機 (attempt {attempt+1}/{max_retries})")
+                await asyncio.sleep(wait)
+                continue
+
+            if resp.status_code >= 500:
+                wait = 2 * (2 ** attempt)
+                logger.warning(f"[Rakuten API] サーバーエラー（{resp.status_code}）: {check_in} → {wait}秒待機")
+                await asyncio.sleep(wait)
+                continue
+
+            resp.raise_for_status()
+            data = resp.json()
+            parsed = _parse_hotels(data.get("hotels", []))
+            logger.debug(
+                f"[Rakuten API] {check_in}: {len(parsed)}ホテル取得 "
+                f"reserve_counts={[v.get('reserve_record_count') for v in parsed.values()]}"
+            )
+            return {str(no): hotel_info for no, hotel_info in parsed.items()}
+
+        except httpx.TimeoutException as e:
+            wait = 3 * (2 ** attempt)
+            logger.warning(f"[Rakuten API] タイムアウト: {check_in} → {wait}秒待機 (attempt {attempt+1}/{max_retries})")
+            last_exc = e
+            await asyncio.sleep(wait)
+        except httpx.HTTPStatusError as e:
+            logger.error(f"[Rakuten API] HTTPエラー {e.response.status_code}: {check_in}")
+            raise
+        except Exception as e:
+            last_exc = e
+            logger.error(f"[Rakuten API] 予期しないエラー: {check_in} - {e}")
+            if attempt < max_retries - 1:
+                await asyncio.sleep(2 * (2 ** attempt))
+
+    if last_exc:
+        raise last_exc
+    return {}
 
 
 async def scrape_rakuten_comp_set(

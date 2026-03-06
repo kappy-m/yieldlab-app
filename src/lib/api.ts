@@ -300,3 +300,41 @@ export interface MarketEventOut {
 export function fetchMarketEvents(propertyId: number, days = 90) {
   return apiFetch<MarketEventOut[]>(`/properties/${propertyId}/market/events?days=${days}`);
 }
+
+// ---- Daily Performance ----
+
+export interface DailyPerfOut {
+  id: number;
+  property_id: number;
+  date: string;
+  occupancy_rate: number;
+  rooms_sold: number;
+  total_rooms: number;
+  adr: number;
+  revenue: number;
+  revpar: number;
+  new_bookings: number;
+  cancellations: number;
+}
+
+export interface DailySummaryOut {
+  latest: DailyPerfOut | null;
+  occ_change: number | null;
+  revenue_change_pct: number | null;
+  new_bookings_change_pct: number | null;
+  trend_7d: DailyPerfOut[];
+}
+
+export function fetchDailySummary(propertyId: number) {
+  return apiFetch<DailySummaryOut>(`/properties/${propertyId}/daily-performance/summary`);
+}
+
+export function fetchDailyPerformances(
+  propertyId: number,
+  params?: { date_from?: string; date_to?: string; limit?: number }
+) {
+  const qs = new URLSearchParams(
+    Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])) as Record<string, string>
+  ).toString();
+  return apiFetch<DailyPerfOut[]>(`/properties/${propertyId}/daily-performance${qs ? `?${qs}` : ""}`);
+}

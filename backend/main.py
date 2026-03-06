@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from .database import init_db, engine
 from .config import settings
 from .routers import properties, pricing, recommendations, competitor, comp_set, market
+from .routers import daily_performance
 from .services.scheduler import create_scheduler
 
 _scheduler = create_scheduler()
@@ -23,6 +24,64 @@ async def _auto_seed_if_empty():
             from .seed_runner import run_seed
             await run_seed()
             logger.info("Seed completed.")
+
+
+async def _auto_seed_daily_perf_if_empty():
+    """
+    起動時に daily_performances が空なら、サンプルデータを自動投入する。
+    Railway の ephemeral SQLite では再デプロイのたびにデータが消えるため、
+    _auto_seed_if_empty() だけでは daily_performances が入らないケースをカバー。
+    """
+    import logging
+    from sqlalchemy import text
+    from .database import AsyncSessionLocal
+    logger = logging.getLogger(__name__)
+
+    async with AsyncSessionLocal() as db:
+        props_count = (await db.execute(text("SELECT COUNT(*) FROM properties"))).scalar()
+        perf_count  = (await db.execute(text("SELECT COUNT(*) FROM daily_performances"))).scalar()
+
+    # properties はあるが daily_performances がない場合（バージョンアップ後など）
+    if props_count > 0 and perf_count == 0:
+        logger.info("[AutoSeed] daily_performances is empty — seeding sample data...")
+        from datetime import date, timedelta
+        from .database import AsyncSessionLocal
+        from .models import Property
+        from sqlalchemy import select
+        from .seed_runner import (
+            _generate_daily_perf,
+            RPH_BASE_OCC, RPH_BASE_ADR, RPH_ROOMS,
+            CANVAS_BASE_OCC, CANVAS_BASE_ADR, CANVAS_ROOMS,
+        )
+
+        async with AsyncSessionLocal() as db:
+            props = (await db.execute(select(Property))).scalars().all()
+            today = date.today()
+            for prop in props:
+                # 物件に合わせたパラメータを選択
+                if "銀座" in prop.name or "Canvas" in prop.name.lower():
+                    base_occ = CANVAS_BASE_OCC
+                    base_adr = CANVAS_BASE_ADR
+                    total    = CANVAS_ROOMS
+                    premium  = 1.30
+                else:
+                    base_occ = RPH_BASE_OCC
+                    base_adr = RPH_BASE_ADR
+                    total    = RPH_ROOMS
+                    premium  = 1.18
+
+                for day_offset in range(-120, 0):
+                    d = today + timedelta(days=day_offset)
+                    db.add(_generate_daily_perf(
+                        property_id=prop.id,
+                        d=d,
+                        total_rooms=total,
+                        base_occ_by_dow=base_occ,
+                        base_adr=base_adr,
+                        adr_weekend_premium=premium,
+                    ))
+            await db.commit()
+        logger.info("[AutoSeed] daily_performances seeded.")
 
 
 async def _auto_pipeline_if_prices_empty():
@@ -67,6 +126,7 @@ async def lifespan(app: FastAPI):
     try:
         await init_db()
         await _auto_seed_if_empty()
+        await _auto_seed_daily_perf_if_empty()
         await _auto_pipeline_if_prices_empty()
         _db_ready = True
         _logger.info("Database initialized and seeded.")
@@ -99,15 +159,28 @@ app.include_router(recommendations.router)
 app.include_router(competitor.router)
 app.include_router(comp_set.router)
 app.include_router(market.router)
+app.include_router(daily_performance.router)
 
 
 @app.get("/health")
 async def health():
     jobs = [{"id": j.id, "next_run": str(j.next_run_time)} for j in _scheduler.get_jobs()]
+    db_stats: dict = {}
+    try:
+        from sqlalchemy import text
+        from .database import AsyncSessionLocal
+        async with AsyncSessionLocal() as db:
+            for table in ["properties", "competitor_prices", "daily_performances", "pricing_grids"]:
+                count = (await db.execute(text(f"SELECT COUNT(*) FROM {table}"))).scalar()
+                db_stats[table] = count
+    except Exception as e:
+        db_stats["error"] = str(e)
+
     return {
         "status": "ok",
         "service": "yieldlab-api",
         "db_ready": _db_ready,
+        "db_stats": db_stats,
         "scheduled_jobs": jobs,
     }
 

@@ -29,3 +29,4 @@ class Property(Base):
     pricing_grids: Mapped[list["PricingGrid"]] = relationship(back_populates="property")
     recommendations: Mapped[list["Recommendation"]] = relationship(back_populates="property")
     comp_sets: Mapped[list["CompSet"]] = relationship(back_populates="property")
+    daily_performances: Mapped[list["DailyPerformance"]] = relationship(back_populates="property")

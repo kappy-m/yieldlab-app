@@ -1,9 +1,117 @@
 """
 シードデータ投入ロジック（main.py の lifespan から呼ばれる）
 """
+import math
 from datetime import date, timedelta
 from .database import AsyncSessionLocal
-from .models import Organization, Property, RoomType, BarLadder, ApprovalSetting, PricingGrid, CompSet
+from .models import Organization, Property, RoomType, BarLadder, ApprovalSetting, PricingGrid, CompSet, DailyPerformance
+
+
+# ============================================================
+# 日次実績サンプルデータ生成ヘルパー
+# ============================================================
+
+def _pseudo_rand(date_seed: int, salt: int = 0) -> float:
+    """決定論的疑似乱数 (0.0〜1.0)"""
+    x = (date_seed * 9301 + salt * 49297 + 233995) % 233280
+    return x / 233280.0
+
+
+def _seasonal_factor(d: date) -> float:
+    """季節・月ごとの需要係数 (1.0 = 通常期)"""
+    m = d.month
+    day = d.day
+    # 桜シーズン(3月下旬〜4月上旬)・GW・夏休み・年末年始を高く設定
+    if m == 3 and day >= 20:
+        return 1.18
+    elif m == 4:
+        return 1.22 if day <= 7 else 1.12  # 桜 > GW前哨戦
+    elif m == 5 and day <= 6:
+        return 1.25  # GW
+    elif m == 5:
+        return 1.08
+    elif m in (6,):
+        return 0.95  # 梅雨
+    elif m in (7, 8):
+        return 1.10  # 夏
+    elif m == 9:
+        return 1.05  # 秋の連休
+    elif m in (10, 11):
+        return 1.08  # 紅葉・ビジネス繁忙
+    elif m == 12 and day >= 20:
+        return 1.20  # 年末
+    elif m == 12:
+        return 1.12
+    elif m == 1 and day <= 4:
+        return 0.90  # 正月明け低迷
+    elif m == 2:
+        return 0.95  # バレンタイン以外低め
+    else:
+        return 1.00
+
+
+def _generate_daily_perf(
+    property_id: int,
+    d: date,
+    total_rooms: int,
+    base_occ_by_dow: list[float],   # [Sun,Mon,Tue,Wed,Thu,Fri,Sat]
+    base_adr: int,
+    adr_weekend_premium: float = 1.20,
+) -> DailyPerformance:
+    """1日分の日次実績レコードを生成"""
+    dow = d.weekday()  # 0=月,...,6=日
+    # Python weekday: 0=Mon...6=Sun → base_occ_by_dow は [Sun,Mon,...Sat] = index = (dow+1)%7
+    dow_idx = (dow + 1) % 7  # 0=Sun,1=Mon,...,6=Sat
+    is_weekend = dow in (5, 6)  # 土日
+
+    seasonal = _seasonal_factor(d)
+    date_int = d.year * 10000 + d.month * 100 + d.day
+
+    # 稼働率
+    base_occ = base_occ_by_dow[dow_idx]
+    noise_occ = (_pseudo_rand(date_int, 1) - 0.5) * 6.0  # ±3pt
+    occ = min(98.0, max(40.0, base_occ * seasonal + noise_occ))
+    rooms_sold = round(total_rooms * occ / 100)
+
+    # ADR
+    adr_factor = adr_weekend_premium if is_weekend else 1.0
+    noise_adr = (_pseudo_rand(date_int, 2) - 0.5) * 0.12  # ±6%
+    adr = round(base_adr * seasonal * adr_factor * (1 + noise_adr) / 100) * 100
+
+    revenue = rooms_sold * adr
+    revpar = revenue // total_rooms
+
+    # 予約動態（その日に入った新規予約）
+    noise_bk = _pseudo_rand(date_int, 3)
+    new_bookings = max(1, round(rooms_sold * 0.15 * (0.7 + noise_bk * 0.6)))
+
+    noise_cx = _pseudo_rand(date_int, 4)
+    cancellations = max(0, round(new_bookings * 0.08 * (0.5 + noise_cx)))
+
+    return DailyPerformance(
+        property_id=property_id,
+        date=d,
+        occupancy_rate=round(occ, 1),
+        rooms_sold=rooms_sold,
+        total_rooms=total_rooms,
+        adr=adr,
+        revenue=revenue,
+        revpar=revpar,
+        new_bookings=new_bookings,
+        cancellations=cancellations,
+    )
+
+
+# RPH日本橋: シティホテル・ビジネス＋観光
+# DOW別ベース稼働率 [Sun,Mon,Tue,Wed,Thu,Fri,Sat]
+RPH_BASE_OCC = [76.0, 71.0, 73.0, 75.0, 77.0, 86.0, 91.0]
+RPH_BASE_ADR = 15500
+RPH_ROOMS = 413
+
+# 銀座Canvas: デザインホテル・週末観光客が多い
+CANVAS_BASE_OCC = [83.0, 69.0, 71.0, 73.0, 75.0, 91.0, 95.0]
+CANVAS_BASE_ADR = 21000
+CANVAS_ROOMS = 134
 
 ROOM_TYPES = [
     ("スタンダードシングル", "STD_SGL", 15, 0),
@@ -302,5 +410,28 @@ async def run_seed():
                     available_rooms=stock,
                     updated_by="manual",
                 ))
+
+        # ===== 日次実績サンプルデータ =====
+        # 過去120日 + 今日 = 121日分（前日実績サマリーに十分な履歴）
+        today = date.today()
+        for day_offset in range(-120, 0):
+            d = today + timedelta(days=day_offset)
+
+            session.add(_generate_daily_perf(
+                property_id=prop.id,
+                d=d,
+                total_rooms=RPH_ROOMS,
+                base_occ_by_dow=RPH_BASE_OCC,
+                base_adr=RPH_BASE_ADR,
+                adr_weekend_premium=1.18,
+            ))
+            session.add(_generate_daily_perf(
+                property_id=canvas.id,
+                d=d,
+                total_rooms=CANVAS_ROOMS,
+                base_occ_by_dow=CANVAS_BASE_OCC,
+                base_adr=CANVAS_BASE_ADR,
+                adr_weekend_premium=1.30,
+            ))
 
         await session.commit()
