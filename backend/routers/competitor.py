@@ -16,6 +16,7 @@ class CompetitorPriceOut(BaseModel):
     target_date: date
     price: int
     available_rooms: int | None
+    plans_available: int | None = None
     scraped_at: datetime
 
     model_config = {"from_attributes": True}
@@ -110,6 +111,115 @@ async def clear_competitor_prices(
     )
     await db.commit()
     return {"status": "cleared", "deleted_rows": result.rowcount}
+
+
+@router.get("/demand-curve")
+async def get_demand_curve(
+    property_id: int,
+    check_in_date: date,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    特定チェックイン日の需要カーブデータを返す。
+
+    同一 check_in_date に対して観測日(scraped_at)が異なる複数スナップショットが
+    存在する場合、価格と予約可能プラン数の時系列変化を返す。
+
+    これにより:
+    - 価格低下 + プラン数減少 → 値下げが需要を喚起（価格弾力性あり）
+    - 価格維持 + プラン数減少 → 自然需要（強い日程）
+    - 価格上昇 + プラン数多数 → 強気戦略（様子見中）
+    などを把握し、プライシングアルゴリズムの学習データとして活用できる。
+    """
+    query = (
+        select(
+            CompetitorPrice.competitor_name,
+            CompetitorPrice.scraped_at,
+            CompetitorPrice.price,
+            CompetitorPrice.plans_available,
+        )
+        .where(
+            and_(
+                CompetitorPrice.property_id == property_id,
+                CompetitorPrice.target_date == check_in_date,
+            )
+        )
+        .order_by(CompetitorPrice.competitor_name, CompetitorPrice.scraped_at)
+    )
+    result = await db.execute(query)
+    rows = result.all()
+
+    # ホテル別に整形
+    curve: dict[str, list] = {}
+    for row in rows:
+        name = row.competitor_name
+        if name not in curve:
+            curve[name] = []
+        curve[name].append({
+            "observed_at": row.scraped_at.isoformat() if row.scraped_at else None,
+            "price": row.price,
+            "plans_available": row.plans_available,
+        })
+
+    # 各ホテルの価格変動率・プラン減少率を計算
+    summary = []
+    for name, snapshots in curve.items():
+        if len(snapshots) < 2:
+            summary.append({
+                "competitor": name,
+                "snapshots": snapshots,
+                "price_change_pct": None,
+                "plan_depletion_rate": None,
+                "signal": "データ不足（スナップショット1件）",
+            })
+            continue
+
+        first = snapshots[0]
+        last  = snapshots[-1]
+
+        price_change_pct = (
+            round((last["price"] - first["price"]) / first["price"] * 100, 1)
+            if first["price"] else None
+        )
+
+        # プラン数の変化率（減少率 = 逼迫度の代理指標）
+        if first.get("plans_available") and last.get("plans_available") is not None:
+            plan_depletion_rate = round(
+                (first["plans_available"] - last["plans_available"])
+                / first["plans_available"] * 100, 1
+            )
+        else:
+            plan_depletion_rate = None
+
+        # シグナル判定
+        if price_change_pct is not None and plan_depletion_rate is not None:
+            if price_change_pct < -3 and plan_depletion_rate > 20:
+                signal = "値下げ→需要喚起あり（価格弾力性検出）"
+            elif price_change_pct <= 0 and plan_depletion_rate > 30:
+                signal = "価格維持でも自然需要旺盛（強い日程）"
+            elif price_change_pct > 3 and plan_depletion_rate < 10:
+                signal = "値上げ中・在庫豊富（様子見戦略）"
+            elif plan_depletion_rate > 50:
+                signal = "急速な逼迫（早期満室の可能性）"
+            else:
+                signal = "通常推移"
+        else:
+            signal = "分析データ不足"
+
+        summary.append({
+            "competitor": name,
+            "snapshots": snapshots,
+            "price_change_pct": price_change_pct,
+            "plan_depletion_rate": plan_depletion_rate,
+            "signal": signal,
+        })
+
+    return {
+        "check_in_date": check_in_date.isoformat(),
+        "property_id": property_id,
+        "competitors": summary,
+        "note": "plans_availableは楽天APIのroomInfo件数（予約可能プラン数）。直接の残室数ではなく逼迫度の代理指標として使用。",
+    }
 
 
 @router.post("/scrape")

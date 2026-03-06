@@ -109,6 +109,7 @@ async def _scrape_and_store(db, prop: "Property"):
                         competitor_name=p.competitor_name,
                         price=p.price,
                         available_rooms=p.available_rooms,
+                        plans_available=p.available_rooms,  # 楽天APIではplans_availableとavailable_roomsは同一
                         source_url=p.source_url,
                     ))
             # rakuten_no未設定のものはmockにフォールバック

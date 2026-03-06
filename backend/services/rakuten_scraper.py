@@ -56,13 +56,18 @@ def _get_credentials() -> tuple[str, str]:
     return app_id, access_key
 
 
-def _parse_hotels(raw_hotels: list) -> dict[int, int]:
+def _parse_hotels(raw_hotels: list) -> dict[int, dict]:
     """
-    APIレスポンスを解析し {hotelNo: min_room_price} を返す。
+    APIレスポンスを解析し {hotelNo: {"price": int, "plans_available": int}} を返す。
 
     価格優先順位:
       1. dailyCharge.total  ← 2名1室合計（最も正確）
       2. hotelMinCharge     ← フォールバック（全体最安値・日付非依存）
+
+    plans_available: roomInfo の件数 = 予約可能なプラン数（残室代理指標）
+      - 多い  → 在庫潤沢（需要低め / まだ売り込み中）
+      - 少ない → 在庫逼迫（人気日程 / 高稼働）
+      - 0     → 満室（URLは返却されるが roomInfo が空）
 
     formatVersion=2 の構造:
       hotels[i] = [
@@ -73,7 +78,7 @@ def _parse_hotels(raw_hotels: list) -> dict[int, int]:
         ]}
       ]
     """
-    result: dict[int, int] = {}
+    result: dict[int, dict] = {}
 
     for hotel_list in raw_hotels:
         if not isinstance(hotel_list, list):
@@ -105,11 +110,12 @@ def _parse_hotels(raw_hotels: list) -> dict[int, int]:
                 if best_total is None or total < best_total:
                     best_total = total
 
-        if best_total:
-            result[hotel_no] = best_total
-        elif info.get("hotelMinCharge"):
-            # フォールバック: hotelMinCharge（日付非依存だが最低限の値）
-            result[hotel_no] = info["hotelMinCharge"]
+        price = best_total or info.get("hotelMinCharge")
+        if price:
+            result[hotel_no] = {
+                "price": price,
+                "plans_available": len(room_info_list),  # 予約可能プラン数（残室代理指標）
+            }
 
     return result
 
@@ -117,9 +123,9 @@ def _parse_hotels(raw_hotels: list) -> dict[int, int]:
 async def fetch_rakuten_prices_batch(
     hotel_nos: list[str],
     check_in: str,
-) -> dict[str, int]:
+) -> dict[str, dict]:
     """
-    複数ホテルを1リクエストで取得。{hotelNo_str: room_price} を返す。
+    複数ホテルを1リクエストで取得。{hotelNo_str: {"price": int, "plans_available": int}} を返す。
     最大15ホテル同時取得可能。
     """
     try:
@@ -157,8 +163,8 @@ async def fetch_rakuten_prices_batch(
 
     resp.raise_for_status()
     data = resp.json()
-    prices = _parse_hotels(data.get("hotels", []))
-    return {str(no): price for no, price in prices.items()}
+    parsed = _parse_hotels(data.get("hotels", []))
+    return {str(no): info for no, info in parsed.items()}
 
 
 async def scrape_rakuten_comp_set(
@@ -183,14 +189,14 @@ async def scrape_rakuten_comp_set(
 
     for check_in in check_in_dates:
         try:
-            prices = await fetch_rakuten_prices_batch(hotel_no_list, check_in)
-            for no, price in prices.items():
+            hotel_data = await fetch_rakuten_prices_batch(hotel_no_list, check_in)
+            for no, info in hotel_data.items():
                 name = name_by_no.get(no, f"hotelNo={no}")
                 results.append(RakutenPrice(
                     competitor_name=name,
                     target_date=check_in,
-                    price=price,
-                    available_rooms=None,
+                    price=info["price"],
+                    available_rooms=info.get("plans_available"),  # 予約可能プラン数
                     source_url=f"rakuten_api://VacantHotelSearch/{no}/{check_in}",
                 ))
         except Exception as e:
