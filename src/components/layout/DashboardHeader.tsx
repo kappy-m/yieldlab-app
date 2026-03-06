@@ -29,10 +29,10 @@ export function DashboardHeader() {
       style={{ background: "linear-gradient(135deg, #1E3A8A 0%, #1e40af 100%)" }}
     >
       <div className="px-6 py-0 flex items-center justify-between h-14">
-        {/* ロゴ・サービス名 */}
-        <div className="flex items-center gap-3">
+        {/* ロゴ・サービス名（クリックでダッシュボードTOPへ） */}
+        <Link href="/dashboard" className="flex items-center gap-3 group">
           {/* ロゴマーク */}
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 border border-white/20">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 border border-white/20 group-hover:bg-white/20 transition-colors">
             <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
               <path
                 d="M3 18L9 6L15 14L19 8L21 18H3Z"
@@ -55,7 +55,7 @@ export function DashboardHeader() {
               manage
             </span>
           </div>
-        </div>
+        </Link>
 
         {/* 右側：自社ホテル情報 + 設定 */}
         <div className="flex items-center gap-3">

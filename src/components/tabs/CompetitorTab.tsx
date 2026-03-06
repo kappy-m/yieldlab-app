@@ -88,12 +88,17 @@ export function CompetitorTab() {
 
   const load = useCallback(async () => {
     try {
-      const [p, a, cs, grid] = await Promise.all([
+      // 1つのAPIが失敗しても他のデータを表示できるようallSettledを使用
+      const [pricesRes, averagesRes, compSetRes, gridRes] = await Promise.allSettled([
         fetchCompetitorPrices(PROPERTY_ID, { date_from: dateFrom, date_to: dateTo }),
         fetchCompetitorAverages(PROPERTY_ID, { date_from: dateFrom, date_to: dateTo }),
         fetchCompSet(PROPERTY_ID),
         fetchPricingGrid(PROPERTY_ID, { date_from: dateFrom, date_to: dateTo }),
       ]);
+      const p = pricesRes.status === "fulfilled" ? pricesRes.value : [];
+      const a = averagesRes.status === "fulfilled" ? averagesRes.value : [];
+      const cs = compSetRes.status === "fulfilled" ? compSetRes.value : [];
+      const grid = gridRes.status === "fulfilled" ? gridRes.value : [];
       setPrices(p);
       setAverages(a);
       setCompSet(cs);
