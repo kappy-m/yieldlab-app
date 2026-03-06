@@ -9,6 +9,7 @@ import { CompetitorTab } from "@/components/tabs/CompetitorTab";
 import { BookingTab } from "@/components/tabs/BookingTab";
 import { MarketTab } from "@/components/tabs/MarketTab";
 import { PlaceholderTab } from "@/components/tabs/PlaceholderTab";
+import { SettingsTab } from "@/components/tabs/SettingsTab";
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<TabId>("daily");
@@ -32,6 +33,7 @@ export default function DashboardPage() {
         {activeTab === "market"     && <MarketTab propertyId={propertyId} />}
         {activeTab === "cost"       && <PlaceholderTab label="コスト分析" phase="Phase 3" />}
         {activeTab === "budget"     && <PlaceholderTab label="予算設定" phase="Phase 3" />}
+        {activeTab === "settings"   && <SettingsTab propertyId={propertyId} />}
       </main>
     </div>
   );

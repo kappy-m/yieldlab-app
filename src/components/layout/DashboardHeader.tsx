@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings, Building2, Star, MapPin, ChevronDown } from "lucide-react";
+import { Building2, Star, MapPin, ChevronDown, LogOut, User } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { fetchProperties } from "@/lib/api";
@@ -22,7 +22,9 @@ interface DashboardHeaderProps {
 export function DashboardHeader({ propertyId, onPropertyChange }: DashboardHeaderProps) {
   const [properties, setProperties] = useState<Property[]>([]);
   const [open, setOpen] = useState(false);
+  const [avatarOpen, setAvatarOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const avatarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchProperties().then((list) => {
@@ -33,9 +35,8 @@ export function DashboardHeader({ propertyId, onPropertyChange }: DashboardHeade
   // 外側クリックで閉じる
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setOpen(false);
+      if (avatarRef.current && !avatarRef.current.contains(e.target as Node)) setAvatarOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -141,21 +142,41 @@ export function DashboardHeader({ propertyId, onPropertyChange }: DashboardHeade
             </div>
           )}
 
-          {/* 設定 */}
-          <Link
-            href="/settings"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all duration-200 cursor-pointer"
-            title="設定"
-          >
-            <Settings className="w-4 h-4" />
-          </Link>
+          {/* アバター（アカウントメニュー） */}
+          <div className="relative" ref={avatarRef}>
+            <button
+              onClick={() => setAvatarOpen(v => !v)}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold border border-white/20 hover:ring-2 hover:ring-white/30 transition-all cursor-pointer"
+              style={{ background: "#CA8A04", color: "#1E3A8A" }}
+            >
+              KM
+            </button>
 
-          {/* アバター */}
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold border border-white/20"
-            style={{ background: "#CA8A04", color: "#1E3A8A" }}
-          >
-            KM
+            {avatarOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50">
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <p className="text-xs font-semibold text-slate-700">Kazuki Murayama</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">管理者</p>
+                </div>
+                <div className="py-1">
+                  <Link
+                    href="/profile"
+                    onClick={() => setAvatarOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-600 hover:bg-slate-50 transition-colors"
+                  >
+                    <User className="w-3.5 h-3.5 text-slate-400" />
+                    プロフィール
+                  </Link>
+                  <button
+                    className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                    onClick={() => setAvatarOpen(false)}
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    ログアウト
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
