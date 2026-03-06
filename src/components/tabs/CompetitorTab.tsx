@@ -151,6 +151,17 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
   // 自社価格マップ
   const ownPriceMap = useMemo(() => buildOwnPriceMap(ownGrid), [ownGrid]);
 
+  // パイプライン実行済みの日付セット
+  // 少なくとも1社でも価格データがある日付 = その日付はAPIで検索済み
+  // → 他のホテルにデータがない = 満室（楽天APIに返却されなかった）
+  const coveredDates = useMemo(() => {
+    const covered = new Set<string>();
+    for (const c of compSummaries) {
+      for (const date of Object.keys(c.prices)) covered.add(date);
+    }
+    return covered;
+  }, [compSummaries]);
+
   // 表示対象日付（displayDays で絞る）
   const displayCutoff = useMemo(() => {
     const d = new Date();
@@ -275,9 +286,13 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
-                <span className="text-xs font-bold text-slate-800">
-                  {c.todayPrice ? formatPrice(c.todayPrice) : "—"}
-                </span>
+                {c.todayPrice ? (
+                  <span className="text-xs font-bold text-slate-800">{formatPrice(c.todayPrice)}</span>
+                ) : coveredDates.has(today) ? (
+                  <span className="text-[10px] font-semibold text-red-500 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded">満室</span>
+                ) : (
+                  <span className="text-xs text-slate-300">—</span>
+                )}
                 {c.expediaUrl && (
                   <a href={c.expediaUrl} target="_blank" rel="noopener noreferrer"
                     className="text-slate-400 hover:text-[#1E3A8A] transition-colors">
@@ -433,13 +448,20 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
                     const p = c.prices[avg.target_date];
                     const own = ownPriceMap[avg.target_date];
                     const isLower = own && p && p < own;
+                    const isSoldOut = !p && coveredDates.has(avg.target_date);
                     return (
                       <td key={avg.target_date} className={`px-3 py-2.5 text-center ${avg.target_date === today ? "bg-blue-50/30" : ""}`}>
                         {p ? (
                           <span className={`font-medium ${isLower ? "text-green-600" : "text-slate-600"}`}>
                             {formatPrice(p)}
                           </span>
-                        ) : <span className="text-slate-300">—</span>}
+                        ) : isSoldOut ? (
+                          <span className="inline-block text-[10px] font-semibold text-red-500 bg-red-50 border border-red-100 px-1.5 py-0.5 rounded">
+                            満室
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
                       </td>
                     );
                   })}
@@ -462,9 +484,14 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
         <div className="px-5 py-2 border-t border-slate-100">
           <div className="flex items-center gap-4 text-[10px] text-slate-400">
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[#1E3A8A] inline-block" />自社（ロイヤルパークホテル 東京日本橋）
+              <span className="w-2 h-2 rounded-full bg-[#1E3A8A] inline-block" />自社
             </span>
             <span>緑色の競合価格 = 自社より低い（要注意）</span>
+            <span className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold text-red-500 bg-red-50 border border-red-100 px-1 rounded">満室</span>
+              = 楽天トラベルに空室なし（当日API取得時点）
+            </span>
+            <span>— = データ未取得</span>
           </div>
         </div>
       </div>
