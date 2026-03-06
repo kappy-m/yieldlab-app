@@ -1,12 +1,19 @@
 """
-楽天トラベル 公式API ベース競合価格スクレイパー
+楽天トラベル空室検索API (VacantHotelSearch v2017-04-26) ベース競合価格スクレイパー
 
-楽天ウェブサービス VacantHotelSearch API v2017-04-26 を使用。
+■ API仕様サマリー (https://webservice.rakuten.co.jp/documentation/vacant-hotel-search)
 
 取得価格: dailyCharge.total (2名1室・税込 日別最安値)
   - chargeFlag=0: 1人あたり料金 → total = rakutenCharge × 人数
   - chargeFlag=1: 1室あたり料金 → total = rakutenCharge
   → total フィールドが常に「2名1室 合計」を示す
+
+在庫代理指標: hotelReserveInfo.reserveRecordCount
+  - 予約可能なプラン×部屋の組み合わせ総件数（実際の残室数ではない）
+  - 多い → 在庫潤沢（需要低 or まだ売り込み中）
+  - 少ない → 逼迫（人気日程 / 高稼働）
+  - ホテルが返却されない → 実質満室 or 楽天非掲載
+  ※ lowestCharge / highestCharge は廃止済み（常に0）で使用不可
 
 取得効率: 1日付 × 1リクエストで最大15ホテル同時取得
   90日分: 90 requests × 1 sec = 約90秒
@@ -14,13 +21,6 @@
 設定（環境変数）:
   RAKUTEN_APP_ID     : アプリケーションID (UUID形式)
   RAKUTEN_ACCESS_KEY : アクセスキー (pk_xxx 形式)
-
-競合ホテルの楽天 hotelNo:
-  パレスホテル東京           184685  ✅
-  ザ・ペニンシュラ東京       184598  ✅
-  コンラッド東京             78151   ✅
-  マンダリン オリエンタル東京  (楽天非掲載 → mockフォールバック)
-  シャングリ・ラ 東京         (楽天非掲載 → mockフォールバック)
 """
 
 import asyncio
@@ -58,20 +58,22 @@ def _get_credentials() -> tuple[str, str]:
 
 def _parse_hotels(raw_hotels: list) -> dict[int, dict]:
     """
-    APIレスポンスを解析し {hotelNo: {"price": int, "plans_available": int}} を返す。
+    APIレスポンスを解析し {hotelNo: {"price": int, "reserve_record_count": int}} を返す。
 
     価格優先順位:
-      1. dailyCharge.total  ← 2名1室合計（最も正確）
-      2. hotelMinCharge     ← フォールバック（全体最安値・日付非依存）
+      1. dailyCharge.total (roomBasicInfo内) ← 2名1室合計・日付依存で最も正確
+      2. hotelMinCharge (hotelBasicInfo内)   ← 日付非依存フォールバック
 
-    plans_available: roomInfo の件数 = 予約可能なプラン数（残室代理指標）
-      - 多い  → 在庫潤沢（需要低め / まだ売り込み中）
-      - 少ない → 在庫逼迫（人気日程 / 高稼働）
-      - 0     → 満室（URLは返却されるが roomInfo が空）
+    在庫代理指標: hotelReserveInfo.reserveRecordCount
+      - API仕様の正式フィールド（hits制限に関係なく総件数を返す）
+      - len(roomInfo) は hits=3 で最大3になるため使用不可
+      - 多い → 在庫潤沢、少ない → 逼迫、ホテル未返却 → 実質満室
 
-    formatVersion=2 の構造:
+    formatVersion=2 の応答構造:
       hotels[i] = [
-        {"hotelBasicInfo": {...}},
+        {"hotelBasicInfo": {"hotelNo": ..., "hotelMinCharge": ..., ...}},
+        {"hotelDetailInfo": {...}},          # responseType=middle/large のみ
+        {"hotelReserveInfo": {"reserveRecordCount": int, ...}},
         {"roomInfo": [
           {"roomBasicInfo": {...}, "dailyCharge": {"total": int, ...}},
           ...
@@ -85,6 +87,7 @@ def _parse_hotels(raw_hotels: list) -> dict[int, dict]:
             continue
 
         info: dict = {}
+        reserve_info: dict = {}
         room_info_list: list = []
 
         for item in hotel_list:
@@ -92,6 +95,8 @@ def _parse_hotels(raw_hotels: list) -> dict[int, dict]:
                 continue
             if "hotelBasicInfo" in item:
                 info = item["hotelBasicInfo"]
+            if "hotelReserveInfo" in item:
+                reserve_info = item["hotelReserveInfo"]
             if "roomInfo" in item:
                 room_info_list = item["roomInfo"]
 
@@ -99,7 +104,7 @@ def _parse_hotels(raw_hotels: list) -> dict[int, dict]:
         if not hotel_no:
             continue
 
-        # dailyCharge.total から最安値を取得
+        # ① dailyCharge.total から日付依存の最安値を取得（最優先）
         best_total: Optional[int] = None
         for ri in room_info_list:
             if not isinstance(ri, dict):
@@ -110,12 +115,19 @@ def _parse_hotels(raw_hotels: list) -> dict[int, dict]:
                 if best_total is None or total < best_total:
                     best_total = total
 
+        # ② hotelMinCharge をフォールバック
         price = best_total or info.get("hotelMinCharge")
-        if price:
-            result[hotel_no] = {
-                "price": price,
-                "plans_available": len(room_info_list),  # 予約可能プラン数（残室代理指標）
-            }
+        if not price:
+            continue
+
+        # ③ reserveRecordCount = 予約候補の総件数（在庫代理指標）
+        # hits=3 の影響を受けず、全プラン数を正確に反映する
+        reserve_record_count = reserve_info.get("reserveRecordCount")
+
+        result[hotel_no] = {
+            "price": price,
+            "reserve_record_count": reserve_record_count,  # None の場合はAPIがmiddleレスポンス未返却
+        }
 
     return result
 
@@ -148,9 +160,12 @@ async def fetch_rakuten_prices_batch(
         "roomNum":       "1",
         "format":        "json",
         "formatVersion": "2",
-        "responseType":  "large",   # dailyCharge.total を取得するために必要
-        "sort":          "+roomCharge",
-        "hits":          "3",       # 最安3プランのみ（効率化）
+        # middle: hotelReserveInfo(reserveRecordCount) + roomInfo(dailyCharge) が取得可能
+        # large と同等の在庫情報だが、不要フィールドが少なくレスポンスが軽い
+        "responseType":  "middle",
+        "sort":          "+roomCharge",  # 最安順
+        "hits":          "3",            # 最安3プランのみ取得（価格取得目的なので十分）
+        # ※ hits=3 でも reserveRecordCount は全件数を正確に返す（仕様確認済み）
     }
     headers = {"Authorization": f"Bearer {access_key}"}
 
@@ -164,7 +179,9 @@ async def fetch_rakuten_prices_batch(
     resp.raise_for_status()
     data = resp.json()
     parsed = _parse_hotels(data.get("hotels", []))
-    return {str(no): info for no, info in parsed.items()}
+    logger.debug(f"[Rakuten API] {check_in}: {len(parsed)}ホテル取得 "
+                 f"reserve_record_counts={[v.get('reserve_record_count') for v in parsed.values()]}")
+    return {str(no): hotel_info for no, hotel_info in parsed.items()}
 
 
 async def scrape_rakuten_comp_set(
@@ -196,7 +213,7 @@ async def scrape_rakuten_comp_set(
                     competitor_name=name,
                     target_date=check_in,
                     price=info["price"],
-                    available_rooms=info.get("plans_available"),  # 予約可能プラン数
+                    available_rooms=info.get("reserve_record_count"),  # 予約候補総件数（仕様書#36フィールド）
                     source_url=f"rakuten_api://VacantHotelSearch/{no}/{check_in}",
                 ))
         except Exception as e:

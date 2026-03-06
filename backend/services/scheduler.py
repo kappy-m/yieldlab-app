@@ -108,8 +108,8 @@ async def _scrape_and_store(db, prop: "Property"):
                         target_date=date.fromisoformat(p.target_date),
                         competitor_name=p.competitor_name,
                         price=p.price,
-                        available_rooms=p.available_rooms,
-                        plans_available=p.available_rooms,  # 楽天APIではplans_availableとavailable_roomsは同一
+                        available_rooms=p.available_rooms,     # hotelReserveInfo.reserveRecordCount
+                        plans_available=p.available_rooms,     # 同上（需要カーブ分析用）
                         source_url=p.source_url,
                     ))
             # rakuten_no未設定のものはmockにフォールバック

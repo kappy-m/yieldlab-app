@@ -104,13 +104,21 @@ async def debug_env():
 
 @app.post("/admin/test-rakuten")
 async def test_rakuten():
-    """楽天APIの疎通テスト（本日の3ホテル価格取得）"""
+    """
+    楽天APIの疎通テスト（日本橋競合3ホテル・本日分）
+    price + reserve_record_count (hotelReserveInfo.reserveRecordCount) の両方を確認する
+    """
     from datetime import date
     from .services.rakuten_scraper import fetch_rakuten_prices_batch
     today = date.today().isoformat()
     try:
-        prices = await fetch_rakuten_prices_batch(["184685", "184598", "78151"], today)
-        return {"status": "ok", "date": today, "prices": prices}
+        result = await fetch_rakuten_prices_batch(["184685", "184598", "78151"], today)
+        return {
+            "status": "ok",
+            "date": today,
+            "hotels": result,
+            "note": "reserve_record_count = hotelReserveInfo.reserveRecordCount（予約候補総件数・在庫代理指標）",
+        }
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
