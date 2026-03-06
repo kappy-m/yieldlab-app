@@ -16,7 +16,13 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
-      <DashboardHeader propertyId={propertyId} onPropertyChange={setPropertyId} />
+      <DashboardHeader
+        propertyId={propertyId}
+        onPropertyChange={(id) => {
+          setPropertyId(id);
+          setActiveTab("daily");
+        }}
+      />
       <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="max-w-[1400px] mx-auto px-6 py-5">
         {activeTab === "daily"      && <DailyTab propertyId={propertyId} />}
