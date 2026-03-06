@@ -25,6 +25,35 @@ async def _auto_seed_if_empty():
             logger.info("Seed completed.")
 
 
+async def _auto_pipeline_if_prices_empty():
+    """
+    起動時に競合価格データが空ならパイプラインを自動実行する。
+
+    SQLiteはデプロイごとにリセットされるため、再デプロイ後に
+    競合価格データが空になる問題を自動で解消する。
+    Postgresに移行後は不要になるが、SQLite環境でも安全に動作する。
+    """
+    import logging
+    from sqlalchemy import text
+    from .database import AsyncSessionLocal
+    logger = logging.getLogger(__name__)
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(text("SELECT COUNT(*) FROM competitor_prices"))
+        price_count = result.scalar()
+
+    if price_count == 0:
+        logger.info("[AutoPipeline] competitor_prices is empty — scheduling pipeline for all properties...")
+        import asyncio
+        from .services.scheduler import run_daily_pipeline
+        # 起動完了後にバックグラウンドで実行（起動をブロックしない）
+        asyncio.create_task(run_daily_pipeline())
+        logger.info("[AutoPipeline] Pipeline task created.")
+    else:
+        import logging as _l
+        _l.getLogger(__name__).info(f"[AutoPipeline] {price_count} price records found — skip auto-pipeline.")
+
+
 import logging
 _logger = logging.getLogger(__name__)
 
@@ -38,6 +67,7 @@ async def lifespan(app: FastAPI):
     try:
         await init_db()
         await _auto_seed_if_empty()
+        await _auto_pipeline_if_prices_empty()
         _db_ready = True
         _logger.info("Database initialized and seeded.")
     except Exception as e:
@@ -93,12 +123,21 @@ async def trigger_pipeline(property_id: int):
 
 @app.get("/admin/debug-env")
 async def debug_env():
-    """環境変数の設定状況を確認（値は非公開）"""
+    """環境変数の設定状況を確認（機密値は非公開・プレフィックスのみ）"""
     import os
+    db_url = os.environ.get("DATABASE_URL", "")
+    db_type = (
+        "postgresql" if "postgresql" in db_url or "postgres" in db_url
+        else "sqlite" if "sqlite" in db_url
+        else "sqlite(default)" if not db_url else "unknown"
+    )
     return {
         "RAKUTEN_APP_ID_set":     bool(os.environ.get("RAKUTEN_APP_ID")),
         "RAKUTEN_ACCESS_KEY_set": bool(os.environ.get("RAKUTEN_ACCESS_KEY")),
         "RAKUTEN_APP_ID_prefix":  (os.environ.get("RAKUTEN_APP_ID") or "")[:8] + "...",
+        "DATABASE_URL_set":       bool(db_url),
+        "db_type":                db_type,
+        "note": "sqliteの場合はデプロイごとにデータがリセットされます。PostgreSQLへの移行を推奨。",
     }
 
 
