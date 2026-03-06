@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer, ReferenceLine,
+  Legend, ResponsiveContainer,
 } from "recharts";
 import { RefreshCw, ExternalLink, TrendingUp, TrendingDown, Minus, AlertCircle } from "lucide-react";
 import {
@@ -325,7 +325,7 @@ export function CompetitorTab() {
                 width={55}
               />
               <Tooltip
-                formatter={(v: number, name: string) => [formatPrice(v), name]}
+                formatter={(v: number | undefined, name: string | undefined) => [v != null ? formatPrice(v) : "—", name ?? ""]}
                 contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #E2E8F0" }}
               />
               <Legend iconType="line" wrapperStyle={{ fontSize: 11 }} />
@@ -339,7 +339,7 @@ export function CompetitorTab() {
                 strokeDasharray="0"
               />
               {/* 競合各社 */}
-              {compSummaries.map((c, i) => (
+              {compSummaries.map((c) => (
                 <Line
                   key={c.name}
                   type="monotone"

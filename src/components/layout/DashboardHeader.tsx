@@ -8,10 +8,10 @@ import { fetchProperties } from "@/lib/api";
 interface Property {
   id: number;
   name: string;
-  brand?: string;
-  address?: string;
-  star_rating?: number;
-  total_rooms?: number;
+  brand?: string | null;
+  address?: string | null;
+  star_rating?: number | null;
+  total_rooms?: number | null;
 }
 
 export function DashboardHeader() {

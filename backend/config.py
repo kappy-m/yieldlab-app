@@ -31,7 +31,16 @@ class Settings(BaseSettings):
         return v
 
     def allowed_origins(self) -> list[str]:
-        origins = [self.FRONTEND_URL, "http://localhost:3000", "http://localhost:3100"]
+        origins = [
+            self.FRONTEND_URL,
+            "http://localhost:3000",
+            "http://localhost:3010",
+            "http://localhost:3100",
+            # Vercel本番ドメイン
+            "https://app.yieldlab.dev",
+            "https://yieldlab.dev",
+            # Vercelプレビューデプロイ（*.vercel.app）はEXTRA_CORS_ORIGINSで追加
+        ]
         if self.EXTRA_CORS_ORIGINS:
             origins += [o.strip() for o in self.EXTRA_CORS_ORIGINS.split(",") if o.strip()]
         return list(set(origins))
