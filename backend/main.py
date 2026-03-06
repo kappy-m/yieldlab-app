@@ -90,6 +90,30 @@ async def trigger_pipeline(property_id: int):
     return {"status": "pipeline_started", "property_id": property_id}
 
 
+@app.get("/admin/debug-env")
+async def debug_env():
+    """環境変数の設定状況を確認（値は非公開）"""
+    import os
+    return {
+        "RAKUTEN_APP_ID_set":     bool(os.environ.get("RAKUTEN_APP_ID")),
+        "RAKUTEN_ACCESS_KEY_set": bool(os.environ.get("RAKUTEN_ACCESS_KEY")),
+        "RAKUTEN_APP_ID_prefix":  (os.environ.get("RAKUTEN_APP_ID") or "")[:8] + "...",
+    }
+
+
+@app.post("/admin/test-rakuten")
+async def test_rakuten():
+    """楽天APIの疎通テスト（本日の3ホテル価格取得）"""
+    from datetime import date
+    from .services.rakuten_scraper import fetch_rakuten_prices_batch
+    today = date.today().isoformat()
+    try:
+        prices = await fetch_rakuten_prices_batch(["184685", "184598", "78151"], today)
+        return {"status": "ok", "date": today, "prices": prices}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @app.post("/admin/reset-seed")
 async def reset_seed():
     """DB全削除 → 最新シードを再投入（comp-set変更時のリセット用）"""
