@@ -118,14 +118,66 @@ async def test_rakuten():
 @app.post("/admin/reset-seed")
 async def reset_seed():
     """DB全削除 → 最新シードを再投入（comp-set変更時のリセット用）"""
+    import traceback
     from sqlalchemy import text
     from .database import AsyncSessionLocal, init_db
     _logger.warning("[Admin] reset-seed called — dropping and re-seeding DB")
-    async with engine.begin() as conn:
-        from . import models  # noqa
-        await conn.run_sync(models.Base.metadata.drop_all)
-        await conn.run_sync(models.Base.metadata.create_all)
-    from .seed_runner import run_seed
-    await run_seed()
-    _logger.info("[Admin] reset-seed completed")
-    return {"status": "reset_complete"}
+    try:
+        async with engine.begin() as conn:
+            from . import models  # noqa
+            await conn.run_sync(models.Base.metadata.drop_all)
+            await conn.run_sync(models.Base.metadata.create_all)
+        from .seed_runner import run_seed
+        await run_seed()
+        _logger.info("[Admin] reset-seed completed")
+        return {"status": "reset_complete"}
+    except Exception as e:
+        err = traceback.format_exc()
+        _logger.error(f"[Admin] reset-seed FAILED: {err}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/admin/patch-comp-set")
+async def patch_comp_set():
+    """既存のComp-Setエントリを最新のseed定義で更新する（DBリセット不要）"""
+    from sqlalchemy import select
+    from .database import AsyncSessionLocal
+    from .models import CompSet, Property
+    from .seed_runner import COMP_HOTELS, CANVAS_COMP_HOTELS
+    _logger.info("[Admin] patch-comp-set called")
+    updated = 0
+    async with AsyncSessionLocal() as session:
+        # 全プロパティ取得
+        props = (await session.execute(select(Property))).scalars().all()
+        prop_map = {p.cm_property_code: p.id for p in props}
+
+        nihonbashi_id = prop_map.get("RPH_NIHONBASHI_001")
+        canvas_id = prop_map.get("RPH_CANVAS_GINZA_001")
+
+        updates = []
+        if nihonbashi_id:
+            updates += [(nihonbashi_id, h) for h in COMP_HOTELS]
+        if canvas_id:
+            updates += [(canvas_id, h) for h in CANVAS_COMP_HOTELS]
+
+        for prop_id, hotel_def in updates:
+            existing = (await session.execute(
+                select(CompSet).where(
+                    CompSet.property_id == prop_id,
+                    CompSet.expedia_hotel_id == hotel_def["expedia_id"]
+                )
+            )).scalar_one_or_none()
+
+            if existing:
+                existing.name = hotel_def["name"]
+                existing.rakuten_hotel_no = hotel_def.get("rakuten_no")
+                existing.scrape_mode = hotel_def.get("scrape_mode", "mock")
+                updated += 1
+                _logger.info(f"  Updated: {hotel_def['name']} → rakuten={hotel_def.get('rakuten_no')} mode={hotel_def.get('scrape_mode')}")
+            else:
+                _logger.warning(f"  Not found: expedia_id={hotel_def['expedia_id']} for property {prop_id}")
+
+        await session.commit()
+    _logger.info(f"[Admin] patch-comp-set done. {updated} entries updated.")
+    return {"status": "ok", "updated": updated}
