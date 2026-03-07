@@ -255,35 +255,67 @@ async def debug_env():
 
 @app.post("/admin/test-rating-fetch")
 async def test_rating_fetch():
-    """楽天 HotelDetailSearch の直接テスト（評価API デバッグ用）"""
+    """楽天 HotelDetailSearch の直接テスト（生レスポンス確認含む）"""
     import os, traceback
-    from .services.rakuten_rating_fetcher import fetch_hotel_rating
     import httpx
 
     app_id     = os.environ.get("RAKUTEN_APP_ID", "")
     access_key = os.environ.get("RAKUTEN_ACCESS_KEY", "")
-    results = {}
-    errors  = {}
+    ENDPOINT = "https://openapi.rakuten.co.jp/engine/api/Travel/HotelDetailSearch/20170426"
+
+    raw_responses = {}
+    parsed_results = {}
 
     async with httpx.AsyncClient() as client:
-        for hotel_no in ["184685", "5002", "80756"]:
+        for hotel_no in ["184685", "5002"]:
+            params = {
+                "applicationId": app_id,
+                "accessKey": access_key,
+                "hotelNo": hotel_no,
+                "responseType": "middle",
+                "formatVersion": "2",
+                "format": "json",
+            }
             try:
-                r = await fetch_hotel_rating(hotel_no, client, app_id, access_key)
-                results[hotel_no] = {
-                    "overall": r.overall if r else None,
-                    "review_count": r.review_count if r else None,
-                    "service": r.service if r else None,
-                    "location": r.location if r else None,
-                    "status": "ok" if r else "None returned",
+                resp = await client.get(ENDPOINT, params=params, timeout=15.0)
+                raw_data = resp.json()
+                raw_responses[hotel_no] = {
+                    "status_code": resp.status_code,
+                    # レスポンスのトップレベルキーのみ記録（全データは大きすぎる場合があるため）
+                    "top_level_keys": list(raw_data.keys()) if isinstance(raw_data, dict) else str(type(raw_data)),
+                    "hotels_count": len(raw_data.get("hotels", [])) if isinstance(raw_data, dict) else None,
+                    # 最初のホテルデータのブロックキーを確認
+                    "first_hotel_block_keys": (
+                        [list(b.keys()) for b in raw_data["hotels"][0].get("hotel", [])]
+                        if isinstance(raw_data, dict) and raw_data.get("hotels")
+                        else None
+                    ),
+                    # hotelBasicInfoのキー
+                    "basic_info_keys": (
+                        list(raw_data["hotels"][0]["hotel"][0]["hotelBasicInfo"].keys())
+                        if (isinstance(raw_data, dict) and raw_data.get("hotels")
+                            and raw_data["hotels"][0].get("hotel")
+                            and raw_data["hotels"][0]["hotel"][0].get("hotelBasicInfo"))
+                        else "not found"
+                    ),
+                    # reviewAverageの値
+                    "reviewAverage": (
+                        raw_data["hotels"][0]["hotel"][0]["hotelBasicInfo"].get("reviewAverage")
+                        if (isinstance(raw_data, dict) and raw_data.get("hotels")
+                            and raw_data["hotels"][0].get("hotel")
+                            and raw_data["hotels"][0]["hotel"][0].get("hotelBasicInfo"))
+                        else "path not found"
+                    ),
+                    # エラーの場合
+                    "error": raw_data.get("error"),
                 }
             except Exception as e:
-                errors[hotel_no] = f"{type(e).__name__}: {e}\n{traceback.format_exc()[-300:]}"
+                raw_responses[hotel_no] = {"exception": f"{type(e).__name__}: {e}"}
 
     return {
         "app_id_set": bool(app_id),
         "access_key_set": bool(access_key),
-        "results": results,
-        "errors": errors,
+        "raw_responses": raw_responses,
     }
 
 
