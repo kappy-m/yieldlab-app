@@ -41,9 +41,11 @@ class CompetitorRating(Base):
     meal_score: Mapped[float | None] = mapped_column(Float, nullable=True)      # 食事
 
     # Google / TripAdvisor 用の汎用スコア（将来拡張）
-    # Google: cleanliness, service, location, value, etc.
-    # TripAdvisor: sleep_quality, value, rooms, location, cleanliness, service
     extra_scores: Mapped[str | None] = mapped_column(String(500), nullable=True)  # JSON文字列
+
+    # 口コミ・レビュー
+    user_review: Mapped[str | None] = mapped_column(String(2000), nullable=True)  # 最新1件のレビュー本文
+    review_url: Mapped[str | None] = mapped_column(String(500), nullable=True)     # レビューページURL
 
     fetched_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow

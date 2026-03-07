@@ -41,6 +41,8 @@ class HotelRatingData:
     equipment: float | None
     bath: float | None
     meal: float | None
+    user_review: str | None = None   # お客さまの声（最新1件）
+    review_url: str | None = None    # 楽天レビューページURL
 
 
 async def fetch_hotel_rating(
@@ -124,6 +126,10 @@ async def fetch_hotel_rating(
                 except (TypeError, ValueError):
                     return None
 
+            # お客さまの声（最新1件）- 文字数制限してクリーンアップ
+            raw_review = basic_info.get("userReview") or ""
+            user_review = raw_review.strip()[:1500] if raw_review else None
+
             return HotelRatingData(
                 rakuten_no=rakuten_no,
                 overall=_safe_float(basic_info.get("reviewAverage")),
@@ -134,6 +140,8 @@ async def fetch_hotel_rating(
                 equipment=_safe_float(rating_info.get("equipmentAverage")),
                 bath=_safe_float(rating_info.get("bathAverage")),
                 meal=_safe_float(rating_info.get("mealAverage")),
+                user_review=user_review if user_review else None,
+                review_url=basic_info.get("reviewUrl"),
             )
 
         except httpx.TimeoutException:

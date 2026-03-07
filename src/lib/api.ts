@@ -348,6 +348,8 @@ export interface CompetitorRatingOut {
   overall: number | null;
   review_count: number | null;
   categories: RatingCategoryOut;
+  user_review: string | null;
+  review_url: string | null;
   fetched_at: string;
 }
 

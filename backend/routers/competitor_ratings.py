@@ -47,6 +47,8 @@ class CompetitorRatingOut(BaseModel):
     overall: float | None
     review_count: int | None
     categories: RatingCategoryOut
+    user_review: str | None
+    review_url: str | None
     fetched_at: datetime.datetime
 
     class Config:
@@ -81,6 +83,8 @@ async def list_competitor_ratings(
                 bath=r.bath_score,
                 meal=r.meal_score,
             ),
+            user_review=r.user_review,
+            review_url=r.review_url,
             fetched_at=r.fetched_at,
         )
         for r in rows
@@ -139,6 +143,8 @@ async def _run_rating_fetch(property_id: int, comp_list: list[dict]):
                 row.equipment_score = r.equipment
                 row.bath_score = r.bath
                 row.meal_score = r.meal
+                row.user_review = r.user_review
+                row.review_url = r.review_url
                 row.fetched_at = datetime.datetime.utcnow()
             else:
                 db.add(CompetitorRating(
@@ -154,6 +160,8 @@ async def _run_rating_fetch(property_id: int, comp_list: list[dict]):
                     equipment_score=r.equipment,
                     bath_score=r.bath,
                     meal_score=r.meal,
+                    user_review=r.user_review,
+                    review_url=r.review_url,
                 ))
         await db.commit()
     logger.info("Rating fetch done: property_id=%d, saved=%d", property_id, len(results))
