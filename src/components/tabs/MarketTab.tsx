@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Calendar, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchMarketEvents, type MarketEventOut } from "@/lib/api";
+import { Skeleton, SkeletonEventCards } from "@/components/shared/Skeleton";
 
 const IMPACT_BADGE: Record<string, string> = {
   "影響大": "text-green-700 bg-green-50 border border-green-200",
@@ -66,15 +67,39 @@ export function MarketTab({ propertyId }: { propertyId: number }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 gap-3 text-slate-400">
-        <RefreshCw className="w-5 h-5 animate-spin" />
-        <span className="text-sm">マーケット情報を取得中...</span>
+      <div className="space-y-5 animate-in fade-in duration-300">
+        {/* ヘッダー */}
+        <div className="flex items-center justify-between">
+          <div className="space-y-1.5">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-3 w-56" />
+          </div>
+        </div>
+        {/* KPIバッジ */}
+        <div className="flex gap-3">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="yl-card px-4 py-3 min-w-[120px] space-y-1.5">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-6 w-10" />
+            </div>
+          ))}
+        </div>
+        {/* アラート */}
+        <div className="yl-card p-4 space-y-2">
+          <Skeleton className="h-3.5 w-32 mb-3" />
+          <SkeletonEventCards count={2} />
+        </div>
+        {/* イベントリスト */}
+        <div className="yl-card p-5 space-y-2">
+          <Skeleton className="h-3.5 w-28 mb-4" />
+          <SkeletonEventCards count={6} />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 animate-in fade-in duration-300">
       {/* ヘッダー */}
       <div className="flex items-center justify-between">
         <div>

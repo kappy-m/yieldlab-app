@@ -30,3 +30,4 @@ class Property(Base):
     recommendations: Mapped[list["Recommendation"]] = relationship(back_populates="property")
     comp_sets: Mapped[list["CompSet"]] = relationship(back_populates="property")
     daily_performances: Mapped[list["DailyPerformance"]] = relationship(back_populates="property")
+    competitor_ratings: Mapped[list["CompetitorRating"]] = relationship(back_populates="property")

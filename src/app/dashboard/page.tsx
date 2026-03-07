@@ -11,6 +11,15 @@ import { MarketTab } from "@/components/tabs/MarketTab";
 import { PlaceholderTab } from "@/components/tabs/PlaceholderTab";
 import { SettingsTab } from "@/components/tabs/SettingsTab";
 
+// コンテンツ型タブは常にマウントしておき、CSSで表示/非表示を切り替える。
+// アンマウントしないことで:
+//   1. タブ切り替えが即時（再フェッチなし）
+//   2. スクロール位置・フォーム入力が保持される
+//   3. 物件切り替え時は key={propertyId} でのみリセット
+const ALWAYS_MOUNTED_TABS: TabId[] = [
+  "daily", "pricing", "competitor", "booking", "market", "settings",
+];
+
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<TabId>("daily");
   const [propertyId, setPropertyId] = useState<number>(1);
@@ -26,14 +35,26 @@ export default function DashboardPage() {
       />
       <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
       <main className="max-w-[1400px] mx-auto px-6 py-5">
-        {activeTab === "daily"      && <DailyTab propertyId={propertyId} />}
-        {activeTab === "pricing"    && <PricingTab propertyId={propertyId} />}
-        {activeTab === "competitor" && <CompetitorTab propertyId={propertyId} />}
-        {activeTab === "booking"    && <BookingTab />}
-        {activeTab === "market"     && <MarketTab propertyId={propertyId} />}
-        {activeTab === "cost"       && <PlaceholderTab label="コスト分析" phase="Phase 3" />}
-        {activeTab === "budget"     && <PlaceholderTab label="予算設定" phase="Phase 3" />}
-        {activeTab === "settings"   && <SettingsTab propertyId={propertyId} />}
+        {/* 常時マウントタブ: CSSで表示切り替え（瞬時遷移） */}
+        {ALWAYS_MOUNTED_TABS.map((tab) => (
+          <div
+            key={tab}
+            className={activeTab === tab ? "block" : "hidden"}
+            aria-hidden={activeTab !== tab}
+          >
+            {/* key={propertyId} により物件変更時だけ再マウント（再フェッチ） */}
+            {tab === "daily"      && <DailyTab      key={propertyId} propertyId={propertyId} />}
+            {tab === "pricing"    && <PricingTab    key={propertyId} propertyId={propertyId} />}
+            {tab === "competitor" && <CompetitorTab key={propertyId} propertyId={propertyId} />}
+            {tab === "booking"    && <BookingTab    key={propertyId} />}
+            {tab === "market"     && <MarketTab     key={propertyId} propertyId={propertyId} />}
+            {tab === "settings"   && <SettingsTab   key={propertyId} propertyId={propertyId} />}
+          </div>
+        ))}
+
+        {/* プレースホルダータブ: 軽量なのでオンデマンドレンダリング */}
+        {activeTab === "cost"   && <PlaceholderTab label="コスト分析" phase="Phase 3" />}
+        {activeTab === "budget" && <PlaceholderTab label="予算設定"   phase="Phase 3" />}
       </main>
     </div>
   );

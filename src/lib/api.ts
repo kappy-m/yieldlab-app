@@ -329,6 +329,39 @@ export function fetchDailySummary(propertyId: number) {
   return apiFetch<DailySummaryOut>(`/properties/${propertyId}/daily-performance/summary`);
 }
 
+// ---- Competitor Ratings ----
+
+export interface RatingCategoryOut {
+  service: number | null;
+  location: number | null;
+  room: number | null;
+  equipment: number | null;
+  bath: number | null;
+  meal: number | null;
+}
+
+export interface CompetitorRatingOut {
+  id: number;
+  hotel_name: string;
+  rakuten_no: string | null;
+  source: "rakuten" | "google" | "tripadvisor";
+  overall: number | null;
+  review_count: number | null;
+  categories: RatingCategoryOut;
+  fetched_at: string;
+}
+
+export function fetchCompetitorRatings(propertyId: number) {
+  return apiFetch<CompetitorRatingOut[]>(`/properties/${propertyId}/competitor-ratings/`);
+}
+
+export function refreshCompetitorRatings(propertyId: number) {
+  return apiFetch<{ status: string; targets: number }>(
+    `/properties/${propertyId}/competitor-ratings/refresh`,
+    { method: "POST" }
+  );
+}
+
 export function fetchDailyPerformances(
   propertyId: number,
   params?: { date_from?: string; date_to?: string; limit?: number }

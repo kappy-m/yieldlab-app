@@ -18,6 +18,10 @@ import {
   type CompSetOut,
   type PricingCellOut,
 } from "@/lib/api";
+import { SkeletonChart, SkeletonTable, SkeletonCardGrid } from "@/components/shared/Skeleton";
+import { RatingPanel } from "./RatingPanel";
+
+type SubTab = "price" | "rating";
 
 // 競合ホテルカラーパレット
 const COMP_COLORS = ["#EF4444", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#06B6D4"];
@@ -81,6 +85,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [displayDays, setDisplayDays] = useState<14 | 30 | 90>(30);
+  const [subTab, setSubTab] = useState<SubTab>("price");
 
   const today = new Date().toISOString().slice(0, 10);
   const dateFrom = today;
@@ -203,17 +208,72 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
     ? Math.round(((ownTodayPrice - todayAvg.avg_price) / todayAvg.avg_price) * 100)
     : null;
 
+  // 今日の競合価格マップ（RatingPanelに渡す）- Hooksはconditional returnより前に置く
+  const compPriceMapToday = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const c of compSummaries) {
+      if (c.todayPrice != null) map[c.name] = c.todayPrice;
+    }
+    return map;
+  }, [compSummaries]);
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64 text-slate-400">
-        <RefreshCw className="w-5 h-5 animate-spin mr-2" />
-        <span className="text-sm">競合価格データを読み込み中...</span>
+      <div className="space-y-5 animate-in fade-in duration-300">
+        {/* ヘッダー KPI */}
+        <div className="flex gap-4">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="yl-card px-4 py-3 min-w-[140px] space-y-1.5">
+              <div className="h-3 w-20 bg-slate-200 rounded animate-pulse" />
+              <div className="h-6 w-28 bg-slate-200 rounded animate-pulse" />
+              <div className="h-2.5 w-32 bg-slate-200 rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+        {/* 競合セットバッジ */}
+        <div className="yl-card p-4">
+          <div className="h-3.5 w-24 bg-slate-200 rounded animate-pulse mb-3" />
+          <SkeletonCardGrid count={6} cols={3} />
+        </div>
+        {/* チャート */}
+        <SkeletonChart height={280} />
+        {/* テーブル */}
+        <SkeletonTable rows={6} cols={10} />
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 animate-in fade-in duration-300">
+      {/* サブタブ: 価格 | 評価 */}
+      <div className="flex items-center gap-1 border-b border-slate-200">
+        {(["price", "rating"] as SubTab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setSubTab(tab)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer ${
+              subTab === tab
+                ? "border-[#1E3A8A] text-[#1E3A8A]"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            {tab === "price" ? "価格モニター" : "評価モニター"}
+          </button>
+        ))}
+      </div>
+
+      {/* 評価タブ */}
+      {subTab === "rating" && (
+        <RatingPanel
+          propertyId={propertyId}
+          propertyName={propertyName}
+          ownTodayPrice={ownTodayPrice}
+          compPriceMap={compPriceMapToday}
+        />
+      )}
+
+      {/* 価格タブ */}
+      {subTab === "price" && <>
       {/* ヘッダー：KPI + 更新ボタン */}
       <div className="flex items-start justify-between">
         <div className="flex gap-4">
@@ -513,6 +573,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
           </div>
         </div>
       </div>
+      </> /* end price tab */}
     </div>
   );
 }

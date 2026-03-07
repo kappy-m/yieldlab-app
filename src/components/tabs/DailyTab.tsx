@@ -18,6 +18,12 @@ import {
   type PricingCellOut,
   type MarketEventOut,
 } from "@/lib/api";
+import {
+  SkeletonAiCard,
+  SkeletonKpiCards,
+  SkeletonChart,
+  SkeletonEventCards,
+} from "@/components/shared/Skeleton";
 
 // ブッキングカーブ（サンプルデータ）
 const curveData = [
@@ -96,10 +102,12 @@ export function DailyTab({ propertyId }: { propertyId: number }) {
   const [compAvgs, setCompAvgs] = useState<CompetitorAvgOut[]>([]);
   const [pricingRows, setPricingRows] = useState<PricingCellOut[]>([]);
   const [events, setEvents] = useState<MarketEventOut[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);   // 初回ロード中
+  const [refreshing, setRefreshing] = useState(false);  // 再取得中（既存データ表示維持）
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
     try {
       const dateTo = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
       const [perfRes, compRes, priceRes, eventsRes] = await Promise.allSettled([
@@ -114,6 +122,7 @@ export function DailyTab({ propertyId }: { propertyId: number }) {
       if (eventsRes.status === "fulfilled") setEvents(eventsRes.value);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [propertyId, todayStr]);
 
@@ -181,20 +190,52 @@ export function DailyTab({ propertyId }: { propertyId: number }) {
     ADR: r.adr,
   }));
 
+  // 初回ロード中はスケルトンを表示
+  if (loading) {
+    return (
+      <div className="space-y-5 animate-in fade-in duration-300">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1.5">
+            <div className="h-4 w-36 bg-slate-200 rounded animate-pulse" />
+            <div className="h-3 w-48 bg-slate-200 rounded animate-pulse" />
+          </div>
+        </div>
+        <SkeletonAiCard />
+        <div className="yl-card p-5">
+          <div className="h-3.5 w-28 bg-slate-200 rounded animate-pulse mb-4" />
+          <SkeletonKpiCards />
+        </div>
+        <div className="flex gap-4">
+          <div className="flex-1"><SkeletonChart height={200} /></div>
+          <div className="w-72 space-y-4">
+            <div className="yl-card p-4 h-40">
+              <div className="h-3 w-20 bg-slate-200 rounded animate-pulse mb-3" />
+              <SkeletonEventCards count={2} />
+            </div>
+            <div className="yl-card p-4 h-40">
+              <div className="h-3 w-20 bg-slate-200 rounded animate-pulse mb-3" />
+              <SkeletonEventCards count={2} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div>
+    <div className="animate-in fade-in duration-300">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="text-base font-semibold text-gray-900">デイリーダッシュボード</h2>
           <p className="text-xs text-gray-400">{todayLabel}</p>
         </div>
         <button
-          onClick={load}
-          disabled={loading}
+          onClick={() => load(true)}
+          disabled={refreshing}
           className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
         >
-          <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
-          更新
+          <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "更新中..." : "更新"}
         </button>
       </div>
 

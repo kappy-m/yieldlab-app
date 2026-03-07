@@ -9,6 +9,7 @@ from .pricing_grid import PricingGrid
 from .recommendation import Recommendation
 from .approval_log import ApprovalLog
 from .daily_performance import DailyPerformance
+from .competitor_rating import CompetitorRating
 
 __all__ = [
     "Organization",
@@ -22,4 +23,5 @@ __all__ = [
     "Recommendation",
     "ApprovalLog",
     "DailyPerformance",
+    "CompetitorRating",
 ]

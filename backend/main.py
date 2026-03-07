@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from .database import init_db, engine
 from .config import settings
 from .routers import properties, pricing, recommendations, competitor, comp_set, market
-from .routers import daily_performance
+from .routers import daily_performance, competitor_ratings
 from .services.scheduler import create_scheduler
 
 _scheduler = create_scheduler()
@@ -84,6 +84,43 @@ async def _auto_seed_daily_perf_if_empty():
         logger.info("[AutoSeed] daily_performances seeded.")
 
 
+async def _auto_fetch_ratings_if_empty():
+    """
+    起動時に competitor_ratings が空なら楽天 HotelDetailSearch で全物件の評価を取得する。
+    """
+    import logging
+    from sqlalchemy import text, select
+    from .database import AsyncSessionLocal
+    logger = logging.getLogger(__name__)
+
+    async with AsyncSessionLocal() as db:
+        props_count   = (await db.execute(text("SELECT COUNT(*) FROM properties"))).scalar()
+        rating_count  = (await db.execute(text("SELECT COUNT(*) FROM competitor_ratings"))).scalar()
+
+    if props_count > 0 and rating_count == 0:
+        logger.info("[AutoRating] competitor_ratings is empty — starting initial fetch...")
+        import asyncio
+        from .models.comp_set import CompSet
+        from .routers.competitor_ratings import _run_rating_fetch
+        async with AsyncSessionLocal() as db:
+            props = (await db.execute(text("SELECT id FROM properties"))).all()
+        for (pid,) in props:
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(CompSet).where(
+                        CompSet.property_id == pid,
+                        CompSet.is_active == True,
+                        CompSet.rakuten_hotel_no != None,
+                    )
+                )
+                comp_sets = result.scalars().all()
+            comp_list = [{"name": c.name, "rakuten_hotel_no": c.rakuten_hotel_no} for c in comp_sets]
+            asyncio.create_task(_run_rating_fetch(pid, comp_list))
+        logger.info("[AutoRating] Rating fetch tasks created for %d properties.", len(props))
+    else:
+        logger.info("[AutoRating] %d rating records found — skip auto-fetch.", rating_count)
+
+
 async def _auto_pipeline_if_prices_empty():
     """
     起動時に競合価格データが空ならパイプラインを自動実行する。
@@ -128,6 +165,7 @@ async def lifespan(app: FastAPI):
         await _auto_seed_if_empty()
         await _auto_seed_daily_perf_if_empty()
         await _auto_pipeline_if_prices_empty()
+        await _auto_fetch_ratings_if_empty()
         _db_ready = True
         _logger.info("Database initialized and seeded.")
     except Exception as e:
@@ -160,6 +198,7 @@ app.include_router(competitor.router)
 app.include_router(comp_set.router)
 app.include_router(market.router)
 app.include_router(daily_performance.router)
+app.include_router(competitor_ratings.router)
 
 
 @app.get("/health")
@@ -170,7 +209,7 @@ async def health():
         from sqlalchemy import text
         from .database import AsyncSessionLocal
         async with AsyncSessionLocal() as db:
-            for table in ["properties", "competitor_prices", "daily_performances", "pricing_grids"]:
+            for table in ["properties", "competitor_prices", "daily_performances", "pricing_grids", "competitor_ratings"]:
                 count = (await db.execute(text(f"SELECT COUNT(*) FROM {table}"))).scalar()
                 db_stats[table] = count
     except Exception as e:
