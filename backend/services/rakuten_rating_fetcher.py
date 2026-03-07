@@ -17,7 +17,8 @@ responseType=middle で hotelRatingInfo まで取得可能。
 import asyncio
 import logging
 import os
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 
 import httpx
 
@@ -28,6 +29,26 @@ RAKUTEN_DETAIL_ENDPOINT = (
 )
 
 _RETRY_DELAYS = [3, 6, 12]  # 指数バックオフ（秒）
+
+
+_HTML_TAG_RE  = re.compile(r"<[^>]+>")
+_DATE_RE      = re.compile(r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s*投稿")
+_CONTINUATION = re.compile(r"(つづきはこちら|続きはこちら|…|\.\.\.)\s*$")
+
+
+def _clean_review(raw: str) -> tuple[str, str | None]:
+    """楽天 userReview からHTMLタグ・日付を除去し (clean_text, date_str) を返す"""
+    # HTML タグ削除
+    text = _HTML_TAG_RE.sub("", raw)
+    # 日付を抽出・除去
+    date_match = _DATE_RE.search(text)
+    date_str = date_match.group(0).replace("投稿", "").strip() if date_match else None
+    text = _DATE_RE.sub("", text).strip()
+    # 末尾の継続文字除去
+    text = _CONTINUATION.sub("", text).strip()
+    # 余分な空白・改行を整形
+    text = re.sub(r"\s{2,}", " ", text)
+    return text, date_str
 
 
 @dataclass
@@ -41,8 +62,9 @@ class HotelRatingData:
     equipment: float | None
     bath: float | None
     meal: float | None
-    user_review: str | None = None   # お客さまの声（最新1件）
+    user_review: str | None = None   # お客さまの声（最新1件・HTMLタグ除去済み）
     review_url: str | None = None    # 楽天レビューページURL
+    review_date: str | None = None   # 投稿日 (YYYY-MM-DD HH:MM:SS)
 
 
 async def fetch_hotel_rating(
@@ -126,9 +148,13 @@ async def fetch_hotel_rating(
                 except (TypeError, ValueError):
                     return None
 
-            # お客さまの声（最新1件）- 文字数制限してクリーンアップ
+            # お客さまの声（最新1件）- HTMLタグ除去・日付抽出
             raw_review = basic_info.get("userReview") or ""
-            user_review = raw_review.strip()[:1500] if raw_review else None
+            if raw_review:
+                clean_text, review_date = _clean_review(raw_review)
+                user_review = clean_text[:1500] if clean_text else None
+            else:
+                user_review, review_date = None, None
 
             return HotelRatingData(
                 rakuten_no=rakuten_no,
@@ -140,8 +166,9 @@ async def fetch_hotel_rating(
                 equipment=_safe_float(rating_info.get("equipmentAverage")),
                 bath=_safe_float(rating_info.get("bathAverage")),
                 meal=_safe_float(rating_info.get("mealAverage")),
-                user_review=user_review if user_review else None,
+                user_review=user_review,
                 review_url=basic_info.get("reviewUrl"),
+                review_date=review_date,
             )
 
         except httpx.TimeoutException:

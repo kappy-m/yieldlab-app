@@ -105,6 +105,16 @@ async def _migrate_competitor_ratings_columns():
             migrations.append("ALTER TABLE competitor_ratings ADD COLUMN user_review TEXT")
         if "review_url" not in columns:
             migrations.append("ALTER TABLE competitor_ratings ADD COLUMN review_url TEXT")
+        if "is_own_property" not in columns:
+            migrations.append("ALTER TABLE competitor_ratings ADD COLUMN is_own_property INTEGER DEFAULT 0")
+        if "review_date" not in columns:
+            migrations.append("ALTER TABLE competitor_ratings ADD COLUMN review_date TEXT")
+
+        # properties テーブルへのカラム追加
+        result2 = await db.execute(text("PRAGMA table_info(properties)"))
+        prop_columns = {row[1] for row in result2.all()}
+        if "own_rakuten_hotel_no" not in prop_columns:
+            migrations.append("ALTER TABLE properties ADD COLUMN own_rakuten_hotel_no TEXT")
 
         if migrations:
             for sql in migrations:

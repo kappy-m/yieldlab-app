@@ -20,6 +20,7 @@ class Property(Base):
     checkin_time: Mapped[str | None] = mapped_column(String(10))    # チェックイン時刻
     checkout_time: Mapped[str | None] = mapped_column(String(10))   # チェックアウト時刻
     website_url: Mapped[str | None] = mapped_column(String(300))    # 公式サイト
+    own_rakuten_hotel_no: Mapped[str | None] = mapped_column(String(20), nullable=True)  # 自社の楽天ホテル番号
 
     organization: Mapped["Organization"] = relationship(back_populates="properties")
     bar_ladders: Mapped[list["BarLadder"]] = relationship(back_populates="property")

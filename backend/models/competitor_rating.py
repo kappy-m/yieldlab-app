@@ -24,6 +24,7 @@ class CompetitorRating(Base):
     # ホテル識別
     hotel_name: Mapped[str] = mapped_column(String(200))
     rakuten_no: Mapped[str | None] = mapped_column(String(20), nullable=True)  # 楽天施設番号
+    is_own_property: Mapped[bool] = mapped_column(default=False)  # 自社ホテルフラグ
 
     # データソース: "rakuten" | "google" | "tripadvisor"
     source: Mapped[str] = mapped_column(String(20), index=True)
@@ -44,8 +45,9 @@ class CompetitorRating(Base):
     extra_scores: Mapped[str | None] = mapped_column(String(500), nullable=True)  # JSON文字列
 
     # 口コミ・レビュー
-    user_review: Mapped[str | None] = mapped_column(String(2000), nullable=True)  # 最新1件のレビュー本文
-    review_url: Mapped[str | None] = mapped_column(String(500), nullable=True)     # レビューページURL
+    user_review: Mapped[str | None] = mapped_column(String(2000), nullable=True)  # 最新1件のレビュー本文（HTMLタグ除去済み）
+    review_url: Mapped[str | None] = mapped_column(String(500), nullable=True)    # レビューページURL
+    review_date: Mapped[str | None] = mapped_column(String(30), nullable=True)    # 投稿日 (YYYY-MM-DD HH:MM:SS)
 
     fetched_at: Mapped[datetime.datetime] = mapped_column(
         DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow

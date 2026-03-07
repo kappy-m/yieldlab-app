@@ -350,7 +350,19 @@ export interface CompetitorRatingOut {
   categories: RatingCategoryOut;
   user_review: string | null;
   review_url: string | null;
+  review_date: string | null;
+  is_own_property: boolean;
   fetched_at: string;
+}
+
+export function updatePropertySettings(
+  propertyId: number,
+  data: { own_rakuten_hotel_no?: string | null }
+) {
+  return apiFetch<{ id: number; own_rakuten_hotel_no: string | null }>(
+    `/properties/${propertyId}/settings`,
+    { method: "PATCH", body: JSON.stringify(data) }
+  );
 }
 
 export function fetchCompetitorRatings(propertyId: number) {

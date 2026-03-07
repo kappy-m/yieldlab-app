@@ -20,6 +20,7 @@ class PropertyOut(BaseModel):
     checkin_time: str | None = None
     checkout_time: str | None = None
     website_url: str | None = None
+    own_rakuten_hotel_no: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -221,3 +222,24 @@ async def get_approval_settings(property_id: int, db: AsyncSession = Depends(get
         select(ApprovalSetting).where(ApprovalSetting.property_id == property_id)
     )
     return result.scalar_one_or_none()
+
+
+class PropertySettingsUpdate(BaseModel):
+    own_rakuten_hotel_no: str | None = None
+
+
+@router.patch("/{property_id}/settings", response_model=PropertyOut)
+async def update_property_settings(
+    property_id: int,
+    body: PropertySettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    """自社楽天ホテル番号など物件設定を更新する。"""
+    prop = await db.get(Property, property_id)
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    if body.own_rakuten_hotel_no is not None:
+        prop.own_rakuten_hotel_no = body.own_rakuten_hotel_no or None
+    await db.commit()
+    await db.refresh(prop)
+    return prop
