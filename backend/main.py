@@ -312,6 +312,32 @@ async def test_rating_fetch():
             return {"status": "error", "error": f"{type(e).__name__}: {e}", "tb": traceback.format_exc()[-300:]}
 
 
+@app.get("/admin/hotel-search")
+async def hotel_search(keyword: str):
+    """楽天 SimpleHotelSearch でホテルNoを調べる（設定用）"""
+    import os, httpx
+    app_id     = os.environ.get("RAKUTEN_APP_ID", "")
+    access_key = os.environ.get("RAKUTEN_ACCESS_KEY", "")
+    import urllib.parse
+    url = (
+        "https://openapi.rakuten.co.jp/engine/api/Travel/SimpleHotelSearch/20170426"
+        f"?applicationId={app_id}&accessKey={access_key}"
+        f"&keyword={urllib.parse.quote(keyword)}&formatVersion=2&format=json"
+    )
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(url, timeout=10)
+    data = resp.json()
+    hotels = data.get("hotels", [])
+    return [
+        {
+            "hotelNo": h[0]["hotelBasicInfo"]["hotelNo"] if isinstance(h, list) else h.get("hotel", [{}])[0].get("hotelBasicInfo", {}).get("hotelNo"),
+            "hotelName": h[0]["hotelBasicInfo"]["hotelName"] if isinstance(h, list) else "",
+            "address": (h[0]["hotelBasicInfo"].get("address1","") + h[0]["hotelBasicInfo"].get("address2","")) if isinstance(h, list) else "",
+        }
+        for h in hotels[:10]
+    ]
+
+
 @app.post("/admin/sync-ratings")
 async def sync_ratings_sync():
     """評価データを同期的に取得してDBに保存（非async バックグラウンドなし）"""
