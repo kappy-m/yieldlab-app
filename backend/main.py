@@ -253,6 +253,84 @@ async def debug_env():
     }
 
 
+@app.post("/admin/test-rating-fetch")
+async def test_rating_fetch():
+    """楽天 HotelDetailSearch の直接テスト（評価API デバッグ用）"""
+    import os, traceback
+    from .services.rakuten_rating_fetcher import fetch_hotel_rating
+    import httpx
+
+    app_id     = os.environ.get("RAKUTEN_APP_ID", "")
+    access_key = os.environ.get("RAKUTEN_ACCESS_KEY", "")
+    results = {}
+    errors  = {}
+
+    async with httpx.AsyncClient() as client:
+        for hotel_no in ["184685", "5002", "80756"]:
+            try:
+                r = await fetch_hotel_rating(hotel_no, client, app_id, access_key)
+                results[hotel_no] = {
+                    "overall": r.overall if r else None,
+                    "review_count": r.review_count if r else None,
+                    "service": r.service if r else None,
+                    "location": r.location if r else None,
+                    "status": "ok" if r else "None returned",
+                }
+            except Exception as e:
+                errors[hotel_no] = f"{type(e).__name__}: {e}\n{traceback.format_exc()[-300:]}"
+
+    return {
+        "app_id_set": bool(app_id),
+        "access_key_set": bool(access_key),
+        "results": results,
+        "errors": errors,
+    }
+
+
+@app.post("/admin/sync-ratings")
+async def sync_ratings_sync():
+    """評価データを同期的に取得してDBに保存（非async バックグラウンドなし）"""
+    import traceback, logging
+    from sqlalchemy import select
+    from .database import AsyncSessionLocal
+    from .models.comp_set import CompSet
+    from .routers.competitor_ratings import _run_rating_fetch
+    logger = logging.getLogger(__name__)
+    saved_total = 0
+    errors_by_prop = {}
+    try:
+        async with AsyncSessionLocal() as db:
+            props_result = await db.execute(select(CompSet.property_id).distinct())
+            property_ids = [r[0] for r in props_result.all()]
+
+        for pid in property_ids:
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(CompSet).where(
+                        CompSet.property_id == pid,
+                        CompSet.is_active == True,
+                        CompSet.rakuten_hotel_no != None,
+                    )
+                )
+                comp_sets = result.scalars().all()
+            comp_list = [{"name": c.name, "rakuten_hotel_no": c.rakuten_hotel_no} for c in comp_sets]
+            try:
+                await _run_rating_fetch(pid, comp_list)
+                saved_total += len(comp_list)
+            except Exception as e:
+                errors_by_prop[str(pid)] = f"{type(e).__name__}: {e}\n{traceback.format_exc()[-500:]}"
+                logger.exception("sync-ratings failed for property %d", pid)
+    except Exception as e:
+        return {"status": "error", "error": traceback.format_exc()[-500:]}
+
+    return {
+        "status": "done",
+        "property_ids": property_ids,
+        "attempted": saved_total,
+        "errors": errors_by_prop,
+    }
+
+
 @app.post("/admin/test-rakuten")
 async def test_rakuten():
     """
