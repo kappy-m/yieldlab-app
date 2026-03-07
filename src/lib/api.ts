@@ -213,6 +213,8 @@ export interface CompSetOut {
   expedia_hotel_id: string | null;
   expedia_url: string | null;
   rakuten_hotel_no: string | null;
+  google_place_id: string | null;
+  tripadvisor_location_id: string | null;
   scrape_mode: string;   // "mock" | "rakuten" | "live"
   is_active: boolean;
   sort_order: number;
@@ -226,6 +228,9 @@ export function createCompHotel(propertyId: number, body: {
   name: string;
   expedia_hotel_id?: string;
   expedia_url?: string;
+  rakuten_hotel_no?: string;
+  google_place_id?: string;
+  tripadvisor_location_id?: string;
   scrape_mode?: string;
   sort_order?: number;
 }) {

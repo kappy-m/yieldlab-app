@@ -116,6 +116,14 @@ async def _migrate_competitor_ratings_columns():
         if "own_rakuten_hotel_no" not in prop_columns:
             migrations.append("ALTER TABLE properties ADD COLUMN own_rakuten_hotel_no TEXT")
 
+        # comp_sets テーブルへのカラム追加
+        result3 = await db.execute(text("PRAGMA table_info(comp_sets)"))
+        comp_columns = {row[1] for row in result3.all()}
+        if "google_place_id" not in comp_columns:
+            migrations.append("ALTER TABLE comp_sets ADD COLUMN google_place_id TEXT")
+        if "tripadvisor_location_id" not in comp_columns:
+            migrations.append("ALTER TABLE comp_sets ADD COLUMN tripadvisor_location_id TEXT")
+
         if migrations:
             for sql in migrations:
                 await db.execute(text(sql))
@@ -321,31 +329,6 @@ async def test_rating_fetch():
         except Exception as e:
             return {"status": "error", "error": f"{type(e).__name__}: {e}", "tb": traceback.format_exc()[-300:]}
 
-
-@app.get("/admin/hotel-search")
-async def hotel_search(keyword: str):
-    """楽天 SimpleHotelSearch でホテルNoを調べる（設定用）"""
-    import os, httpx
-    app_id     = os.environ.get("RAKUTEN_APP_ID", "")
-    access_key = os.environ.get("RAKUTEN_ACCESS_KEY", "")
-    import urllib.parse
-    url = (
-        "https://openapi.rakuten.co.jp/engine/api/Travel/SimpleHotelSearch/20170426"
-        f"?applicationId={app_id}&accessKey={access_key}"
-        f"&keyword={urllib.parse.quote(keyword)}&formatVersion=2&format=json"
-    )
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(url, timeout=10)
-    data = resp.json()
-    hotels = data.get("hotels", [])
-    return [
-        {
-            "hotelNo": h[0]["hotelBasicInfo"]["hotelNo"] if isinstance(h, list) else h.get("hotel", [{}])[0].get("hotelBasicInfo", {}).get("hotelNo"),
-            "hotelName": h[0]["hotelBasicInfo"]["hotelName"] if isinstance(h, list) else "",
-            "address": (h[0]["hotelBasicInfo"].get("address1","") + h[0]["hotelBasicInfo"].get("address2","")) if isinstance(h, list) else "",
-        }
-        for h in hotels[:10]
-    ]
 
 
 @app.post("/admin/sync-ratings")

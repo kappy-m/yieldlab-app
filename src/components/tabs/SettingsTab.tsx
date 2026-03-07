@@ -10,7 +10,7 @@ import {
 } from "@/lib/api";
 import {
   Plus, Trash2, Edit3, Check, X, Play, ExternalLink,
-  Zap, RefreshCw, AlertCircle, CheckCircle2, Building2,
+  Zap, RefreshCw, AlertCircle, CheckCircle2, Building2, Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -178,7 +178,7 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
               <th className="text-left px-4 py-2.5 text-gray-500 font-medium">ホテル名</th>
-              <th className="text-left px-4 py-2.5 text-gray-500 font-medium">Expedia ID</th>
+              <th className="text-left px-4 py-2.5 text-gray-500 font-medium">評価ソース</th>
               <th className="text-left px-4 py-2.5 text-gray-500 font-medium">モード</th>
               <th className="text-center px-4 py-2.5 text-gray-500 font-medium">有効</th>
               <th className="text-right px-4 py-2.5 text-gray-500 font-medium">操作</th>
@@ -186,70 +186,117 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
           </thead>
           <tbody>
             {hotels.map((hotel) => (
+              <>
               <tr key={hotel.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                 {editingId === hotel.id ? (
-                  <>
-                    <td className="px-4 py-2">
-                      <input
-                        value={editForm.name ?? hotel.name}
-                        onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                        className="w-full text-xs border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-400"
-                      />
-                    </td>
-                    <td className="px-4 py-2">
-                      <input
-                        value={editForm.expedia_hotel_id ?? hotel.expedia_hotel_id ?? ""}
-                        onChange={e => setEditForm(f => ({ ...f, expedia_hotel_id: e.target.value }))}
-                        placeholder="例: 12345678"
-                        className="w-full text-xs border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-purple-400"
-                      />
-                    </td>
-                    <td className="px-4 py-2">
-                      <select
-                        value={editForm.scrape_mode ?? hotel.scrape_mode}
-                        onChange={e => setEditForm(f => ({ ...f, scrape_mode: e.target.value }))}
-                        className="text-xs border rounded px-2 py-1"
-                      >
-                        <option value="mock">モック</option>
-                        <option value="live">本番（Expedia）</option>
-                        <option value="rakuten">楽天LIVE</option>
-                      </select>
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      <input
-                        type="checkbox"
-                        checked={editForm.is_active ?? hotel.is_active}
-                        onChange={e => setEditForm(f => ({ ...f, is_active: e.target.checked }))}
-                        className="w-3.5 h-3.5 accent-purple-600"
-                      />
-                    </td>
-                    <td className="px-4 py-2">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => handleSaveEdit(hotel.id)} className="text-green-600 hover:text-green-700 p-1">
-                          <Check className="w-3.5 h-3.5" />
+                  <td colSpan={5} className="px-4 py-3">
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] text-gray-500 block mb-1">ホテル名</label>
+                          <input
+                            value={editForm.name ?? hotel.name}
+                            onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                            className="w-full text-xs border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-500 block mb-1">Expedia Hotel ID</label>
+                          <input
+                            value={editForm.expedia_hotel_id ?? hotel.expedia_hotel_id ?? ""}
+                            onChange={e => setEditForm(f => ({ ...f, expedia_hotel_id: e.target.value }))}
+                            placeholder="例: 12345678"
+                            className="w-full text-xs border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-500 block mb-1">楽天 ホテル番号</label>
+                          <input
+                            value={editForm.rakuten_hotel_no ?? hotel.rakuten_hotel_no ?? ""}
+                            onChange={e => setEditForm(f => ({ ...f, rakuten_hotel_no: e.target.value }))}
+                            placeholder="例: 149164"
+                            className="w-full text-xs border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-500 block mb-1 flex items-center gap-1">
+                            <span className="text-[#4285F4]">●</span> Google Place ID
+                            <span className="text-gray-300 font-normal">（自動検索も可）</span>
+                          </label>
+                          <input
+                            value={editForm.google_place_id ?? hotel.google_place_id ?? ""}
+                            onChange={e => setEditForm(f => ({ ...f, google_place_id: e.target.value }))}
+                            placeholder="例: ChIJN1t_tDeuEmsRUsoyG..."
+                            className="w-full text-xs border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-500 block mb-1 flex items-center gap-1">
+                            <span className="text-[#00AF87]">●</span> TripAdvisor Location ID
+                            <span className="text-gray-300 font-normal">（自動検索も可）</span>
+                          </label>
+                          <input
+                            value={editForm.tripadvisor_location_id ?? hotel.tripadvisor_location_id ?? ""}
+                            onChange={e => setEditForm(f => ({ ...f, tripadvisor_location_id: e.target.value }))}
+                            placeholder="例: 628015"
+                            className="w-full text-xs border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                          />
+                        </div>
+                        <div className="flex items-end gap-3">
+                          <div className="flex-1">
+                            <label className="text-[10px] text-gray-500 block mb-1">スクレイプモード</label>
+                            <select
+                              value={editForm.scrape_mode ?? hotel.scrape_mode}
+                              onChange={e => setEditForm(f => ({ ...f, scrape_mode: e.target.value }))}
+                              className="w-full text-xs border rounded px-2 py-1.5"
+                            >
+                              <option value="mock">モック</option>
+                              <option value="live">本番（Expedia）</option>
+                              <option value="rakuten">楽天LIVE</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] text-gray-500 block mb-1">有効</label>
+                            <input
+                              type="checkbox"
+                              checked={editForm.is_active ?? hotel.is_active}
+                              onChange={e => setEditForm(f => ({ ...f, is_active: e.target.checked }))}
+                              className="w-4 h-4 accent-purple-600 mt-0.5"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 justify-end pt-1 border-t border-gray-100">
+                        <button onClick={() => setEditingId(null)} className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 px-2 py-1">
+                          <X className="w-3 h-3" />キャンセル
                         </button>
-                        <button onClick={() => setEditingId(null)} className="text-gray-400 hover:text-gray-600 p-1">
-                          <X className="w-3.5 h-3.5" />
+                        <button onClick={() => handleSaveEdit(hotel.id)} className="text-xs bg-[#7C3AED] text-white px-3 py-1 rounded-lg hover:bg-purple-700 flex items-center gap-1">
+                          <Check className="w-3 h-3" />保存
                         </button>
                       </div>
-                    </td>
-                  </>
+                    </div>
+                  </td>
                 ) : (
                   <>
                     <td className="px-4 py-2.5 font-medium text-gray-800">{hotel.name}</td>
                     <td className="px-4 py-2.5">
-                      {hotel.expedia_hotel_id ? (
-                        <div className="flex items-center gap-1">
-                          <code className="text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{hotel.expedia_hotel_id}</code>
-                          {hotel.expedia_url && (
-                            <a href={hotel.expedia_url} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-500">
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-300">未設定</span>
-                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded border font-medium",
+                          hotel.rakuten_hotel_no
+                            ? "text-red-700 bg-red-50 border-red-200"
+                            : "text-gray-300 bg-gray-50 border-gray-100"
+                        )}>楽天</span>
+                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded border font-medium",
+                          hotel.google_place_id
+                            ? "text-blue-700 bg-blue-50 border-blue-200"
+                            : "text-gray-300 bg-gray-50 border-gray-100"
+                        )}>Google</span>
+                        <span className={cn("text-[10px] px-1.5 py-0.5 rounded border font-medium",
+                          hotel.tripadvisor_location_id
+                            ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+                            : "text-gray-300 bg-gray-50 border-gray-100"
+                        )}>TripAdvisor</span>
+                      </div>
                     </td>
                     <td className="px-4 py-2.5">
                       <span className={cn("text-xs px-2 py-0.5 rounded border font-medium", SCRAPE_MODE_LABELS[hotel.scrape_mode]?.color)}>
@@ -277,6 +324,7 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
                   </>
                 )}
               </tr>
+              </>
             ))}
             {hotels.length === 0 && (
               <tr>
@@ -1051,12 +1099,61 @@ function IntegrationsPanel() {
 
   return (
     <div className="space-y-8">
+      {/* 評価APIキー設定案内 */}
+      <div className="yl-card p-4">
+        <h3 className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2">
+          <Star className="w-4 h-4 text-amber-400" />
+          評価データ API キー設定
+        </h3>
+        <p className="text-xs text-slate-500 mb-3">
+          Railway の環境変数に以下を追加すると、評価モニターに Google / TripAdvisor の評価・口コミが自動表示されます。
+        </p>
+        <div className="space-y-2">
+          {[
+            {
+              key: "GOOGLE_PLACES_API_KEY",
+              label: "Google Places API キー",
+              color: "text-blue-700 bg-blue-50 border-blue-200",
+              badge: "Google",
+              note: "Google Cloud Console → Places API (New) を有効化 → API キーを発行",
+              link: "https://console.cloud.google.com/apis/library/places-backend.googleapis.com",
+            },
+            {
+              key: "TRIPADVISOR_API_KEY",
+              label: "TripAdvisor Content API キー",
+              color: "text-emerald-700 bg-emerald-50 border-emerald-200",
+              badge: "TripAdvisor",
+              note: "TripAdvisor Developer Portal → Content API → API キーを申請",
+              link: "https://www.tripadvisor.com/developers",
+            },
+          ].map(item => (
+            <div key={item.key} className={`flex items-start gap-3 p-3 rounded-lg border ${item.color}`}>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${item.color} flex-shrink-0 mt-0.5`}>
+                {item.badge}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-mono font-semibold">{item.key}</p>
+                <p className="text-[11px] opacity-80 mt-0.5">{item.note}</p>
+              </div>
+              <a href={item.link} target="_blank" rel="noopener noreferrer"
+                className="flex-shrink-0 flex items-center gap-1 text-[10px] underline opacity-70 hover:opacity-100">
+                <ExternalLink className="w-3 h-3" />設定へ
+              </a>
+            </div>
+          ))}
+        </div>
+        <p className="text-[11px] text-slate-400 mt-3">
+          ※ 設定後、評価モニターの「更新」ボタンを押すと全ソースのデータが取得されます。
+          Google Place ID / TripAdvisor Location ID は未設定の場合、ホテル名で自動検索されます。
+        </p>
+      </div>
+
       <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex gap-3">
         <svg className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <div>
-          <p className="text-sm font-medium text-blue-800">連携設定について</p>
+          <p className="text-sm font-medium text-blue-800">PMS / チャネルマネージャー連携設定について</p>
           <p className="text-xs text-blue-600 mt-0.5">
             各システムの接続情報を設定後、「接続テスト」で疎通確認してください。
             接続確立後は在庫・料金データの自動同期が有効になります。
