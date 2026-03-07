@@ -189,9 +189,14 @@ function ReviewCard({
             </div>
             {/* ソースバッジ + 日付 */}
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-red-700 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded">
-                楽天トラベル
-              </span>
+              {(() => {
+                const src = SOURCE_CONFIG[rating.source as keyof typeof SOURCE_CONFIG] ?? SOURCE_CONFIG.rakuten;
+                return (
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${src.text} ${src.bg} border ${src.border} px-1.5 py-0.5 rounded`}>
+                    {src.label}
+                  </span>
+                );
+              })()}
               {displayDate && (
                 <span className="flex items-center gap-0.5 text-[10px] text-slate-400">
                   <Calendar className="w-2.5 h-2.5" />
@@ -389,18 +394,33 @@ export function RatingPanel({ propertyId, propertyName, ownTodayPrice, compPrice
   const avgPrice  = allScatterPoints.length ? Math.round(allScatterPoints.reduce((a, b) => a + b.price, 0) / allScatterPoints.length) : null;
   const avgRating = allScatterPoints.length ? +(allScatterPoints.reduce((a, b) => a + b.rating, 0) / allScatterPoints.length).toFixed(2) : null;
 
-  /* ── レビューリスト（自社を先頭に） ─── */
+  /* ── 全ソースのレビューリスト（自社を先頭に、ホテル名+ソースで色付け） ─── */
   const reviewRatings = useMemo(() => {
     const list: Array<{ rating: CompetitorRatingOut; color: string; isOwn: boolean }> = [];
-    if (ownRating?.user_review) {
-      list.push({ rating: ownRating, color: OWN_COLOR, isOwn: true });
-    }
-    compHotels.forEach((name, i) => {
-      const r = rakutenByHotel.get(name);
-      if (r?.user_review) list.push({ rating: r, color: COMP_COLORS[i % COMP_COLORS.length], isOwn: false });
+
+    // 自社（楽天優先）
+    const ownAll = ratings.filter(r => r.is_own_property && r.user_review);
+    ownAll.forEach(r => list.push({ rating: r, color: OWN_COLOR, isOwn: true }));
+
+    // 競合（全ソース）: ホテル名でグループ化して色を統一
+    const hotelColorMap = new Map<string, string>();
+    compHotels.forEach((name, i) => hotelColorMap.set(name, COMP_COLORS[i % COMP_COLORS.length]));
+
+    const compReviews = ratings.filter(r => !r.is_own_property && r.user_review);
+    // ホテル名 → ソース順にソート（楽天 → Google → TripAdvisor）
+    const sourceOrder = ["rakuten", "google", "tripadvisor"];
+    compReviews.sort((a, b) => {
+      const hi = (compHotels.indexOf(a.hotel_name) ?? 99) - (compHotels.indexOf(b.hotel_name) ?? 99);
+      if (hi !== 0) return hi;
+      return sourceOrder.indexOf(a.source) - sourceOrder.indexOf(b.source);
     });
+    compReviews.forEach(r => {
+      const color = hotelColorMap.get(r.hotel_name) ?? COMP_COLORS[0];
+      list.push({ rating: r, color, isOwn: false });
+    });
+
     return list;
-  }, [ownRating, compHotels, rakutenByHotel]);
+  }, [ownRating, compHotels, rakutenByHotel, ratings]);
 
   const lastFetched = ratings.length > 0
     ? new Date(ratings[0].fetched_at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
@@ -499,6 +519,8 @@ export function RatingPanel({ propertyId, propertyName, ownTodayPrice, compPrice
               hotelName={`${ownRating.hotel_name}（自社）`}
               color={OWN_COLOR}
               rakuten={ownRating}
+              google={ratings.find(r => r.is_own_property && r.source === "google")}
+              ta={ratings.find(r => r.is_own_property && r.source === "tripadvisor")}
               isOwn
               signal={priceSignals.get(ownRating.hotel_name) ?? { sentiment: "none", matchedKeywords: [], highlightedText: [] }}
             />
