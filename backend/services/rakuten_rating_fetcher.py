@@ -92,12 +92,17 @@ async def fetch_hotel_rating(
 
             data = resp.json()
 
-            # レスポンス構造: {"hotels": [{"hotel": [{...}, {...}]}]}
+            # formatVersion=2 のレスポンス構造:
+            #   {"hotels": [[{"hotelBasicInfo": {...}}, {"hotelRatingInfo": {...}}]]}
+            # hotels[0] が直接ブロックのリスト（formatVersion=1 の "hotel" ラッパーなし）
             hotels = data.get("hotels", [])
             if not hotels:
                 return None
 
-            hotel_blocks = hotels[0].get("hotel", [])
+            # hotels[0] がリストならそのまま使用、dictなら"hotel"キーで取得（v1互換）
+            first = hotels[0]
+            hotel_blocks: list = first if isinstance(first, list) else first.get("hotel", [])
+
             basic_info: dict = {}
             rating_info: dict = {}
             for block in hotel_blocks:

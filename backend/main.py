@@ -98,8 +98,7 @@ async def _auto_fetch_ratings_if_empty():
         rating_count  = (await db.execute(text("SELECT COUNT(*) FROM competitor_ratings"))).scalar()
 
     if props_count > 0 and rating_count == 0:
-        logger.info("[AutoRating] competitor_ratings is empty — starting initial fetch...")
-        import asyncio
+        logger.info("[AutoRating] competitor_ratings is empty — starting initial fetch (direct await)...")
         from .models.comp_set import CompSet
         from .routers.competitor_ratings import _run_rating_fetch
         async with AsyncSessionLocal() as db:
@@ -115,8 +114,9 @@ async def _auto_fetch_ratings_if_empty():
                 )
                 comp_sets = result.scalars().all()
             comp_list = [{"name": c.name, "rakuten_hotel_no": c.rakuten_hotel_no} for c in comp_sets]
-            asyncio.create_task(_run_rating_fetch(pid, comp_list))
-        logger.info("[AutoRating] Rating fetch tasks created for %d properties.", len(props))
+            # asyncio.create_task ではなく直接 await（Railway lifespan で task が破棄されるリスク回避）
+            await _run_rating_fetch(pid, comp_list)
+        logger.info("[AutoRating] Rating fetch done for %d properties.", len(props))
     else:
         logger.info("[AutoRating] %d rating records found — skip auto-fetch.", rating_count)
 
