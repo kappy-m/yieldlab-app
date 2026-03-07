@@ -170,6 +170,9 @@ async def fetch_google_ratings_for_property(
                 results.append((name, data))
 
     async with httpx.AsyncClient() as client:
-        await asyncio.gather(*[_fetch_one(item, client) for item in comp_list])
+        await asyncio.gather(
+            *[_fetch_one(item, client) for item in comp_list],
+            return_exceptions=True,
+        )
 
     return results

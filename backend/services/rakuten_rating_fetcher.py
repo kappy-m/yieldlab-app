@@ -161,6 +161,9 @@ async def fetch_hotel_rating(
             else:
                 user_review, review_date = None, None
 
+            # レビューページURL（楽天トラベルの正式クチコミページ）
+            review_page_url = f"https://travel.rakuten.co.jp/HOTEL/{rakuten_no}/review.html"
+
             return HotelRatingData(
                 rakuten_no=rakuten_no,
                 overall=_safe_float(basic_info.get("reviewAverage")),
@@ -172,7 +175,7 @@ async def fetch_hotel_rating(
                 bath=_safe_float(rating_info.get("bathAverage")),
                 meal=_safe_float(rating_info.get("mealAverage")),
                 user_review=user_review,
-                review_url=basic_info.get("reviewUrl"),
+                review_url=review_page_url,
                 review_date=review_date,
             )
 

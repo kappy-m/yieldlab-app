@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { Calendar, TrendingUp, AlertTriangle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchMarketEvents, type MarketEventOut } from "@/lib/api";
@@ -38,7 +38,7 @@ export function MarketTab({ propertyId }: { propertyId: number }) {
   const [lastUpdated, setLastUpdated] = useState("");
   const [filterImpact, setFilterImpact] = useState<string>("all");
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchMarketEvents(propertyId, 90);
@@ -49,9 +49,9 @@ export function MarketTab({ propertyId }: { propertyId: number }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [propertyId]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(() =>
     filterImpact === "all" ? events : events.filter(e => e.impact === filterImpact),

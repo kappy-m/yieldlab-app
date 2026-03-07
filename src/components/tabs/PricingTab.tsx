@@ -68,7 +68,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
     } finally {
       setLoading(false);
     }
-  }, [from, to]);
+  }, [propertyId, from, to]);
 
   useEffect(() => { loadData(); }, [loadData]);
 

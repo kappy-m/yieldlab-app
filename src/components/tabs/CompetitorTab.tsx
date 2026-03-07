@@ -83,18 +83,19 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
   const [propertyName, setPropertyName] = useState<string>("自社");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshCountdown, setRefreshCountdown] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [displayDays, setDisplayDays] = useState<14 | 30 | 90>(30);
   const [subTab, setSubTab] = useState<SubTab>("price");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const dateFrom = today;
-  // 常に90日分フェッチ。表示はdisplayDaysで絞る
-  const dateTo = new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10);
+  const dateTo = useMemo(() => new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10), []);
 
   const load = useCallback(async () => {
+    setLoadError(null);
     try {
-      // 1つのAPIが失敗しても他のデータを表示できるようallSettledを使用
       const [pricesRes, averagesRes, compSetRes, gridRes, propRes] = await Promise.allSettled([
         fetchCompetitorPrices(propertyId, { date_from: dateFrom, date_to: dateTo }),
         fetchCompetitorAverages(propertyId, { date_from: dateFrom, date_to: dateTo }),
@@ -102,6 +103,11 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
         fetchPricingGrid(propertyId, { date_from: dateFrom, date_to: dateTo }),
         fetchProperty(propertyId),
       ]);
+      const allFailed = [pricesRes, averagesRes, compSetRes, gridRes].every(r => r.status === "rejected");
+      if (allFailed) {
+        setLoadError("データの取得に失敗しました。ネットワーク状態を確認してから再試行してください。");
+        return;
+      }
       const p = pricesRes.status === "fulfilled" ? pricesRes.value : [];
       const a = averagesRes.status === "fulfilled" ? averagesRes.value : [];
       const cs = compSetRes.status === "fulfilled" ? compSetRes.value : [];
@@ -114,6 +120,8 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
       if (p.length > 0) {
         setLastUpdated(p[0].scraped_at.slice(0, 16).replace("T", " "));
       }
+    } catch {
+      setLoadError("予期しないエラーが発生しました。");
     } finally {
       setLoading(false);
     }
@@ -123,12 +131,21 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    setLoadError(null);
     try {
       await triggerPipeline(propertyId);
-      await new Promise(r => setTimeout(r, 25000));
+      // 進捗カウントダウン
+      for (let i = 25; i > 0; i--) {
+        setRefreshCountdown(i);
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      setRefreshCountdown(null);
       await load();
+    } catch {
+      setLoadError("パイプラインの実行に失敗しました。");
     } finally {
       setRefreshing(false);
+      setRefreshCountdown(null);
     }
   };
 
@@ -216,6 +233,18 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
     }
     return map;
   }, [compSummaries]);
+
+  if (loadError && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4 animate-in fade-in">
+        <AlertCircle className="w-10 h-10 text-red-400" />
+        <p className="text-sm text-slate-600">{loadError}</p>
+        <button onClick={() => load()} className="text-xs px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700">
+          再試行
+        </button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -318,7 +347,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
-            {refreshing ? "更新中..." : "データ更新"}
+            {refreshCountdown != null ? `更新中... ${refreshCountdown}秒` : refreshing ? "起動中..." : "データ更新"}
           </button>
         </div>
       </div>

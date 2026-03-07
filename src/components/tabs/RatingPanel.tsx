@@ -297,25 +297,53 @@ export function RatingPanel({ propertyId, propertyName, ownTodayPrice, compPrice
   const [ratings, setRatings] = useState<CompetitorRatingOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshCountdown, setRefreshCountdown] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async (isRefresh = false) => {
+    setLoadError(null);
     if (isRefresh) setRefreshing(true); else setLoading(true);
     try {
       const data = await fetchCompetitorRatings(propertyId);
       setRatings(data);
-    } finally { setLoading(false); setRefreshing(false); }
+    } catch {
+      setLoadError("評価データの取得に失敗しました。");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [propertyId]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    setLoadError(null);
     try {
       await refreshCompetitorRatings(propertyId);
-      await new Promise(r => setTimeout(r, 12000));
+      for (let i = 12; i > 0; i--) {
+        setRefreshCountdown(i);
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      setRefreshCountdown(null);
       await load(true);
-    } finally { setRefreshing(false); }
+    } catch {
+      setLoadError("評価データの取得に失敗しました。");
+    } finally {
+      setRefreshing(false);
+      setRefreshCountdown(null);
+    }
   };
+
+  /* ── 全ソース × ホテル名 のインデックス ─── */
+  const ratingsByHotelAndSource = useMemo(() => {
+    const map = new Map<string, Map<string, CompetitorRatingOut>>();
+    for (const r of ratings) {
+      if (!map.has(r.hotel_name)) map.set(r.hotel_name, new Map());
+      map.get(r.hotel_name)!.set(r.source, r);
+    }
+    return map;
+  }, [ratings]);
 
   /* ── 自社 ─────────── */
   const ownRating = useMemo(
@@ -323,7 +351,7 @@ export function RatingPanel({ propertyId, propertyName, ownTodayPrice, compPrice
     [ratings]
   );
 
-  /* ── 競合のみ ────── */
+  /* ── 競合のみ（楽天ベース） ────── */
   const rakutenByHotel = useMemo(() => {
     const map = new Map<string, CompetitorRatingOut>();
     for (const r of ratings) {
@@ -420,11 +448,24 @@ export function RatingPanel({ propertyId, propertyName, ownTodayPrice, compPrice
     });
 
     return list;
-  }, [ownRating, compHotels, rakutenByHotel, ratings]);
+  }, [compHotels, ratings]);
 
   const lastFetched = ratings.length > 0
     ? new Date(ratings[0].fetched_at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
     : null;
+
+  /* ── エラー ─── */
+  if (loadError && !loading && !refreshing) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4 animate-in fade-in">
+        <AlertTriangle className="w-10 h-10 text-red-400" />
+        <p className="text-sm text-slate-600">{loadError}</p>
+        <button onClick={() => load()} className="text-xs px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700">
+          再試行
+        </button>
+      </div>
+    );
+  }
 
   /* ── ローディング ─── */
   if (loading) {
@@ -467,7 +508,7 @@ export function RatingPanel({ propertyId, propertyName, ownTodayPrice, compPrice
           className="flex items-center gap-2 px-4 py-2 bg-[#1E3A8A] text-white text-sm rounded-lg hover:bg-[#1e3070] transition-colors cursor-pointer disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
-          {refreshing ? "取得中..." : "評価データを取得する"}
+          {refreshCountdown != null ? (String(refreshCountdown) + "秒") : refreshing ? "起動中..." : "評価データを取得する"}
         </button>
       </div>
     );
@@ -506,7 +547,7 @@ export function RatingPanel({ propertyId, propertyName, ownTodayPrice, compPrice
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
-          {refreshing ? "取得中..." : "更新"}
+          {refreshCountdown != null ? (String(refreshCountdown) + "秒") : refreshing ? "起動中..." : "更新"}
         </button>
       </div>
 
@@ -527,9 +568,10 @@ export function RatingPanel({ propertyId, propertyName, ownTodayPrice, compPrice
           </div>
         )}
         {compHotels.map((hotelName, i) => {
-          const rakuten = ratings.find(r => r.hotel_name === hotelName && r.source === "rakuten");
-          const google  = ratings.find(r => r.hotel_name === hotelName && r.source === "google");
-          const ta      = ratings.find(r => r.hotel_name === hotelName && r.source === "tripadvisor");
+          const srcMap = ratingsByHotelAndSource.get(hotelName);
+          const rakuten = srcMap?.get("rakuten");
+          const google  = srcMap?.get("google");
+          const ta      = srcMap?.get("tripadvisor");
           const color   = COMP_COLORS[i % COMP_COLORS.length];
           const signal  = priceSignals.get(hotelName) ?? { sentiment: "none" as const, matchedKeywords: [], highlightedText: [] };
 

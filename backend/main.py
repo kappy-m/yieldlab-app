@@ -209,13 +209,12 @@ _db_ready = False
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _db_ready
-    # DB接続失敗でもアプリを起動させる（ヘルスチェック通過のため）
     try:
         await init_db()
+        await _migrate_competitor_ratings_columns()   # スキーマ確定をシード・パイプラインより前に実行
         await _auto_seed_if_empty()
         await _auto_seed_daily_perf_if_empty()
         await _auto_pipeline_if_prices_empty()
-        await _migrate_competitor_ratings_columns()   # カラム追加マイグレーション（べき等）
         await _auto_fetch_ratings_if_empty()
         _db_ready = True
         _logger.info("Database initialized and seeded.")
@@ -252,6 +251,20 @@ app.include_router(daily_performance.router)
 app.include_router(competitor_ratings.router)
 
 
+# ─── 管理エンドポイント認証 ────────────────────────────────────────────────────
+import secrets as _secrets
+from fastapi import Header as _Header
+
+_ADMIN_TOKEN = os.environ.get("ADMIN_SECRET_TOKEN", "")
+
+async def _verify_admin(x_admin_token: str = _Header(default="")):
+    """X-Admin-Token ヘッダーで管理エンドポイントを保護。
+    ADMIN_SECRET_TOKEN 未設定時は localhost（Railway内部）からのみ許可する緩やかな保護。
+    """
+    if _ADMIN_TOKEN and not _secrets.compare_digest(x_admin_token, _ADMIN_TOKEN):
+        raise HTTPException(status_code=403, detail="Forbidden: invalid admin token")
+
+
 @app.get("/health")
 async def health():
     jobs = [{"id": j.id, "next_run": str(j.next_run_time)} for j in _scheduler.get_jobs()]
@@ -276,7 +289,7 @@ async def health():
 
 
 @app.post("/admin/run-pipeline/{property_id}")
-async def trigger_pipeline(property_id: int):
+async def trigger_pipeline(property_id: int, _: None = Depends(_verify_admin)):
     """手動でパイプラインを即時実行（テスト用）"""
     from .services.scheduler import run_daily_pipeline
     import asyncio
@@ -285,9 +298,8 @@ async def trigger_pipeline(property_id: int):
 
 
 @app.get("/admin/debug-env")
-async def debug_env():
-    """環境変数の設定状況を確認（機密値は非公開・プレフィックスのみ）"""
-    import os
+async def debug_env(_: None = Depends(_verify_admin)):
+    """環境変数の設定状況を確認（機密値は非公開）"""
     db_url = os.environ.get("DATABASE_URL", "")
     db_type = (
         "postgresql" if "postgresql" in db_url or "postgres" in db_url
@@ -295,17 +307,19 @@ async def debug_env():
         else "sqlite(default)" if not db_url else "unknown"
     )
     return {
-        "RAKUTEN_APP_ID_set":     bool(os.environ.get("RAKUTEN_APP_ID")),
-        "RAKUTEN_ACCESS_KEY_set": bool(os.environ.get("RAKUTEN_ACCESS_KEY")),
-        "RAKUTEN_APP_ID_prefix":  (os.environ.get("RAKUTEN_APP_ID") or "")[:8] + "...",
-        "DATABASE_URL_set":       bool(db_url),
-        "db_type":                db_type,
+        "RAKUTEN_APP_ID_set":       bool(os.environ.get("RAKUTEN_APP_ID")),
+        "RAKUTEN_ACCESS_KEY_set":   bool(os.environ.get("RAKUTEN_ACCESS_KEY")),
+        "GOOGLE_PLACES_API_KEY_set": bool(os.environ.get("GOOGLE_PLACES_API_KEY")),
+        "TRIPADVISOR_API_KEY_set":  bool(os.environ.get("TRIPADVISOR_API_KEY")),
+        "ADMIN_SECRET_TOKEN_set":   bool(_ADMIN_TOKEN),
+        "DATABASE_URL_set":         bool(db_url),
+        "db_type":                  db_type,
         "note": "sqliteの場合はデプロイごとにデータがリセットされます。PostgreSQLへの移行を推奨。",
     }
 
 
 @app.post("/admin/test-rating-fetch")
-async def test_rating_fetch():
+async def test_rating_fetch(_: None = Depends(_verify_admin)):
     """楽天 HotelDetailSearch の動作確認（パレスホテル東京 1件）"""
     import os, traceback
     from .services.rakuten_rating_fetcher import fetch_hotel_rating
@@ -332,7 +346,7 @@ async def test_rating_fetch():
 
 
 @app.post("/admin/sync-ratings")
-async def sync_ratings_sync():
+async def sync_ratings_sync(_: None = Depends(_verify_admin)):
     """評価データを同期的に取得してDBに保存（非async バックグラウンドなし）"""
     import traceback, logging
     from sqlalchemy import select
@@ -352,14 +366,25 @@ async def sync_ratings_sync():
                 result = await db.execute(
                     select(CompSet).where(
                         CompSet.property_id == pid,
-                        CompSet.is_active == True,
-                        CompSet.rakuten_hotel_no != None,
+                        CompSet.is_active.is_(True),
                     )
                 )
                 comp_sets = result.scalars().all()
-            comp_list = [{"name": c.name, "rakuten_hotel_no": c.rakuten_hotel_no} for c in comp_sets]
+                from .models.property import Property as _Prop
+                prop_row = await db.get(_Prop, pid)
+                own_rakuten_no = getattr(prop_row, "own_rakuten_hotel_no", None) if prop_row else None
+                own_name = prop_row.name if prop_row else "自社"
+            comp_list = [
+                {
+                    "name": c.name,
+                    "rakuten_hotel_no": c.rakuten_hotel_no,
+                    "google_place_id": getattr(c, "google_place_id", None),
+                    "tripadvisor_location_id": getattr(c, "tripadvisor_location_id", None),
+                }
+                for c in comp_sets
+            ]
             try:
-                await _run_rating_fetch(pid, comp_list)
+                await _run_rating_fetch(pid, comp_list, own_rakuten_no, own_name)
                 saved_total += len(comp_list)
             except Exception as e:
                 errors_by_prop[str(pid)] = f"{type(e).__name__}: {e}\n{traceback.format_exc()[-500:]}"
@@ -376,7 +401,7 @@ async def sync_ratings_sync():
 
 
 @app.post("/admin/test-rakuten")
-async def test_rakuten():
+async def test_rakuten(_: None = Depends(_verify_admin)):
     """
     楽天APIの疎通テスト（日本橋競合3ホテル・本日分）
     price + reserve_record_count (hotelReserveInfo.reserveRecordCount) の両方を確認する
@@ -397,7 +422,7 @@ async def test_rakuten():
 
 
 @app.post("/admin/reset-seed")
-async def reset_seed():
+async def reset_seed(_: None = Depends(_verify_admin)):
     """DB全削除 → 最新シードを再投入（comp-set変更時のリセット用）"""
     import traceback
     from sqlalchemy import text
@@ -420,7 +445,7 @@ async def reset_seed():
 
 
 @app.post("/admin/patch-comp-set")
-async def patch_comp_set():
+async def patch_comp_set(_: None = Depends(_verify_admin)):
     """既存のComp-Setエントリを最新のseed定義で更新する（DBリセット不要）"""
     from sqlalchemy import select
     from .database import AsyncSessionLocal

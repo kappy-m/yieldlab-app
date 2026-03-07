@@ -160,9 +160,13 @@ async def fetch_tripadvisor_ratings_for_property(
             data = await fetch_tripadvisor_rating(location_id, client, api_key)
             if data:
                 results.append((name, data))
-            await asyncio.sleep(0.3)  # レート制限配慮
+        # セマフォ解放後にレート制限スリープ（他タスクのブロックを回避）
+        await asyncio.sleep(0.3)
 
     async with httpx.AsyncClient() as client:
-        await asyncio.gather(*[_fetch_one(item, client) for item in comp_list])
+        await asyncio.gather(
+            *[_fetch_one(item, client) for item in comp_list],
+            return_exceptions=True,
+        )
 
     return results

@@ -1,8 +1,5 @@
 // ブラウザ: NEXT_PUBLIC_API_URL（本番）/ SSR時: rewrite経由で /api/backend に流す
-const API_BASE =
-  typeof window !== "undefined"
-    ? (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8400")
-    : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8400");
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8400";
 
 export const PROPERTY_ID = 1; // シードで生成される property_id
 
@@ -274,7 +271,7 @@ export function fetchCompetitorPrices(
   return apiFetch<CompetitorPriceOut[]>(`/properties/${propertyId}/competitor/prices${qs ? `?${qs}` : ""}`);
 }
 
-// ---- Competitor Prices ----
+// ---- Competitor Averages ----
 
 export function fetchCompetitorAverages(
   propertyId: number,

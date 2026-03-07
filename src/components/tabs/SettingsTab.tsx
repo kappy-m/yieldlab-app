@@ -88,37 +88,56 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
   const [running, setRunning] = useState(false);
   const [pipelineMsg, setPipelineMsg] = useState("");
 
+  const [compSetError, setCompSetError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
-    const data = await fetchCompSet(propertyId);
-    setHotels(data);
+    setCompSetError(null);
+    try {
+      const data = await fetchCompSet(propertyId);
+      setHotels(data);
+    } catch {
+      setCompSetError("競合セットの読み込みに失敗しました。");
+    }
   }, [propertyId]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleAdd = async () => {
     if (!addForm.name.trim()) return;
-    await createCompHotel(propertyId, {
-      name: addForm.name,
-      expedia_hotel_id: addForm.expedia_hotel_id || undefined,
-      expedia_url: addForm.expedia_url || undefined,
-      scrape_mode: addForm.scrape_mode,
-      sort_order: hotels.length,
-    });
-    setAddForm({ name: "", expedia_hotel_id: "", expedia_url: "", scrape_mode: "mock" });
-    setShowAdd(false);
-    await load();
+    try {
+      await createCompHotel(propertyId, {
+        name: addForm.name,
+        expedia_hotel_id: addForm.expedia_hotel_id || undefined,
+        expedia_url: addForm.expedia_url || undefined,
+        scrape_mode: addForm.scrape_mode,
+        sort_order: hotels.length,
+      });
+      setAddForm({ name: "", expedia_hotel_id: "", expedia_url: "", scrape_mode: "mock" });
+      setShowAdd(false);
+      await load();
+    } catch {
+      setCompSetError("ホテルの追加に失敗しました。");
+    }
   };
 
   const handleSaveEdit = async (id: number) => {
-    await updateCompHotel(propertyId, id, editForm);
-    setEditingId(null);
-    await load();
+    try {
+      await updateCompHotel(propertyId, id, editForm);
+      setEditingId(null);
+      await load();
+    } catch {
+      setCompSetError("保存に失敗しました。");
+    }
   };
 
   const handleDelete = async (id: number) => {
     if (!confirm("削除しますか？")) return;
-    await deleteCompHotel(propertyId, id);
-    await load();
+    try {
+      await deleteCompHotel(propertyId, id);
+      await load();
+    } catch {
+      setCompSetError("削除に失敗しました。");
+    }
   };
 
   const handleRunPipeline = async () => {
@@ -163,6 +182,12 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
       {pipelineMsg && (
         <div className="mb-4 px-4 py-3 bg-purple-50 border border-purple-200 rounded-lg text-xs text-purple-700">
           <Zap className="w-3 h-3 inline mr-1" />{pipelineMsg}
+        </div>
+      )}
+      {compSetError && (
+        <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 flex items-center justify-between">
+          <span>{compSetError}</span>
+          <button onClick={() => setCompSetError(null)} className="text-red-400 hover:text-red-600 ml-2">✕</button>
         </div>
       )}
 
@@ -724,15 +749,17 @@ function ApprovalPanel({ propertyId }: { propertyId: number }) {
   const [saveMsg, setSaveMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   useEffect(() => {
-    fetchApprovalSettings(propertyId).then(s => {
-      if (s) {
-        setForm({
-          threshold: String(s.auto_approve_threshold_levels),
-          channel: s.notification_channel,
-          email: s.notification_email ?? "",
-        });
-      }
-    });
+    fetchApprovalSettings(propertyId)
+      .then(s => {
+        if (s) {
+          setForm({
+            threshold: String(s.auto_approve_threshold_levels),
+            channel: s.notification_channel,
+            email: s.notification_email ?? "",
+          });
+        }
+      })
+      .catch(() => {/* 承認設定の読み込みは非必須のため無視 */});
   }, [propertyId]);
 
   const handleSave = async () => {
@@ -849,7 +876,6 @@ function ApprovalPanel({ propertyId }: { propertyId: number }) {
 // ============================================================
 // 外部システム連携パネル
 // ============================================================
-type ConnectionStatus = "connected" | "disconnected" | "testing";
 
 interface IntegrationSystem {
   id: string;
@@ -980,34 +1006,17 @@ function IntegrationCard({
   onToggle: () => void;
 }) {
   const [formData, setFormData] = useState<Record<string, string>>({});
-  const [status, setStatus] = useState<ConnectionStatus>("disconnected");
-  const [isSaved, setIsSaved] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
 
-  const handleTest = async () => {
-    setStatus("testing");
-    setTestResult(null);
-    await new Promise(r => setTimeout(r, 1800));
-    const allFilled = system.fields.every(f => formData[f.key]?.trim());
-    if (allFilled) {
-      setStatus("connected");
-      setTestResult("接続成功：認証OK。ホテル情報を確認しました。");
-    } else {
-      setStatus("disconnected");
-      setTestResult("接続失敗：全必須項目を入力してください。");
-    }
+  const handleTest = () => {
+    setTestResult("接続テスト機能は現在開発中です。API連携の実装後に利用可能になります。");
   };
 
   const handleSave = () => {
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2500);
+    setTestResult("保存機能は現在開発中です。API連携の実装後に有効になります。");
   };
 
-  const statusBadge = {
-    connected:    { label: "接続済み",    cls: "bg-green-100 text-green-700" },
-    disconnected: { label: "未接続",      cls: "bg-gray-100 text-gray-500" },
-    testing:      { label: "テスト中...", cls: "bg-yellow-100 text-yellow-700" },
-  }[status];
+  const statusBadge = { label: "未接続（開発中）", cls: "bg-gray-100 text-gray-500" };
 
   return (
     <div className="border border-gray-200 rounded-lg bg-white overflow-hidden">
@@ -1076,10 +1085,10 @@ function IntegrationCard({
               onClick={handleSave}
               className={cn(
                 "flex-1 px-3 py-2 text-xs font-medium rounded-md transition-colors",
-                isSaved ? "bg-green-500 text-white" : "bg-[#7C3AED] text-white hover:bg-[#6D28D9]"
+                "bg-gray-300 text-gray-500 cursor-not-allowed"
               )}
             >
-              {isSaved ? "保存しました ✓" : "保存"}
+              保存（開発中）
             </button>
           </div>
         </div>

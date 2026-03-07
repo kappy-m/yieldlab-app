@@ -11,8 +11,9 @@ POST /properties/{property_id}/competitor-ratings/refresh
 import asyncio
 import datetime
 import logging
+from datetime import timezone as _tz
 
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -123,9 +124,11 @@ async def refresh_ratings(
     ]
 
     prop = await db.get(Property, property_id)
-    own_rakuten_no = getattr(prop, "own_rakuten_hotel_no", None) if prop else None
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    own_rakuten_no = getattr(prop, "own_rakuten_hotel_no", None)
 
-    background_tasks.add_task(_run_rating_fetch, property_id, comp_list, own_rakuten_no, prop.name if prop else "自社")
+    background_tasks.add_task(_run_rating_fetch, property_id, comp_list, own_rakuten_no, prop.name)
     rakuten_count = sum(1 for c in comp_list if c.get("rakuten_hotel_no"))
     return {
         "status": "started",
@@ -223,7 +226,7 @@ async def _upsert_rating(db, property_id: int, hotel_name: str, r, source: str =
         row.review_url = r.review_url
         row.review_date = getattr(r, "review_date", None)
         row.is_own_property = is_own
-        row.fetched_at = datetime.datetime.utcnow()
+        row.fetched_at = datetime.datetime.now(_tz.utc)
     else:
         db.add(CompetitorRating(
             property_id=property_id,
@@ -263,7 +266,7 @@ async def _upsert_google_rating(db, property_id: int, hotel_name: str, r, is_own
         row.review_url = r.review_url
         row.review_date = r.review_date
         row.is_own_property = is_own
-        row.fetched_at = datetime.datetime.utcnow()
+        row.fetched_at = datetime.datetime.now(_tz.utc)
     else:
         db.add(CompetitorRating(
             property_id=property_id,
@@ -295,7 +298,7 @@ async def _upsert_tripadvisor_rating(db, property_id: int, hotel_name: str, r, i
         row.review_url = r.review_url
         row.review_date = r.review_date
         row.is_own_property = is_own
-        row.fetched_at = datetime.datetime.utcnow()
+        row.fetched_at = datetime.datetime.now(_tz.utc)
     else:
         db.add(CompetitorRating(
             property_id=property_id,
