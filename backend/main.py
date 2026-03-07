@@ -267,7 +267,8 @@ async def test_rating_fetch():
     parsed_results = {}
 
     async with httpx.AsyncClient() as client:
-        for hotel_no in ["184685", "5002"]:
+        # 1件だけテスト（429回避）
+        for hotel_no in ["184685"]:
             params = {
                 "applicationId": app_id,
                 "accessKey": access_key,
@@ -279,38 +280,25 @@ async def test_rating_fetch():
             try:
                 resp = await client.get(ENDPOINT, params=params, timeout=15.0)
                 raw_data = resp.json()
+                hotels_field = raw_data.get("hotels", []) if isinstance(raw_data, dict) else []
+                first_item = hotels_field[0] if hotels_field else None
                 raw_responses[hotel_no] = {
                     "status_code": resp.status_code,
-                    # レスポンスのトップレベルキーのみ記録（全データは大きすぎる場合があるため）
                     "top_level_keys": list(raw_data.keys()) if isinstance(raw_data, dict) else str(type(raw_data)),
-                    "hotels_count": len(raw_data.get("hotels", [])) if isinstance(raw_data, dict) else None,
-                    # 最初のホテルデータのブロックキーを確認
-                    "first_hotel_block_keys": (
-                        [list(b.keys()) for b in raw_data["hotels"][0].get("hotel", [])]
-                        if isinstance(raw_data, dict) and raw_data.get("hotels")
-                        else None
+                    "hotels_field_type": str(type(hotels_field)),
+                    "first_item_type": str(type(first_item)),
+                    # 最初の要素がlistならそのキー一覧
+                    "first_item_if_list": (
+                        [str(type(x)) + ":" + str(list(x.keys()) if isinstance(x, dict) else x)[:100]
+                         for x in first_item[:3]] if isinstance(first_item, list) else None
                     ),
-                    # hotelBasicInfoのキー
-                    "basic_info_keys": (
-                        list(raw_data["hotels"][0]["hotel"][0]["hotelBasicInfo"].keys())
-                        if (isinstance(raw_data, dict) and raw_data.get("hotels")
-                            and raw_data["hotels"][0].get("hotel")
-                            and raw_data["hotels"][0]["hotel"][0].get("hotelBasicInfo"))
-                        else "not found"
-                    ),
-                    # reviewAverageの値
-                    "reviewAverage": (
-                        raw_data["hotels"][0]["hotel"][0]["hotelBasicInfo"].get("reviewAverage")
-                        if (isinstance(raw_data, dict) and raw_data.get("hotels")
-                            and raw_data["hotels"][0].get("hotel")
-                            and raw_data["hotels"][0]["hotel"][0].get("hotelBasicInfo"))
-                        else "path not found"
-                    ),
-                    # エラーの場合
-                    "error": raw_data.get("error"),
+                    # 最初の要素がdictならそのキー一覧
+                    "first_item_if_dict_keys": list(first_item.keys()) if isinstance(first_item, dict) else None,
+                    # 生JSON（最大800文字）
+                    "raw_json_snippet": str(raw_data)[:800],
                 }
             except Exception as e:
-                raw_responses[hotel_no] = {"exception": f"{type(e).__name__}: {e}"}
+                raw_responses[hotel_no] = {"exception": f"{type(e).__name__}: {e}", "tb": traceback.format_exc()[-300:]}
 
     return {
         "app_id_set": bool(app_id),
