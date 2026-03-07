@@ -54,7 +54,7 @@ async def fetch_hotel_rating(
         "applicationId": app_id,
         "accessKey": access_key,
         "hotelNo": rakuten_no,
-        "responseType": "middle",
+        "responseType": "large",   # カテゴリ別評価(hotelRatingInfo)を取得するにはlargeが必要
         "formatVersion": "2",
         "format": "json",
     }
