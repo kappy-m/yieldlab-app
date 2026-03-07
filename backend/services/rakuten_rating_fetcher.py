@@ -32,22 +32,27 @@ _RETRY_DELAYS = [3, 6, 12]  # 指数バックオフ（秒）
 
 
 _HTML_TAG_RE  = re.compile(r"<[^>]+>")
-_DATE_RE      = re.compile(r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s*投稿")
-_CONTINUATION = re.compile(r"(つづきはこちら|続きはこちら|…|\.\.\.)\s*$")
+_DATE_RE      = re.compile(r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}")
+_URL_RE       = re.compile(r"https?://[^\s\u3000　]+")
+_CONTINUATION = re.compile(r"(クチコミの詳細はこちらから|つづきはこちら|続きはこちら|詳細はこちら)[^\n]*$", re.MULTILINE)
 
 
 def _clean_review(raw: str) -> tuple[str, str | None]:
-    """楽天 userReview からHTMLタグ・日付を除去し (clean_text, date_str) を返す"""
+    """楽天 userReview からHTMLタグ・URL・日付を除去し (clean_text, date_str) を返す"""
     # HTML タグ削除
     text = _HTML_TAG_RE.sub("", raw)
-    # 日付を抽出・除去
+    # 日付を抽出（除去前に取得）
     date_match = _DATE_RE.search(text)
-    date_str = date_match.group(0).replace("投稿", "").strip() if date_match else None
-    text = _DATE_RE.sub("", text).strip()
-    # 末尾の継続文字除去
-    text = _CONTINUATION.sub("", text).strip()
-    # 余分な空白・改行を整形
-    text = re.sub(r"\s{2,}", " ", text)
+    date_str = date_match.group(0).strip() if date_match else None
+    # 日付文字列を除去（前後の「投稿」も含む）
+    text = re.sub(r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s*投稿?", "", text)
+    # 「クチコミの詳細はこちらから」以降を除去
+    text = _CONTINUATION.sub("", text)
+    # URL を除去
+    text = _URL_RE.sub("", text)
+    # 余分な空白・全角スペース・改行を整形
+    text = re.sub(r"[\u3000　]+", " ", text)
+    text = re.sub(r"\s{2,}", " ", text).strip()
     return text, date_str
 
 
