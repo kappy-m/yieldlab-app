@@ -84,6 +84,38 @@ async def _auto_seed_daily_perf_if_empty():
         logger.info("[AutoSeed] daily_performances seeded.")
 
 
+async def _migrate_competitor_ratings_columns():
+    """
+    competitor_ratings テーブルに user_review / review_url カラムを追加するマイグレーション。
+    既存のSQLiteDBにカラムが存在しない場合のみ追加する（べき等）。
+    SQLAlchemyのcreate_allは既存テーブルのカラム追加を行わないため、明示的にALTERが必要。
+    """
+    import logging
+    from sqlalchemy import text
+    from .database import AsyncSessionLocal
+    logger = logging.getLogger(__name__)
+
+    async with AsyncSessionLocal() as db:
+        # SQLiteではPRAGMA table_info でカラム一覧を取得
+        result = await db.execute(text("PRAGMA table_info(competitor_ratings)"))
+        columns = {row[1] for row in result.all()}  # row[1] = column name
+
+        migrations = []
+        if "user_review" not in columns:
+            migrations.append("ALTER TABLE competitor_ratings ADD COLUMN user_review TEXT")
+        if "review_url" not in columns:
+            migrations.append("ALTER TABLE competitor_ratings ADD COLUMN review_url TEXT")
+
+        if migrations:
+            for sql in migrations:
+                await db.execute(text(sql))
+                logger.info("[Migration] %s", sql)
+            await db.commit()
+            logger.info("[Migration] competitor_ratings columns added.")
+        else:
+            logger.info("[Migration] competitor_ratings columns already exist. Skip.")
+
+
 async def _auto_fetch_ratings_if_empty():
     """
     起動時に competitor_ratings が空なら楽天 HotelDetailSearch で全物件の評価を取得する。
@@ -165,6 +197,7 @@ async def lifespan(app: FastAPI):
         await _auto_seed_if_empty()
         await _auto_seed_daily_perf_if_empty()
         await _auto_pipeline_if_prices_empty()
+        await _migrate_competitor_ratings_columns()   # カラム追加マイグレーション（べき等）
         await _auto_fetch_ratings_if_empty()
         _db_ready = True
         _logger.info("Database initialized and seeded.")
