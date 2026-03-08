@@ -3,9 +3,18 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8400";
 
 export const PROPERTY_ID = 1; // シードで生成される property_id
 
+function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("yl_token");
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
+    headers,
     ...init,
   });
   if (!res.ok) {
@@ -13,6 +22,48 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(`API error ${res.status}: ${text}`);
   }
   return res.json();
+}
+
+// ---- Auth ----
+
+export interface LoginResponse {
+  access_token: string;
+  token_type: string;
+  user_id: number;
+  name: string;
+  role: string;
+}
+
+export interface UserOut {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  org_id: number;
+}
+
+export async function login(email: string, password: string): Promise<LoginResponse> {
+  const form = new URLSearchParams();
+  form.set("username", email);
+  form.set("password", password);
+  const token = getAuthToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/x-www-form-urlencoded" },
+    body: form.toString(),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.detail ?? "ログインに失敗しました");
+  }
+  return res.json();
+}
+
+export function fetchCurrentUser(): Promise<UserOut> {
+  return apiFetch<UserOut>("/auth/me");
 }
 
 // ---- Properties ----
@@ -271,7 +322,7 @@ export function fetchCompetitorPrices(
   return apiFetch<CompetitorPriceOut[]>(`/properties/${propertyId}/competitor/prices${qs ? `?${qs}` : ""}`);
 }
 
-// ---- Competitor Averages ----
+// ---- Competitor Prices ----
 
 export function fetchCompetitorAverages(
   propertyId: number,
@@ -386,4 +437,169 @@ export function fetchDailyPerformances(
     Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])) as Record<string, string>
   ).toString();
   return apiFetch<DailyPerfOut[]>(`/properties/${propertyId}/daily-performance${qs ? `?${qs}` : ""}`);
+}
+
+// ---- Booking Curve ----
+
+export interface CurvePointOut {
+  days_before: number;
+  booked_rooms: number;
+  occupancy_pct: number;
+  label: string;
+}
+
+export interface BookingCurveOut {
+  target_date: string;
+  total_rooms: number;
+  points: CurvePointOut[];
+  points_prev_year: CurvePointOut[];
+  points_ideal: CurvePointOut[];
+}
+
+export interface MonthlyOnhandOut {
+  label: string;
+  year: number;
+  month: number;
+  revenue: number;
+  revenue_change_pct: number | null;
+  rooms_sold: number;
+  rooms_change_pct: number | null;
+  occupancy_pct: number;
+  is_actual: boolean;
+}
+
+export interface BookingHeatmapOut {
+  dates: string[];
+  lead_times: string[];
+  current_year: number[][];
+  prev_year: number[][];
+}
+
+export function fetchBookingCurve(propertyId: number, targetDate?: string) {
+  const qs = targetDate ? `?target_date=${targetDate}` : "";
+  return apiFetch<BookingCurveOut>(`/properties/${propertyId}/booking-curve/${qs}`);
+}
+
+export function fetchMonthlyOnhand(propertyId: number, monthsAhead = 3) {
+  return apiFetch<MonthlyOnhandOut[]>(`/properties/${propertyId}/booking-curve/monthly?months_ahead=${monthsAhead}`);
+}
+
+export function fetchBookingHeatmap(propertyId: number, days = 10) {
+  return apiFetch<BookingHeatmapOut>(`/properties/${propertyId}/booking-curve/heatmap?days=${days}`);
+}
+
+// ---- Cost / Budget ----
+
+export interface CostSettingOut {
+  id: number;
+  property_id: number;
+  cost_category: string;
+  amount_per_room_night: number;
+  fixed_monthly: number;
+}
+
+export interface BudgetTargetOut {
+  id: number;
+  property_id: number;
+  year: number;
+  month: number;
+  target_occupancy: number | null;
+  target_adr: number | null;
+  target_revpar: number | null;
+  target_revenue: number | null;
+}
+
+export interface CostSummaryOut {
+  year: number;
+  month: number;
+  total_revenue: number;
+  total_rooms_sold: number;
+  avg_occupancy: number;
+  avg_adr: number;
+  variable_cost_total: number;
+  fixed_cost_total: number;
+  total_cost: number;
+  goppar: number;
+  total_rooms: number;
+  budget: BudgetTargetOut | null;
+  budget_occupancy_rate: number | null;
+  budget_revenue_rate: number | null;
+}
+
+export function fetchCosts(propertyId: number) {
+  return apiFetch<CostSettingOut[]>(`/properties/${propertyId}/costs`);
+}
+
+export function createCost(propertyId: number, body: { cost_category: string; amount_per_room_night: number; fixed_monthly: number }) {
+  return apiFetch<CostSettingOut>(`/properties/${propertyId}/costs`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateCost(propertyId: number, costId: number, body: { amount_per_room_night?: number; fixed_monthly?: number }) {
+  return apiFetch<CostSettingOut>(`/properties/${propertyId}/costs/${costId}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteCost(propertyId: number, costId: number) {
+  return apiFetch<void>(`/properties/${propertyId}/costs/${costId}`, { method: "DELETE" });
+}
+
+export function fetchBudget(propertyId: number, year?: number) {
+  const qs = year ? `?year=${year}` : "";
+  return apiFetch<BudgetTargetOut[]>(`/properties/${propertyId}/budget${qs}`);
+}
+
+export function upsertBudget(propertyId: number, body: {
+  year: number; month: number;
+  target_occupancy?: number | null;
+  target_adr?: number | null;
+  target_revpar?: number | null;
+  target_revenue?: number | null;
+}) {
+  return apiFetch<BudgetTargetOut>(`/properties/${propertyId}/budget`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function fetchCostSummary(propertyId: number, months = 3) {
+  return apiFetch<CostSummaryOut[]>(`/properties/${propertyId}/cost-summary?months=${months}`);
+}
+
+// ---- Pricing Export ----
+
+export function getPricingExportUrl(propertyId: number, dateFrom?: string, dateTo?: string): string {
+  const token = getAuthToken();
+  const params = new URLSearchParams();
+  if (dateFrom) params.set("date_from", dateFrom);
+  if (dateTo) params.set("date_to", dateTo);
+  if (token) params.set("token", token);  // 認証トークンをクエリパラメータで渡す（ダウンロード用）
+  return `${API_BASE}/properties/${propertyId}/pricing/export?${params.toString()}`;
+}
+
+// ---- Pricing AI Summary ----
+
+export interface PricingAiSummaryOut {
+  summary: string;
+  bullets: string[];
+}
+
+export function fetchPricingAiSummary(propertyId: number) {
+  return apiFetch<PricingAiSummaryOut>(`/properties/${propertyId}/pricing/ai-summary`);
+}
+
+// ---- Property Settings (event_area) ----
+
+export function updatePropertySettingsFull(
+  propertyId: number,
+  data: { own_rakuten_hotel_no?: string | null; event_area?: string }
+) {
+  return apiFetch<{ id: number; own_rakuten_hotel_no: string | null; event_area: string }>(
+    `/properties/${propertyId}/settings`,
+    { method: "PATCH", body: JSON.stringify(data) }
+  );
 }

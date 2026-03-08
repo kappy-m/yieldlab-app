@@ -1,10 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
+import csv
+import io
+from datetime import date, timedelta
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
+from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
 from pydantic import BaseModel
-from datetime import date
+
 from ..database import get_db
-from ..models import PricingGrid, RoomType
+from ..models import PricingGrid, RoomType, Recommendation, DailyPerformance
 
 router = APIRouter(prefix="/properties/{property_id}/pricing", tags=["pricing"])
 
@@ -117,3 +123,162 @@ async def update_pricing_cell(
         available_rooms=cell.available_rooms,
         updated_by=cell.updated_by,
     )
+
+
+# ─── CSVエクスポート ──────────────────────────────────────────────────────────
+
+@router.get("/export")
+async def export_pricing_csv(
+    property_id: int,
+    date_from: Optional[date] = Query(default=None),
+    date_to: Optional[date] = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    """価格グリッドを CSV 形式でダウンロードする。"""
+    if not date_from:
+        date_from = date.today()
+    if not date_to:
+        date_to = date.today() + timedelta(days=30)
+
+    query = (
+        select(PricingGrid, RoomType.name.label("room_type_name"))
+        .join(RoomType, PricingGrid.room_type_id == RoomType.id)
+        .where(
+            and_(
+                PricingGrid.property_id == property_id,
+                PricingGrid.target_date >= date_from,
+                PricingGrid.target_date <= date_to,
+            )
+        )
+        .order_by(PricingGrid.target_date, RoomType.sort_order)
+    )
+    result = await db.execute(query)
+    rows = result.all()
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["宿泊日", "部屋タイプ", "BARレベル", "価格(円)", "在庫数", "更新者"])
+    for row in rows:
+        writer.writerow([
+            str(row.PricingGrid.target_date),
+            row.room_type_name,
+            row.PricingGrid.bar_level,
+            row.PricingGrid.price,
+            row.PricingGrid.available_rooms,
+            row.PricingGrid.updated_by,
+        ])
+
+    output.seek(0)
+    filename = f"pricing_{property_id}_{date_from}_{date_to}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+# ─── AIサマリー（動的生成）────────────────────────────────────────────────────
+
+class PricingAiSummaryOut(BaseModel):
+    summary: str
+    bullets: list[str]
+
+
+@router.get("/ai-summary", response_model=PricingAiSummaryOut)
+async def get_pricing_ai_summary(
+    property_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    プライシングタブ用の AI サマリーを実データから動的生成する。
+    現在の推奨件数・在庫消化状況・週末/平日差を分析してインサイトを返す。
+    """
+    today = date.today()
+    days_14 = today + timedelta(days=14)
+
+    # 承認待ち推奨件数
+    recs_result = await db.execute(
+        select(func.count(Recommendation.id)).where(
+            and_(
+                Recommendation.property_id == property_id,
+                Recommendation.status == "pending",
+            )
+        )
+    )
+    pending_count = int(recs_result.scalar() or 0)
+
+    # 直近14日の価格グリッド集計
+    grid_result = await db.execute(
+        select(PricingGrid).where(
+            and_(
+                PricingGrid.property_id == property_id,
+                PricingGrid.target_date >= today,
+                PricingGrid.target_date <= days_14,
+            )
+        )
+    )
+    grids = grid_result.scalars().all()
+
+    if not grids:
+        return PricingAiSummaryOut(
+            summary="価格グリッドのデータがありません。AI推奨を生成してください。",
+            bullets=[],
+        )
+
+    # 在庫消化率・BAR分布を計算
+    total_cells = len(grids)
+    avg_price = int(sum(g.price for g in grids) / max(total_cells, 1))
+    bar_counts: dict[str, int] = {}
+    for g in grids:
+        bar_counts[g.bar_level] = bar_counts.get(g.bar_level, 0) + 1
+
+    most_common_bar = max(bar_counts, key=bar_counts.get) if bar_counts else "C"
+    bar_a_pct = round(bar_counts.get("A", 0) / max(total_cells, 1) * 100)
+
+    # 週末と平日の価格差
+    weekend_grids = [g for g in grids if g.target_date.weekday() in (4, 5)]  # 金土
+    weekday_grids = [g for g in grids if g.target_date.weekday() not in (4, 5)]
+    weekend_avg = int(sum(g.price for g in weekend_grids) / max(len(weekend_grids), 1)) if weekend_grids else 0
+    weekday_avg = int(sum(g.price for g in weekday_grids) / max(len(weekday_grids), 1)) if weekday_grids else 0
+    weekend_premium_pct = round((weekend_avg - weekday_avg) / max(weekday_avg, 1) * 100) if weekday_avg else 0
+
+    # 直近7日の実績稼働率
+    week_ago = today - timedelta(days=7)
+    perf_result = await db.execute(
+        select(func.avg(DailyPerformance.occupancy_rate)).where(
+            and_(
+                DailyPerformance.property_id == property_id,
+                DailyPerformance.date >= week_ago,
+                DailyPerformance.date < today,
+            )
+        )
+    )
+    recent_occ = round(float(perf_result.scalar() or 0), 1)
+
+    # サマリー文章生成
+    if pending_count > 0:
+        summary = f"AI推奨が{pending_count}件の価格調整を提案しています。直近7日の稼働率は{recent_occ}%で、今後14日の平均単価は¥{avg_price:,}（BARランク最頻値: {most_common_bar}）です。"
+    else:
+        summary = f"直近7日の稼働率は{recent_occ}%。今後14日の平均単価は¥{avg_price:,}（BARランク{most_common_bar}中心）で推移しています。"
+
+    bullets: list[str] = []
+
+    if bar_a_pct >= 20:
+        bullets.append(f"BARランクA（最高価格帯）が全日程の{bar_a_pct}%を占め、需要の高まりを反映しています")
+    elif bar_a_pct == 0 and most_common_bar in ("D", "E"):
+        bullets.append(f"BARランクが{most_common_bar}中心。需要回復に合わせた段階的な価格引き上げを検討してください")
+
+    if weekend_premium_pct > 10:
+        bullets.append(f"週末価格が平日比+{weekend_premium_pct}%のプレミアム設定。引き続き需要に合わせた価格分散を推奨します")
+    elif weekend_premium_pct <= 5 and weekend_grids:
+        bullets.append(f"週末と平日の価格差が{weekend_premium_pct}%と小さい状況。週末需要を捉えるため価格差の拡大を検討してください")
+
+    if recent_occ >= 85:
+        bullets.append(f"稼働率{recent_occ}%は高水準。今後の残室が少ない日程はBARランクを1段階引き上げ、RevPAR最大化を狙えます")
+    elif recent_occ < 70:
+        bullets.append(f"稼働率{recent_occ}%はやや伸び悩み。近隣イベント需要を取り込むため、週末・祝前日の価格見直しを推奨します")
+
+    if pending_count > 0:
+        bullets.append(f"{pending_count}件の価格調整提案を承認することで、最適な価格水準へ自動反映できます")
+
+    return PricingAiSummaryOut(summary=summary, bullets=bullets)

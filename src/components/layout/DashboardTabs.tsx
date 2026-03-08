@@ -11,6 +11,8 @@ const MAIN_TABS: { id: TabId; label: string }[] = [
   { id: "pricing",    label: "プライシング管理" },
   { id: "competitor", label: "競合分析" },
   { id: "market",     label: "マーケット状況" },
+  { id: "cost",       label: "コスト管理" },
+  { id: "budget",     label: "予算管理" },
 ];
 
 interface DashboardTabsProps {

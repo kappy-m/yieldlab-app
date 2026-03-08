@@ -21,6 +21,7 @@ class Property(Base):
     checkout_time: Mapped[str | None] = mapped_column(String(10))   # チェックアウト時刻
     website_url: Mapped[str | None] = mapped_column(String(300))    # 公式サイト
     own_rakuten_hotel_no: Mapped[str | None] = mapped_column(String(20), nullable=True)  # 自社の楽天ホテル番号
+    event_area: Mapped[str] = mapped_column(String(30), default="nihonbashi")            # マーケットイベントエリア: nihonbashi | ginza
 
     organization: Mapped["Organization"] = relationship(back_populates="properties")
     bar_ladders: Mapped[list["BarLadder"]] = relationship(back_populates="property")

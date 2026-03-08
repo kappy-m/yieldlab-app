@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from .database import init_db, engine
 from .config import settings
 from .routers import properties, pricing, recommendations, competitor, comp_set, market
-from .routers import daily_performance, competitor_ratings
+from .routers import daily_performance, competitor_ratings, auth, booking_curve, cost_budget
 from .services.scheduler import create_scheduler
 
 _scheduler = create_scheduler()
@@ -87,52 +87,196 @@ async def _auto_seed_daily_perf_if_empty():
 
 async def _migrate_competitor_ratings_columns():
     """
-    competitor_ratings テーブルに user_review / review_url カラムを追加するマイグレーション。
-    既存のSQLiteDBにカラムが存在しない場合のみ追加する（べき等）。
-    SQLAlchemyのcreate_allは既存テーブルのカラム追加を行わないため、明示的にALTERが必要。
+    既存テーブルへのカラム追加マイグレーション（SQLite / PostgreSQL 両対応）。
+    各 ALTER TABLE を独立したトランザクションで実行し、
+    「カラム既存」エラーはサイレントに無視する（べき等）。
     """
     import logging
     from sqlalchemy import text
     from .database import AsyncSessionLocal
     logger = logging.getLogger(__name__)
 
-    async with AsyncSessionLocal() as db:
-        # SQLiteではPRAGMA table_info でカラム一覧を取得
-        result = await db.execute(text("PRAGMA table_info(competitor_ratings)"))
-        columns = {row[1] for row in result.all()}  # row[1] = column name
+    ALL_MIGRATIONS = [
+        # competitor_ratings
+        "ALTER TABLE competitor_ratings ADD COLUMN user_review TEXT",
+        "ALTER TABLE competitor_ratings ADD COLUMN review_url TEXT",
+        "ALTER TABLE competitor_ratings ADD COLUMN is_own_property INTEGER DEFAULT 0",
+        "ALTER TABLE competitor_ratings ADD COLUMN review_date TEXT",
+        # properties
+        "ALTER TABLE properties ADD COLUMN own_rakuten_hotel_no TEXT",
+        "ALTER TABLE properties ADD COLUMN event_area TEXT DEFAULT 'nihonbashi'",
+        "ALTER TABLE properties ADD COLUMN brand TEXT",
+        "ALTER TABLE properties ADD COLUMN address TEXT",
+        "ALTER TABLE properties ADD COLUMN star_rating REAL",
+        "ALTER TABLE properties ADD COLUMN total_rooms INTEGER",
+        "ALTER TABLE properties ADD COLUMN checkin_time TEXT",
+        "ALTER TABLE properties ADD COLUMN checkout_time TEXT",
+        "ALTER TABLE properties ADD COLUMN website_url TEXT",
+        # comp_sets
+        "ALTER TABLE comp_sets ADD COLUMN google_place_id TEXT",
+        "ALTER TABLE comp_sets ADD COLUMN tripadvisor_location_id TEXT",
+    ]
 
-        migrations = []
-        if "user_review" not in columns:
-            migrations.append("ALTER TABLE competitor_ratings ADD COLUMN user_review TEXT")
-        if "review_url" not in columns:
-            migrations.append("ALTER TABLE competitor_ratings ADD COLUMN review_url TEXT")
-        if "is_own_property" not in columns:
-            migrations.append("ALTER TABLE competitor_ratings ADD COLUMN is_own_property INTEGER DEFAULT 0")
-        if "review_date" not in columns:
-            migrations.append("ALTER TABLE competitor_ratings ADD COLUMN review_date TEXT")
-
-        # properties テーブルへのカラム追加
-        result2 = await db.execute(text("PRAGMA table_info(properties)"))
-        prop_columns = {row[1] for row in result2.all()}
-        if "own_rakuten_hotel_no" not in prop_columns:
-            migrations.append("ALTER TABLE properties ADD COLUMN own_rakuten_hotel_no TEXT")
-
-        # comp_sets テーブルへのカラム追加
-        result3 = await db.execute(text("PRAGMA table_info(comp_sets)"))
-        comp_columns = {row[1] for row in result3.all()}
-        if "google_place_id" not in comp_columns:
-            migrations.append("ALTER TABLE comp_sets ADD COLUMN google_place_id TEXT")
-        if "tripadvisor_location_id" not in comp_columns:
-            migrations.append("ALTER TABLE comp_sets ADD COLUMN tripadvisor_location_id TEXT")
-
-        if migrations:
-            for sql in migrations:
+    applied = 0
+    for sql in ALL_MIGRATIONS:
+        # 各 ALTER を独立セッション/トランザクションで実行（PG は自動ロールバック対応）
+        async with AsyncSessionLocal() as db:
+            try:
                 await db.execute(text(sql))
-                logger.info("[Migration] %s", sql)
+                await db.commit()
+                logger.info("[Migration] Applied: %s", sql[:80])
+                applied += 1
+            except Exception as e:
+                await db.rollback()
+                err = str(e).lower()
+                # 「カラム既存」は正常（SQLite: duplicate column name / PG: already exists）
+                if "already exists" in err or "duplicate column" in err:
+                    pass
+                else:
+                    logger.warning("[Migration] Skipped (non-fatal): %s | %s", sql[:60], e)
+
+    logger.info("[Migration] Done. %d column(s) added.", applied)
+
+
+async def _auto_seed_booking_snapshots_if_empty():
+    """
+    booking_snapshots が空なら、daily_performances と pricing_grids から
+    過去90日分のスナップショットを逆算して生成する（PoC 用シードデータ）。
+    """
+    import logging
+    from sqlalchemy import text, select, func
+    from datetime import date, timedelta
+    from .database import AsyncSessionLocal
+    logger = logging.getLogger(__name__)
+
+    async with AsyncSessionLocal() as db:
+        snap_count = (await db.execute(text("SELECT COUNT(*) FROM booking_snapshots"))).scalar()
+        props_count = (await db.execute(text("SELECT COUNT(*) FROM properties"))).scalar()
+
+    if snap_count > 0 or props_count == 0:
+        logger.info(f"[AutoSnapshot] {snap_count} snapshots found — skip seed.")
+        return
+
+    logger.info("[AutoSnapshot] booking_snapshots is empty — seeding from pricing_grids...")
+
+    from .models import Property, PricingGrid, RoomType, BookingSnapshot
+    from sqlalchemy import select, and_
+
+    async with AsyncSessionLocal() as db:
+        today = date.today()
+        props = (await db.execute(select(Property))).scalars().all()
+
+        for prop in props:
+            rts = (await db.execute(
+                select(RoomType).where(RoomType.property_id == prop.id)
+            )).scalars().all()
+            total_rooms = sum(rt.total_rooms for rt in rts)
+            if total_rooms == 0:
+                continue
+
+            # 過去90日分のスナップショットをシミュレート
+            # capture_date を target_date の90日前〜当日として疑似生成
+            for target_offset in range(-30, 91):  # target_date は今日-30〜今日+90
+                target = today + timedelta(days=target_offset)
+
+                # pricing_grids から平均単価・在庫取得
+                grid_result = await db.execute(
+                    select(
+                        func.sum(PricingGrid.available_rooms).label("avail"),
+                        func.avg(PricingGrid.price).label("avg_price"),
+                    ).where(
+                        and_(
+                            PricingGrid.property_id == prop.id,
+                            PricingGrid.target_date == target,
+                        )
+                    )
+                )
+                grid = grid_result.one()
+                avail_now = int(grid.avail or 0)
+                avg_price = float(grid.avg_price or 15000)
+                booked_now = max(0, total_rooms - avail_now)
+
+                # 過去のスナップショットポイントをシミュレート
+                # target_date が近くなるほど予約が増えるパターンで生成
+                for days_before in [90, 60, 45, 30, 21, 14, 7, 3, 1, 0]:
+                    capture_date = target - timedelta(days=days_before)
+                    if capture_date > today:
+                        continue
+
+                    # 近くなるほど予約が増える（S字カーブ的に近似）
+                    fill_ratio = 1.0 - (days_before / 95.0) ** 0.7
+                    booked_at_time = int(booked_now * fill_ratio)
+
+                    db.add(BookingSnapshot(
+                        property_id=prop.id,
+                        capture_date=capture_date,
+                        target_date=target,
+                        booked_rooms=booked_at_time,
+                        booked_revenue=int(booked_at_time * avg_price),
+                    ))
+
             await db.commit()
-            logger.info("[Migration] competitor_ratings columns added.")
-        else:
-            logger.info("[Migration] competitor_ratings columns already exist. Skip.")
+            logger.info(f"[AutoSnapshot] Seeded snapshots for property {prop.id}")
+
+    logger.info("[AutoSnapshot] Booking snapshot seed completed.")
+
+
+async def _auto_seed_users_if_empty():
+    """デモ用ユーザーが未登録なら投入する。"""
+    import logging
+    from sqlalchemy import text
+    from .database import AsyncSessionLocal
+    logger = logging.getLogger(__name__)
+
+    async with AsyncSessionLocal() as db:
+        user_count = (await db.execute(text("SELECT COUNT(*) FROM users"))).scalar()
+        org_count = (await db.execute(text("SELECT COUNT(*) FROM organizations"))).scalar()
+
+    if user_count > 0 or org_count == 0:
+        return
+
+    try:
+        import bcrypt as _bc
+        salt = _bc.gensalt()
+        pwd_hash = _bc.hashpw(b"admin123", salt).decode()
+    except Exception:
+        pwd_hash = "admin123"
+
+    from .models.user import User
+    from .models.organization import Organization
+    from sqlalchemy import select
+
+    async with AsyncSessionLocal() as db:
+        org = (await db.execute(select(Organization).limit(1))).scalar_one_or_none()
+        if not org:
+            return
+
+        demo_users = [
+            User(org_id=org.id, email="admin@example.com",    password_hash=pwd_hash, name="管理者",          role="admin"),
+            User(org_id=org.id, email="revenue@example.com",  password_hash=pwd_hash, name="レベニューマネージャー", role="revenue_manager"),
+            User(org_id=org.id, email="viewer@example.com",   password_hash=pwd_hash, name="閲覧ユーザー",      role="viewer"),
+        ]
+        for u in demo_users:
+            db.add(u)
+        await db.commit()
+        logger.info("[AutoSeed] Demo users created.")
+
+
+async def _auto_seed_canvas_event_area():
+    """銀座Canvas の event_area が 'nihonbashi' のままなら 'ginza' に更新する。"""
+    import logging
+    from sqlalchemy import text
+    from .database import AsyncSessionLocal
+    logger = logging.getLogger(__name__)
+
+    async with AsyncSessionLocal() as db:
+        # 銀座Canvas の物件を特定して event_area を設定
+        result = await db.execute(
+            text("UPDATE properties SET event_area = 'ginza' WHERE (name LIKE '%銀座%' OR name LIKE '%Canvas%' OR name LIKE '%CANVAS%') AND (event_area IS NULL OR event_area = 'nihonbashi')")
+        )
+        await db.commit()
+        if result.rowcount > 0:
+            logger.info(f"[AutoMigrate] Updated {result.rowcount} properties to event_area='ginza'")
 
 
 async def _auto_fetch_ratings_if_empty():
@@ -215,6 +359,8 @@ async def lifespan(app: FastAPI):
         await _migrate_competitor_ratings_columns()   # スキーマ確定をシード・パイプラインより前に実行
         await _auto_seed_if_empty()
         await _auto_seed_daily_perf_if_empty()
+        await _auto_seed_users_if_empty()
+        await _auto_seed_canvas_event_area()
         await _auto_pipeline_if_prices_empty()
         await _auto_fetch_ratings_if_empty()
         _db_ready = True
@@ -222,6 +368,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         _logger.warning(f"DB init failed on startup (will retry on first request): {e}")
     _scheduler.start()
+    # 起動時に booking_snapshots が空なら過去90日分のシードを投入
+    await _auto_seed_booking_snapshots_if_empty()
     yield
     _scheduler.shutdown(wait=False)
 
@@ -242,6 +390,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(properties.router)
 app.include_router(pricing.router)
 app.include_router(recommendations.router)
@@ -250,6 +399,8 @@ app.include_router(comp_set.router)
 app.include_router(market.router)
 app.include_router(daily_performance.router)
 app.include_router(competitor_ratings.router)
+app.include_router(booking_curve.router)
+app.include_router(cost_budget.router)
 
 
 # ─── 管理エンドポイント認証 ────────────────────────────────────────────────────
@@ -274,7 +425,7 @@ async def health():
         from sqlalchemy import text
         from .database import AsyncSessionLocal
         async with AsyncSessionLocal() as db:
-            for table in ["properties", "competitor_prices", "daily_performances", "pricing_grids", "competitor_ratings"]:
+            for table in ["properties", "competitor_prices", "daily_performances", "pricing_grids", "competitor_ratings", "users", "booking_snapshots"]:
                 count = (await db.execute(text(f"SELECT COUNT(*) FROM {table}"))).scalar()
                 db_stats[table] = count
     except Exception as e:

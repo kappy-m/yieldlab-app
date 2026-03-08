@@ -226,6 +226,7 @@ async def get_approval_settings(property_id: int, db: AsyncSession = Depends(get
 
 class PropertySettingsUpdate(BaseModel):
     own_rakuten_hotel_no: str | None = None
+    event_area: str | None = None
 
 
 @router.patch("/{property_id}/settings", response_model=PropertyOut)
@@ -234,12 +235,14 @@ async def update_property_settings(
     body: PropertySettingsUpdate,
     db: AsyncSession = Depends(get_db),
 ):
-    """自社楽天ホテル番号など物件設定を更新する。"""
+    """自社楽天ホテル番号・イベントエリアなど物件設定を更新する。"""
     prop = await db.get(Property, property_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
     if body.own_rakuten_hotel_no is not None:
         prop.own_rakuten_hotel_no = body.own_rakuten_hotel_no or None
+    if body.event_area is not None:
+        prop.event_area = body.event_area
     await db.commit()
     await db.refresh(prop)
     return prop

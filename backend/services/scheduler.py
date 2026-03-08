@@ -9,12 +9,12 @@ import logging
 from datetime import date
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from ..database import AsyncSessionLocal
 from ..models import (
     Property, CompSet, CompetitorPrice,
     RoomType, BarLadder, PricingGrid, Recommendation,
-    ApprovalSetting, ApprovalLog,
+    ApprovalSetting, ApprovalLog, BookingSnapshot,
 )
 from ..services.mock_scraper import generate_mock_prices, DEFAULT_COMP_HOTELS
 from ..services.rule_engine import RuleEngineInput, recommend
@@ -273,6 +273,84 @@ async def _run_rule_engine(db, prop: "Property"):
     logger.info(f"[Scheduler] Rule engine done: {new_recs} recommendations for property {prop.id}")
 
 
+async def take_booking_snapshots():
+    """
+    毎日 0:00 JST に pricing_grids の在庫データから予約スナップショットを取る。
+    booked_rooms = total_rooms - available_rooms として計算する。
+    """
+    today = date.today()
+    logger.info(f"[Snapshot] Taking booking snapshots for {today}")
+
+    async with AsyncSessionLocal() as db:
+        props_result = await db.execute(select(Property))
+        properties = props_result.scalars().all()
+
+        for prop in properties:
+            # 全部屋タイプの合計在庫を取得
+            rt_result = await db.execute(
+                select(RoomType).where(RoomType.property_id == prop.id)
+            )
+            room_types = rt_result.scalars().all()
+            total_rooms = sum(rt.total_rooms for rt in room_types)
+            if total_rooms == 0:
+                continue
+
+            # 今後90日分の各日について集計
+            from datetime import timedelta
+            for day_offset in range(91):
+                target = today + timedelta(days=day_offset)
+
+                # その日の全部屋タイプの available_rooms 合計
+                avail_result = await db.execute(
+                    select(func.sum(PricingGrid.available_rooms)).where(
+                        and_(
+                            PricingGrid.property_id == prop.id,
+                            PricingGrid.target_date == target,
+                        )
+                    )
+                )
+                avail = int(avail_result.scalar() or 0)
+                booked = max(0, total_rooms - avail)
+
+                # 平均単価も取得して売上オンハンドを計算
+                price_result = await db.execute(
+                    select(func.avg(PricingGrid.price)).where(
+                        and_(
+                            PricingGrid.property_id == prop.id,
+                            PricingGrid.target_date == target,
+                        )
+                    )
+                )
+                avg_price = float(price_result.scalar() or 0)
+                booked_revenue = int(booked * avg_price)
+
+                # UPSERT: 既存レコードがあれば更新
+                existing = await db.execute(
+                    select(BookingSnapshot).where(
+                        BookingSnapshot.property_id == prop.id,
+                        BookingSnapshot.capture_date == today,
+                        BookingSnapshot.target_date == target,
+                    )
+                )
+                snap = existing.scalar_one_or_none()
+                if snap:
+                    snap.booked_rooms = booked
+                    snap.booked_revenue = booked_revenue
+                else:
+                    db.add(BookingSnapshot(
+                        property_id=prop.id,
+                        capture_date=today,
+                        target_date=target,
+                        booked_rooms=booked,
+                        booked_revenue=booked_revenue,
+                    ))
+
+            await db.commit()
+            logger.info(f"[Snapshot] Snapshots saved for property {prop.id}")
+
+    logger.info("[Snapshot] Booking snapshots completed")
+
+
 def create_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler(timezone="Asia/Tokyo")
     scheduler.add_job(
@@ -280,6 +358,13 @@ def create_scheduler() -> AsyncIOScheduler:
         trigger=CronTrigger(hour=6, minute=0),
         id="daily_pipeline",
         name="Daily pricing pipeline",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        take_booking_snapshots,
+        trigger=CronTrigger(hour=0, minute=5),
+        id="booking_snapshots",
+        name="Daily booking snapshots",
         replace_existing=True,
     )
     return scheduler

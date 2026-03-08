@@ -11,10 +11,14 @@ import {
   generateRecommendations,
   actOnRecommendation,
   updatePricingCell,
+  syncGridFromBarLadder,
+  fetchPricingAiSummary,
+  getPricingExportUrl,
 
   type PricingCellOut,
   type RecommendationOut,
   type RoomTypeOut,
+  type PricingAiSummaryOut,
 } from "@/lib/api";
 
 const barBadgeClass: Record<string, string> = {
@@ -43,6 +47,12 @@ function getDateRange(days = 14): { from: string; to: string; labels: string[] }
   return { from, to, labels };
 }
 
+const RANGE_OPTIONS = [
+  { label: "14日", days: 14 },
+  { label: "30日", days: 30 },
+  { label: "90日", days: 90 },
+] as const;
+
 export function PricingTab({ propertyId }: { propertyId: number }) {
   const [roomTypes, setRoomTypes] = useState<RoomTypeOut[]>([]);
   const [grid, setGrid] = useState<PricingCellOut[]>([]);
@@ -50,19 +60,24 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const { from, to, labels } = getDateRange(14);
+  const [applying, setApplying] = useState(false);
+  const [aiSummary, setAiSummary] = useState<PricingAiSummaryOut | null>(null);
+  const [displayDays, setDisplayDays] = useState<14 | 30 | 90>(30);
+  const { from, to, labels } = getDateRange(displayDays);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [rts, cells, recs] = await Promise.all([
+      const [rts, cells, recs, summary] = await Promise.all([
         fetchRoomTypes(propertyId),
         fetchPricingGrid(propertyId, { date_from: from, date_to: to }),
         fetchRecommendations(propertyId, "pending"),
+        fetchPricingAiSummary(propertyId),
       ]);
       setRoomTypes(rts);
       setGrid(cells);
       setRecommendations(recs);
+      setAiSummary(summary);
     } catch (e) {
       console.error("Failed to load pricing data", e);
     } finally {
@@ -157,31 +172,62 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
     await Promise.all(recommendations.map(r => handleApprove(r.id)));
   };
 
+  const handleApply = async () => {
+    setApplying(true);
+    try {
+      const result = await syncGridFromBarLadder(propertyId);
+      alert(`BARラダー価格を適用しました（${result.synced_rows}件更新）`);
+      await loadData();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "適用に失敗しました");
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const handleExport = () => {
+    const url = getPricingExportUrl(propertyId, from, to);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pricing_${propertyId}_${from}_${to}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
   const pendingCount = recommendations.length;
 
   return (
     <div>
       <AiSummaryCard
-        summary="現在の価格設定は市場需要に対して概ね適正です。在庫は順調に消化されており、90日先まで健全なペースで予約が入っています。"
-        bullets={[
-          "レートランクA（最高価格帯）の日数が前月比+12%増加。需要の高まりを反映しています",
-          "スタンダードツイン・デラックスツインの在庫消化が早く、早期の価格調整余地あり",
-          "平日の在庫消化率が週末より15%低い状況。ビジネス向けプロモーション推奨",
-        ]}
+        summary={aiSummary?.summary ?? "価格データを分析中..."}
+        bullets={aiSummary?.bullets ?? []}
       />
 
       <div className="yl-card overflow-hidden mb-5">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">90日価格・在庫管理</h3>
+            <h3 className="text-sm font-semibold text-gray-900">価格・在庫管理（{displayDays}日間）</h3>
             <p className="text-xs text-gray-400">部屋タイプ別の価格・レートランク・在庫数を一覧管理（セルをクリックして編集）</p>
           </div>
           <div className="flex items-center gap-2">
-            <select className="text-xs border border-gray-200 rounded px-2 py-1 text-gray-600">
-              <option>価格優先</option>
-              <option>在庫優先</option>
-            </select>
-            <button className="text-xs border border-gray-200 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">エクスポート</button>
+            {/* 期間セレクター */}
+            <div className="flex gap-0.5 bg-gray-100 p-0.5 rounded-lg">
+              {RANGE_OPTIONS.map(opt => (
+                <button
+                  key={opt.days}
+                  onClick={() => setDisplayDays(opt.days)}
+                  className={`text-xs px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    displayDays === opt.days
+                      ? "bg-white text-gray-800 font-semibold shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={handleExport} className="text-xs border border-gray-200 rounded px-3 py-1 text-gray-600 hover:bg-gray-50">エクスポート</button>
             <button
               onClick={handleGenerate}
               disabled={generating}
@@ -189,7 +235,13 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
             >
               {generating ? "生成中..." : "AI推奨を生成"}
             </button>
-            <button className="text-xs bg-[#EF4444] text-white rounded px-3 py-1 font-medium hover:bg-red-600">Apply</button>
+            <button
+              onClick={handleApply}
+              disabled={applying}
+              className="text-xs bg-[#EF4444] text-white rounded px-3 py-1 font-medium hover:bg-red-600 disabled:opacity-50"
+            >
+              {applying ? "適用中..." : "Apply"}
+            </button>
           </div>
         </div>
 

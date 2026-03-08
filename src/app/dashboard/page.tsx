@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { DashboardTabs, type TabId } from "@/components/layout/DashboardTabs";
 import { DailyTab } from "@/components/tabs/DailyTab";
@@ -8,21 +9,37 @@ import { PricingTab } from "@/components/tabs/PricingTab";
 import { CompetitorTab } from "@/components/tabs/CompetitorTab";
 import { BookingTab } from "@/components/tabs/BookingTab";
 import { MarketTab } from "@/components/tabs/MarketTab";
-import { PlaceholderTab } from "@/components/tabs/PlaceholderTab";
 import { SettingsTab } from "@/components/tabs/SettingsTab";
+import { CostTab } from "@/components/tabs/CostTab";
+import { BudgetTab } from "@/components/tabs/BudgetTab";
 
 // コンテンツ型タブは常にマウントしておき、CSSで表示/非表示を切り替える。
-// アンマウントしないことで:
-//   1. タブ切り替えが即時（再フェッチなし）
-//   2. スクロール位置・フォーム入力が保持される
-//   3. 物件切り替え時は key={propertyId} でのみリセット
 const ALWAYS_MOUNTED_TABS: TabId[] = [
-  "daily", "pricing", "competitor", "booking", "market", "settings",
+  "daily", "pricing", "competitor", "booking", "market", "settings", "cost", "budget",
 ];
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("daily");
   const [propertyId, setPropertyId] = useState<number>(1);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("yl_token");
+    if (!token) {
+      router.replace("/login");
+    } else {
+      setAuthChecked(true);
+    }
+  }, [router]);
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center">
+        <div className="text-sm text-slate-400">読み込み中...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
@@ -46,15 +63,13 @@ export default function DashboardPage() {
             {tab === "daily"      && <DailyTab      key={propertyId} propertyId={propertyId} />}
             {tab === "pricing"    && <PricingTab    key={propertyId} propertyId={propertyId} />}
             {tab === "competitor" && <CompetitorTab key={propertyId} propertyId={propertyId} />}
-            {tab === "booking"    && <BookingTab    key={propertyId} />}
+            {tab === "booking"    && <BookingTab    key={propertyId} propertyId={propertyId} />}
             {tab === "market"     && <MarketTab     key={propertyId} propertyId={propertyId} />}
             {tab === "settings"   && <SettingsTab   key={propertyId} propertyId={propertyId} />}
+            {tab === "cost"       && <CostTab       key={propertyId} propertyId={propertyId} />}
+            {tab === "budget"     && <BudgetTab     key={propertyId} propertyId={propertyId} />}
           </div>
         ))}
-
-        {/* プレースホルダータブ: 軽量なのでオンデマンドレンダリング */}
-        {activeTab === "cost"   && <PlaceholderTab label="コスト分析" phase="Phase 3" />}
-        {activeTab === "budget" && <PlaceholderTab label="予算設定"   phase="Phase 3" />}
       </main>
     </div>
   );

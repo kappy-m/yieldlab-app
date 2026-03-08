@@ -14,7 +14,7 @@ YieldLab ルールエンジン (Phase 1: ルールベース)
   - reason (推奨理由テキスト)
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 BAR_LEVELS = ["E", "D", "C", "B", "A"]  # 0=最安値, 4=最高値
 
@@ -27,6 +27,10 @@ class RuleEngineInput:
     competitor_avg_price: float # 競合平均価格（円）
     own_price: float            # 自社現在価格（円）
     days_to_arrival: int        # 泊日まで何日か
+    # Rule 5: マーケットイベント影響度 ("影響大" | "影響中" | "影響小" | "")
+    market_impact: str = ""
+    # Rule 6: 競合評価との比較 (自社評価 - 競合平均評価)
+    rating_advantage: float = 0.0  # 正=自社優位, 負=競合優位
 
 
 @dataclass
@@ -81,6 +85,26 @@ def recommend(inp: RuleEngineInput, threshold: int = 1) -> RuleEngineOutput:
     if inp.days_to_arrival <= 5 and inp.inventory_ratio >= 0.40:
         adj -= 1
         reasons.append("直前5日以内で在庫残あり（直前割引推奨）")
+
+    # --- Rule 5: マーケットイベント影響度 ---
+    if inp.market_impact == "影響大":
+        adj += 2
+        reasons.append("大型イベント・連休による高需要期（価格引き上げ推奨）")
+    elif inp.market_impact == "影響中":
+        adj += 1
+        reasons.append("中程度のイベント需要あり（価格引き上げ余地）")
+
+    # --- Rule 6: 競合評価ポジショニング ---
+    # 自社評価が競合より高く、かつ価格が競合より安い場合は値上げ余地あり
+    if inp.rating_advantage >= 0.3 and inp.competitor_avg_price > 0:
+        ratio = inp.own_price / inp.competitor_avg_price
+        if ratio < 0.95:
+            adj += 1
+            reasons.append(f"自社評価が競合平均より+{inp.rating_advantage:.1f}pt高く価格引き上げ余地あり")
+    elif inp.rating_advantage <= -0.3:
+        # 自社評価が競合より低い場合は価格を抑制
+        adj -= 1
+        reasons.append(f"競合評価が自社より高い（価格設定の慎重な見直しを推奨）")
 
     # 範囲クランプ
     new_idx = max(0, min(4, current_idx + adj))

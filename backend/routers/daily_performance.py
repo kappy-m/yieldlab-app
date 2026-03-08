@@ -3,10 +3,13 @@
 GET  /properties/{property_id}/daily-performance          → 日付範囲で取得
 GET  /properties/{property_id}/daily-performance/latest   → 直近N日分（デフォルト30日）
 GET  /properties/{property_id}/daily-performance/summary  → 当日 + 前日比 + 週次トレンド
+POST /properties/{property_id}/daily-performance/import   → CSVインポート（PMS等からの手動取り込み）
 """
+import csv
+import io
 from datetime import date, timedelta
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
@@ -114,3 +117,99 @@ async def get_daily_summary(
         new_bookings_change_pct=new_bookings_change_pct,
         trend_7d=trend_7d,
     )
+
+
+class ImportResultOut(BaseModel):
+    imported: int
+    updated: int
+    skipped: int
+    errors: list[str]
+
+
+@router.post("/import", response_model=ImportResultOut)
+async def import_daily_performance_csv(
+    property_id: int,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    PMS等からエクスポートした CSV を取り込む。
+    既存レコードは日付キーで UPSERT（上書き）する。
+
+    CSVフォーマット（ヘッダー行必須）:
+    date,occupancy_rate,rooms_sold,total_rooms,adr,revenue,revpar,new_bookings,cancellations
+    """
+    if not file.filename or not file.filename.endswith(".csv"):
+        raise HTTPException(400, "CSVファイルをアップロードしてください")
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8-sig")  # BOM対応
+    except UnicodeDecodeError:
+        text = content.decode("shift_jis", errors="ignore")
+
+    reader = csv.DictReader(io.StringIO(text))
+    imported = 0
+    updated = 0
+    skipped = 0
+    errors: list[str] = []
+
+    for i, row in enumerate(reader, start=2):  # 行番号は2行目から
+        try:
+            row_date = date.fromisoformat(row["date"].strip())
+        except (KeyError, ValueError) as e:
+            errors.append(f"行{i}: 日付エラー ({e})")
+            skipped += 1
+            continue
+
+        try:
+            occ = float(row.get("occupancy_rate", 0) or 0)
+            rooms_sold = int(float(row.get("rooms_sold", 0) or 0))
+            total_rooms = int(float(row.get("total_rooms", 0) or 0))
+            adr = int(float(row.get("adr", 0) or 0))
+            revenue = int(float(row.get("revenue", 0) or 0))
+            revpar = int(float(row.get("revpar", 0) or 0))
+            new_bookings = int(float(row.get("new_bookings", 0) or 0))
+            cancellations = int(float(row.get("cancellations", 0) or 0))
+        except (ValueError, TypeError) as e:
+            errors.append(f"行{i}: 数値変換エラー ({e})")
+            skipped += 1
+            continue
+
+        # UPSERT: 既存レコードを更新、なければ作成
+        existing = await db.execute(
+            select(DailyPerformance).where(
+                DailyPerformance.property_id == property_id,
+                DailyPerformance.date == row_date,
+            )
+        )
+        record = existing.scalar_one_or_none()
+
+        if record:
+            record.occupancy_rate = occ
+            record.rooms_sold = rooms_sold
+            if total_rooms:
+                record.total_rooms = total_rooms
+            record.adr = adr
+            record.revenue = revenue
+            record.revpar = revpar
+            record.new_bookings = new_bookings
+            record.cancellations = cancellations
+            updated += 1
+        else:
+            db.add(DailyPerformance(
+                property_id=property_id,
+                date=row_date,
+                occupancy_rate=occ,
+                rooms_sold=rooms_sold,
+                total_rooms=total_rooms or 134,
+                adr=adr,
+                revenue=revenue,
+                revpar=revpar,
+                new_bookings=new_bookings,
+                cancellations=cancellations,
+            ))
+            imported += 1
+
+    await db.commit()
+    return ImportResultOut(imported=imported, updated=updated, skipped=skipped, errors=errors[:20])

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { AiSummaryCard } from "@/components/shared/AiSummaryCard";
 import { KpiCard } from "@/components/shared/KpiCard";
 import {
@@ -13,10 +13,12 @@ import {
   fetchCompetitorAverages,
   fetchPricingGrid,
   fetchMarketEvents,
+  fetchBookingCurve,
   type DailySummaryOut,
   type CompetitorAvgOut,
   type PricingCellOut,
   type MarketEventOut,
+  type BookingCurveOut,
 } from "@/lib/api";
 import {
   SkeletonAiCard,
@@ -24,20 +26,6 @@ import {
   SkeletonChart,
   SkeletonEventCards,
 } from "@/components/shared/Skeleton";
-
-// ブッキングカーブ（サンプルデータ）
-const curveData = [
-  { days: "90", 今年: 2,  昨年同期: 3,  理想ライン: 5  },
-  { days: "60", 今年: 8,  昨年同期: 7,  理想ライン: 12 },
-  { days: "45", 今年: 18, 昨年同期: 16, 理想ライン: 22 },
-  { days: "30", 今年: 35, 昨年同期: 32, 理想ライン: 40 },
-  { days: "21", 今年: 48, 昨年同期: 44, 理想ライン: 55 },
-  { days: "14", 今年: 62, 昨年同期: 58, 理想ライン: 68 },
-  { days: "7",  今年: 75, 昨年同期: 70, 理想ライン: 80 },
-  { days: "3",  今年: 83, 昨年同期: 78, 理想ライン: 87 },
-  { days: "1",  今年: 88, 昨年同期: 82, 理想ライン: 91 },
-  { days: "0",  今年: 89, 昨年同期: 84, 理想ライン: 92 },
-];
 
 // 実データからAIサマリーを生成
 function generateAiSummary(
@@ -102,6 +90,7 @@ export function DailyTab({ propertyId }: { propertyId: number }) {
   const [compAvgs, setCompAvgs] = useState<CompetitorAvgOut[]>([]);
   const [pricingRows, setPricingRows] = useState<PricingCellOut[]>([]);
   const [events, setEvents] = useState<MarketEventOut[]>([]);
+  const [bookingCurve, setBookingCurve] = useState<BookingCurveOut | null>(null);
   const [loading, setLoading] = useState(true);   // 初回ロード中
   const [refreshing, setRefreshing] = useState(false);  // 再取得中（既存データ表示維持）
 
@@ -110,16 +99,19 @@ export function DailyTab({ propertyId }: { propertyId: number }) {
     else setLoading(true);
     try {
       const dateTo = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
-      const [perfRes, compRes, priceRes, eventsRes] = await Promise.allSettled([
+      const target30 = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+      const [perfRes, compRes, priceRes, eventsRes, curveRes] = await Promise.allSettled([
         fetchDailySummary(propertyId),
         fetchCompetitorAverages(propertyId, { date_from: todayStr, date_to: dateTo }),
         fetchPricingGrid(propertyId, { date_from: todayStr, date_to: dateTo }),
         fetchMarketEvents(propertyId, 30),
+        fetchBookingCurve(propertyId, target30),
       ]);
       if (perfRes.status === "fulfilled")   setPerfSummary(perfRes.value);
       if (compRes.status === "fulfilled")   setCompAvgs(compRes.value);
       if (priceRes.status === "fulfilled")  setPricingRows(priceRes.value);
       if (eventsRes.status === "fulfilled") setEvents(eventsRes.value);
+      if (curveRes.status === "fulfilled")  setBookingCurve(curveRes.value);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -189,6 +181,40 @@ export function DailyTab({ propertyId }: { propertyId: number }) {
     稼働率: r.occupancy_rate,
     ADR: r.adr,
   }));
+
+  // 今後30日間のオンハンド稼働率（pricing_grids から算出）
+  const futureOccData = useMemo(() => {
+    if (!pricingRows.length || !bookingCurve?.total_rooms) return [];
+    const totalRooms = bookingCurve.total_rooms;
+    const availByDate: Record<string, number> = {};
+    for (const row of pricingRows) {
+      availByDate[row.target_date] = (availByDate[row.target_date] ?? 0) + row.available_rooms;
+    }
+    return Object.entries(availByDate)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([dateStr, totalAvail]) => {
+        const occ = Math.max(0, Math.min(100, Math.round((totalRooms - totalAvail) / totalRooms * 100)));
+        const d = new Date(dateStr + "T00:00:00");
+        const dow = ["日", "月", "火", "水", "木", "金", "土"][d.getDay()];
+        const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+        return { date: `${d.getMonth() + 1}/${d.getDate()}(${dow})`, 稼働率: occ, isWeekend };
+      });
+  }, [pricingRows, bookingCurve]);
+
+  // ブッキングペースデータ（予約ペース分析サブチャート用）
+  const curveData = useMemo(() => {
+    if (!bookingCurve || bookingCurve.points.length === 0) return [];
+    const currentMap = new Map(bookingCurve.points.map(p => [p.days_before, p.occupancy_pct]));
+    const idealMap = new Map((bookingCurve.points_ideal ?? []).map(p => [p.days_before, p.occupancy_pct]));
+    const allDays = Array.from(
+      new Set([...Array.from(currentMap.keys()), ...Array.from(idealMap.keys())])
+    ).sort((a, b) => b - a);
+    return allDays.map(d => ({
+      days: String(d),
+      今年: currentMap.get(d) ?? null,
+      理想ライン: idealMap.get(d) ?? null,
+    }));
+  }, [bookingCurve]);
 
   // 初回ロード中はスケルトンを表示
   if (loading) {
@@ -288,26 +314,48 @@ export function DailyTab({ propertyId }: { propertyId: number }) {
       </div>
 
       <div className="flex gap-4">
-        {/* ブッキングカーブ + 直近トレンド */}
+        {/* オンハンド稼働率 + 直近トレンド + 予約ペース */}
         <div className="flex-1 flex flex-col gap-4">
+
+          {/* メインチャート：今後30日間 オンハンド稼働率 */}
           <div className="yl-card p-5">
-            <h3 className="text-sm font-semibold text-gray-800 mb-4">ブッキングカーブ（今後30日間）</h3>
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={curveData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
-                <XAxis
-                  dataKey="days"
-                  tick={{ fontSize: 11, fill: "#9CA3AF" }}
-                  label={{ value: "泊日までの日数", position: "insideBottom", offset: -2, fontSize: 11, fill: "#9CA3AF" }}
-                />
-                <YAxis tick={{ fontSize: 11, fill: "#9CA3AF" }} domain={[0, 100]} />
-                <Tooltip formatter={(v) => `${v}%`} />
-                <Legend iconType="line" wrapperStyle={{ fontSize: 11 }} />
-                <Line type="monotone" dataKey="今年"     stroke="#2563EB" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="昨年同期" stroke="#9CA3AF" strokeWidth={1.5} strokeDasharray="4 2" dot={false} />
-                <Line type="monotone" dataKey="理想ライン" stroke="#10B981" strokeWidth={1.5} strokeDasharray="2 2" dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="text-sm font-semibold text-gray-800">今後30日間 オンハンド稼働率</h3>
+              <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">現時点の予約残状況</span>
+            </div>
+            <p className="text-xs text-gray-400 mb-4">各日の現在の予約充足率。80%以上で価格引き上げ、50%以下で販促強化を検討</p>
+            {futureOccData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={190}>
+                <LineChart data={futureOccData} margin={{ top: 4, right: 4, bottom: 16, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10, fill: "#9CA3AF" }}
+                    interval={4}
+                  />
+                  <YAxis tick={{ fontSize: 11, fill: "#9CA3AF" }} domain={[0, 100]} tickFormatter={v => `${v}%`} width={36} />
+                  <Tooltip formatter={(v) => [`${v}%`, "稼働率"]} />
+                  {/* 目標稼働率80% 基準線 */}
+                  <Line type="monotone" dataKey="稼働率" stroke="#2563EB" strokeWidth={2.5} dot={(props) => {
+                    const { cx, cy, payload } = props as { cx: number; cy: number; payload: { isWeekend: boolean } };
+                    return (
+                      <circle
+                        key={`dot-${cx}-${cy}`}
+                        cx={cx} cy={cy} r={3}
+                        fill={payload.isWeekend ? "#EF4444" : "#2563EB"}
+                        stroke="none"
+                      />
+                    );
+                  }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[190px] text-gray-400 text-sm">データ取得中...</div>
+            )}
+            <div className="flex items-center gap-4 mt-1 text-[10px] text-gray-400">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />平日</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />週末（土日）</span>
+            </div>
           </div>
 
           {/* 直近7日トレンド */}
@@ -328,6 +376,34 @@ export function DailyTab({ propertyId }: { propertyId: number }) {
                   <Tooltip formatter={(v, name) => name === "稼働率" ? `${v}%` : `¥${Number(v).toLocaleString()}`} />
                   <Legend iconType="line" wrapperStyle={{ fontSize: 11 }} />
                   <Line yAxisId="occ" type="monotone" dataKey="稼働率" stroke="#7C3AED" strokeWidth={2} dot={{ r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* 予約ペース分析（サブチャート） */}
+          {curveData.length > 0 && (
+            <div className="yl-card p-5">
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-sm font-semibold text-gray-800">予約ペース分析</h3>
+                <span className="text-[10px] text-gray-400 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                  対象日: {bookingCurve?.target_date ?? "—"}
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mb-3">1つの宿泊日に対し「何日前から予約が入り始めるか」の累積ペース。X軸＝宿泊日までの残り日数</p>
+              <ResponsiveContainer width="100%" height={160}>
+                <LineChart data={curveData} margin={{ top: 4, right: 4, bottom: 16, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
+                  <XAxis
+                    dataKey="days"
+                    tick={{ fontSize: 11, fill: "#9CA3AF" }}
+                    label={{ value: "宿泊日までの残り日数", position: "insideBottom", offset: -4, fontSize: 10, fill: "#9CA3AF" }}
+                  />
+                  <YAxis tick={{ fontSize: 11, fill: "#9CA3AF" }} domain={[0, 100]} tickFormatter={v => `${v}%`} width={36} />
+                  <Tooltip formatter={(v) => `${v}%`} />
+                  <Legend iconType="line" wrapperStyle={{ fontSize: 11 }} />
+                  <Line type="monotone" dataKey="今年" stroke="#2563EB" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="理想ライン" stroke="#10B981" strokeWidth={1.5} strokeDasharray="2 2" dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>

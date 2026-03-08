@@ -10,6 +10,10 @@ from .recommendation import Recommendation
 from .approval_log import ApprovalLog
 from .daily_performance import DailyPerformance
 from .competitor_rating import CompetitorRating
+from .user import User
+from .booking_snapshot import BookingSnapshot
+from .cost_setting import CostSetting
+from .budget_target import BudgetTarget
 
 __all__ = [
     "Organization",
@@ -24,4 +28,8 @@ __all__ = [
     "ApprovalLog",
     "DailyPerformance",
     "CompetitorRating",
+    "User",
+    "BookingSnapshot",
+    "CostSetting",
+    "BudgetTarget",
 ]

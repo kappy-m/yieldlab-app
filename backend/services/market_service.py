@@ -435,22 +435,27 @@ def _seasonal_events_in_range(start: date, end: date, catalog: list | None = Non
     return results
 
 
-async def get_market_events(days_ahead: int = 90, property_id: int = 1) -> list[dict]:
-    """今日から days_ahead 日分のマーケットイベントを取得。"""
+async def get_market_events(
+    days_ahead: int = 90,
+    property_id: int = 1,
+    event_area: str = "nihonbashi",
+) -> list[dict]:
+    """
+    今日から days_ahead 日分のマーケットイベントを取得。
+    event_area: "ginza" なら銀座特化イベント、それ以外は日本橋エリアイベント。
+    """
     today = date.today()
     end = today + timedelta(days=days_ahead)
 
-    # 祝日と季節イベントを並行取得
     holidays_task = get_holidays_in_range(today, end)
     holidays = await holidays_task
 
     holiday_events = _group_consecutive_holidays(holidays)
 
-    # property_id=2（銀座Canvas）は銀座特化イベント、それ以外は日本橋エリアイベント
-    event_catalog = GINZA_SEASONAL_EVENTS if property_id == 2 else SEASONAL_EVENTS
+    # event_area フィールドでエリアを判定（ハードコードの property_id==2 を廃止）
+    event_catalog = GINZA_SEASONAL_EVENTS if event_area == "ginza" else SEASONAL_EVENTS
     seasonal = _seasonal_events_in_range(today, end, event_catalog)
 
-    # 合体してdate_startでソート
     all_events = holiday_events + seasonal
     all_events.sort(key=lambda e: e["date_start"])
 
