@@ -1,13 +1,13 @@
 """
 認証 API
-POST /auth/login  → JWT トークン発行
-GET  /auth/me     → 現在のユーザー情報
+POST /auth/login  → JWT トークン発行 + HttpOnly cookie セット
+GET  /auth/me     → 現在のユーザー情報（product_roles 含む）
 """
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +33,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "yieldlab-poc-secret-key-change-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7日間
+_IS_PROD = os.environ.get("ENVIRONMENT", "development") == "production"
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
@@ -45,6 +46,8 @@ class TokenOut(BaseModel):
     user_id: int
     name: str
     role: str
+    org_id: int
+    product_roles: dict[str, str]
 
 
 class UserOut(BaseModel):
@@ -53,6 +56,7 @@ class UserOut(BaseModel):
     email: str
     role: str
     org_id: int
+    product_roles: dict[str, str]
 
     model_config = {"from_attributes": True}
 
@@ -65,7 +69,6 @@ def _verify_password(plain: str, hashed: str) -> bool:
             return _bcrypt_lib.checkpw(plain.encode(), hashed.encode())
         except Exception:
             pass
-    # フォールバック: 平文比較（開発環境のみ）
     return plain == hashed
 
 
@@ -76,8 +79,12 @@ def _hash_password(plain: str) -> str:
             return _bcrypt_lib.hashpw(plain.encode(), salt).decode()
         except Exception:
             pass
-    # フォールバック: 平文保存（開発環境のみ）
     return plain
+
+
+def _build_product_roles(user: User) -> dict[str, str]:
+    """UserProductRole リストを {product_code: role} dict に変換する。"""
+    return {r.product_code: r.role for r in user.product_roles}
 
 
 def _create_token(data: dict) -> str:
@@ -141,6 +148,7 @@ async def require_auth(
 
 @router.post("/login", response_model=TokenOut)
 async def login(
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
@@ -157,17 +165,52 @@ async def login(
     if not user.is_active:
         raise HTTPException(status_code=400, detail="このアカウントは無効です")
 
-    token = _create_token({"sub": str(user.id), "role": user.role})
+    product_roles = _build_product_roles(user)
+
+    token = _create_token({
+        "sub": str(user.id),
+        "org_id": user.org_id,
+        "role": user.role,
+        "roles": product_roles,
+    })
+
+    # Next.js middleware がルーティングガードに使うための HttpOnly cookie
+    response.set_cookie(
+        key="yl_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=_IS_PROD,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+
     return TokenOut(
         access_token=token,
         token_type="bearer",
         user_id=user.id,
         name=user.name,
         role=user.role,
+        org_id=user.org_id,
+        product_roles=product_roles,
     )
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    """ログアウト: HttpOnly cookie を削除する。"""
+    response.delete_cookie(key="yl_token", path="/")
+    return {"message": "ログアウトしました"}
 
 
 @router.get("/me", response_model=UserOut)
 async def get_me(current_user: User = Depends(require_auth)):
-    """現在ログイン中のユーザー情報を返す。"""
-    return current_user
+    """現在ログイン中のユーザー情報を返す（product_roles 含む）。"""
+    return UserOut(
+        id=current_user.id,
+        name=current_user.name,
+        email=current_user.email,
+        role=current_user.role,
+        org_id=current_user.org_id,
+        product_roles=_build_product_roles(current_user),
+    )

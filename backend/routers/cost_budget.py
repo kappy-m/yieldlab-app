@@ -14,6 +14,8 @@ from pydantic import BaseModel
 from ..database import get_db
 from ..models import CostSetting, BudgetTarget, DailyPerformance, RoomType
 from ..models.cost_setting import COST_CATEGORIES
+from ..models.property import Property
+from ..dependencies import get_authed_property
 
 router = APIRouter(prefix="/properties/{property_id}", tags=["cost-budget"])
 
@@ -83,17 +85,20 @@ class CostSummaryOut(BaseModel):
 # ─── コスト設定 CRUD ──────────────────────────────────────────────────────────
 
 @router.get("/costs", response_model=list[CostSettingOut])
-async def get_costs(property_id: int, db: AsyncSession = Depends(get_db)):
+async def get_costs(
+    prop: Property = Depends(get_authed_property),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(
-        select(CostSetting).where(CostSetting.property_id == property_id)
+        select(CostSetting).where(CostSetting.property_id == prop.id)
     )
     return result.scalars().all()
 
 
 @router.post("/costs", response_model=CostSettingOut)
 async def create_cost(
-    property_id: int,
     body: CostSettingCreate,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     if body.cost_category not in COST_CATEGORIES:
@@ -101,7 +106,7 @@ async def create_cost(
 
     existing = await db.execute(
         select(CostSetting).where(
-            CostSetting.property_id == property_id,
+            CostSetting.property_id == prop.id,
             CostSetting.cost_category == body.cost_category,
         )
     )
@@ -109,7 +114,7 @@ async def create_cost(
         raise HTTPException(409, "このカテゴリは既に登録されています")
 
     cost = CostSetting(
-        property_id=property_id,
+        property_id=prop.id,
         cost_category=body.cost_category,
         amount_per_room_night=body.amount_per_room_night,
         fixed_monthly=body.fixed_monthly,
@@ -122,13 +127,13 @@ async def create_cost(
 
 @router.patch("/costs/{cost_id}", response_model=CostSettingOut)
 async def update_cost(
-    property_id: int,
     cost_id: int,
     body: CostSettingUpdate,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     cost = await db.get(CostSetting, cost_id)
-    if not cost or cost.property_id != property_id:
+    if not cost or cost.property_id != prop.id:
         raise HTTPException(404, "コスト設定が見つかりません")
 
     if body.amount_per_room_night is not None:
@@ -142,9 +147,13 @@ async def update_cost(
 
 
 @router.delete("/costs/{cost_id}")
-async def delete_cost(property_id: int, cost_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_cost(
+    cost_id: int,
+    prop: Property = Depends(get_authed_property),
+    db: AsyncSession = Depends(get_db),
+):
     cost = await db.get(CostSetting, cost_id)
-    if not cost or cost.property_id != property_id:
+    if not cost or cost.property_id != prop.id:
         raise HTTPException(404, "コスト設定が見つかりません")
     await db.delete(cost)
     await db.commit()
@@ -155,11 +164,11 @@ async def delete_cost(property_id: int, cost_id: int, db: AsyncSession = Depends
 
 @router.get("/budget", response_model=list[BudgetTargetOut])
 async def get_budget(
-    property_id: int,
     year: Optional[int] = None,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(BudgetTarget).where(BudgetTarget.property_id == property_id)
+    query = select(BudgetTarget).where(BudgetTarget.property_id == prop.id)
     if year:
         query = query.where(BudgetTarget.year == year)
     query = query.order_by(BudgetTarget.year, BudgetTarget.month)
@@ -169,14 +178,14 @@ async def get_budget(
 
 @router.post("/budget", response_model=BudgetTargetOut)
 async def upsert_budget(
-    property_id: int,
     body: BudgetTargetUpsert,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """月次予算を設定（既存レコードがあれば更新、なければ作成）"""
     existing = await db.execute(
         select(BudgetTarget).where(
-            BudgetTarget.property_id == property_id,
+            BudgetTarget.property_id == prop.id,
             BudgetTarget.year == body.year,
             BudgetTarget.month == body.month,
         )
@@ -194,7 +203,7 @@ async def upsert_budget(
             budget.target_revenue = body.target_revenue
     else:
         budget = BudgetTarget(
-            property_id=property_id,
+            property_id=prop.id,
             year=body.year,
             month=body.month,
             target_occupancy=body.target_occupancy,
@@ -213,8 +222,8 @@ async def upsert_budget(
 
 @router.get("/cost-summary", response_model=list[CostSummaryOut])
 async def get_cost_summary(
-    property_id: int,
     months: int = 3,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -223,17 +232,15 @@ async def get_cost_summary(
     """
     today = date.today()
 
-    # コスト設定を取得
     costs_result = await db.execute(
-        select(CostSetting).where(CostSetting.property_id == property_id)
+        select(CostSetting).where(CostSetting.property_id == prop.id)
     )
     costs = costs_result.scalars().all()
     fixed_monthly_total = sum(c.fixed_monthly for c in costs)
     variable_per_room = sum(c.amount_per_room_night for c in costs)
 
-    # 総室数
     rooms_result = await db.execute(
-        select(func.sum(RoomType.total_rooms)).where(RoomType.property_id == property_id)
+        select(func.sum(RoomType.total_rooms)).where(RoomType.property_id == prop.id)
     )
     total_rooms = int(rooms_result.scalar() or 134)
 
@@ -262,7 +269,7 @@ async def get_cost_summary(
                 func.avg(DailyPerformance.adr).label("avg_adr"),
             ).where(
                 and_(
-                    DailyPerformance.property_id == property_id,
+                    DailyPerformance.property_id == prop.id,
                     DailyPerformance.date >= month_start,
                     DailyPerformance.date <= end_date,
                 )
@@ -283,7 +290,7 @@ async def get_cost_summary(
         # 予算
         budget_result = await db.execute(
             select(BudgetTarget).where(
-                BudgetTarget.property_id == property_id,
+                BudgetTarget.property_id == prop.id,
                 BudgetTarget.year == year,
                 BudgetTarget.month == month,
             )

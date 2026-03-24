@@ -11,6 +11,8 @@ from pydantic import BaseModel
 
 from ..database import get_db
 from ..models import PricingGrid, RoomType, Recommendation, DailyPerformance
+from ..models.property import Property
+from ..dependencies import get_authed_property
 
 router = APIRouter(prefix="/properties/{property_id}/pricing", tags=["pricing"])
 
@@ -36,15 +38,15 @@ class PricingCellUpdate(BaseModel):
 
 @router.get("/", response_model=list[PricingCellOut])
 async def get_pricing_grid(
-    property_id: int,
     date_from: date | None = None,
     date_to: date | None = None,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     query = (
         select(PricingGrid, RoomType.name.label("room_type_name"))
         .join(RoomType, PricingGrid.room_type_id == RoomType.id)
-        .where(PricingGrid.property_id == property_id)
+        .where(PricingGrid.property_id == prop.id)
     )
     if date_from:
         query = query.where(PricingGrid.target_date >= date_from)
@@ -72,16 +74,16 @@ async def get_pricing_grid(
 
 @router.patch("/{room_type_id}/{target_date}", response_model=PricingCellOut)
 async def update_pricing_cell(
-    property_id: int,
     room_type_id: int,
     target_date: date,
     body: PricingCellUpdate,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
         select(PricingGrid).where(
             and_(
-                PricingGrid.property_id == property_id,
+                PricingGrid.property_id == prop.id,
                 PricingGrid.room_type_id == room_type_id,
                 PricingGrid.target_date == target_date,
             )
@@ -94,7 +96,7 @@ async def update_pricing_cell(
         if not room:
             raise HTTPException(status_code=404, detail="RoomType not found")
         cell = PricingGrid(
-            property_id=property_id,
+            property_id=prop.id,
             room_type_id=room_type_id,
             target_date=target_date,
             bar_level=body.bar_level,
@@ -129,9 +131,9 @@ async def update_pricing_cell(
 
 @router.get("/export")
 async def export_pricing_csv(
-    property_id: int,
     date_from: Optional[date] = Query(default=None),
     date_to: Optional[date] = Query(default=None),
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """価格グリッドを CSV 形式でダウンロードする。"""
@@ -145,7 +147,7 @@ async def export_pricing_csv(
         .join(RoomType, PricingGrid.room_type_id == RoomType.id)
         .where(
             and_(
-                PricingGrid.property_id == property_id,
+                PricingGrid.property_id == prop.id,
                 PricingGrid.target_date >= date_from,
                 PricingGrid.target_date <= date_to,
             )
@@ -169,7 +171,7 @@ async def export_pricing_csv(
         ])
 
     output.seek(0)
-    filename = f"pricing_{property_id}_{date_from}_{date_to}.csv"
+    filename = f"pricing_{prop.id}_{date_from}_{date_to}.csv"
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
@@ -186,7 +188,7 @@ class PricingAiSummaryOut(BaseModel):
 
 @router.get("/ai-summary", response_model=PricingAiSummaryOut)
 async def get_pricing_ai_summary(
-    property_id: int,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -196,22 +198,20 @@ async def get_pricing_ai_summary(
     today = date.today()
     days_14 = today + timedelta(days=14)
 
-    # 承認待ち推奨件数
     recs_result = await db.execute(
         select(func.count(Recommendation.id)).where(
             and_(
-                Recommendation.property_id == property_id,
+                Recommendation.property_id == prop.id,
                 Recommendation.status == "pending",
             )
         )
     )
     pending_count = int(recs_result.scalar() or 0)
 
-    # 直近14日の価格グリッド集計
     grid_result = await db.execute(
         select(PricingGrid).where(
             and_(
-                PricingGrid.property_id == property_id,
+                PricingGrid.property_id == prop.id,
                 PricingGrid.target_date >= today,
                 PricingGrid.target_date <= days_14,
             )
@@ -247,7 +247,7 @@ async def get_pricing_ai_summary(
     perf_result = await db.execute(
         select(func.avg(DailyPerformance.occupancy_rate)).where(
             and_(
-                DailyPerformance.property_id == property_id,
+                DailyPerformance.property_id == prop.id,
                 DailyPerformance.date >= week_ago,
                 DailyPerformance.date < today,
             )

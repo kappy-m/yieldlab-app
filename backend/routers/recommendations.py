@@ -5,7 +5,9 @@ from pydantic import BaseModel
 from datetime import date, timedelta
 from ..database import get_db
 from ..models import Recommendation, ApprovalLog, ApprovalSetting, PricingGrid, RoomType, BarLadder
+from ..models.property import Property
 from ..services.rule_engine import RuleEngineInput, recommend
+from ..dependencies import get_authed_property
 
 router = APIRouter(prefix="/properties/{property_id}/recommendations", tags=["recommendations"])
 
@@ -37,14 +39,14 @@ class ApprovalAction(BaseModel):
 
 @router.get("/", response_model=list[RecommendationOut])
 async def list_recommendations(
-    property_id: int,
     status: str | None = None,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     query = (
         select(Recommendation, RoomType.name.label("room_type_name"))
         .join(RoomType, Recommendation.room_type_id == RoomType.id)
-        .where(Recommendation.property_id == property_id)
+        .where(Recommendation.property_id == prop.id)
     )
     if status:
         query = query.where(Recommendation.status == status)
@@ -54,7 +56,7 @@ async def list_recommendations(
     rows = result.all()
 
     setting = await db.execute(
-        select(ApprovalSetting).where(ApprovalSetting.property_id == property_id)
+        select(ApprovalSetting).where(ApprovalSetting.property_id == prop.id)
     )
     s = setting.scalar_one_or_none()
     threshold = s.auto_approve_threshold_levels if s else 1
@@ -80,19 +82,19 @@ async def list_recommendations(
 
 @router.post("/generate", response_model=list[RecommendationOut])
 async def generate_recommendations(
-    property_id: int,
     days_ahead: int = 30,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """ルールエンジンを実行して推奨価格を生成する"""
     setting_result = await db.execute(
-        select(ApprovalSetting).where(ApprovalSetting.property_id == property_id)
+        select(ApprovalSetting).where(ApprovalSetting.property_id == prop.id)
     )
     s = setting_result.scalar_one_or_none()
     threshold = s.auto_approve_threshold_levels if s else 1
 
     room_types_result = await db.execute(
-        select(RoomType).where(RoomType.property_id == property_id).order_by(RoomType.sort_order)
+        select(RoomType).where(RoomType.property_id == prop.id).order_by(RoomType.sort_order)
     )
     room_types = room_types_result.scalars().all()
 
@@ -102,7 +104,7 @@ async def generate_recommendations(
     for rt in room_types:
         bar_result = await db.execute(
             select(BarLadder).where(
-                and_(BarLadder.property_id == property_id, BarLadder.is_active == True)
+                and_(BarLadder.property_id == prop.id, BarLadder.is_active == True)
             )
         )
         bar_ladders = {b.level: b.price for b in bar_result.scalars().all()}
@@ -113,7 +115,7 @@ async def generate_recommendations(
             grid_result = await db.execute(
                 select(PricingGrid).where(
                     and_(
-                        PricingGrid.property_id == property_id,
+                        PricingGrid.property_id == prop.id,
                         PricingGrid.room_type_id == rt.id,
                         PricingGrid.target_date == target,
                     )
@@ -141,7 +143,7 @@ async def generate_recommendations(
             status = "auto_approved" if not out.needs_approval else "pending"
 
             rec = Recommendation(
-                property_id=property_id,
+                property_id=prop.id,
                 room_type_id=rt.id,
                 target_date=target,
                 current_bar_level=current_level,
@@ -156,18 +158,18 @@ async def generate_recommendations(
             new_recs.append(rec)
 
     await db.commit()
-    return await list_recommendations(property_id, status=None, db=db)
+    return await list_recommendations(status=None, prop=prop, db=db)
 
 
 @router.post("/{recommendation_id}/action", response_model=RecommendationOut)
 async def act_on_recommendation(
-    property_id: int,
     recommendation_id: int,
     body: ApprovalAction,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     rec = await db.get(Recommendation, recommendation_id)
-    if not rec or rec.property_id != property_id:
+    if not rec or rec.property_id != prop.id:
         raise HTTPException(status_code=404, detail="Recommendation not found")
     if rec.status not in ("pending", "auto_approved"):
         raise HTTPException(status_code=400, detail=f"Already actioned: {rec.status}")
@@ -193,7 +195,7 @@ async def act_on_recommendation(
         grid_result = await db.execute(
             select(PricingGrid).where(
                 and_(
-                    PricingGrid.property_id == property_id,
+                    PricingGrid.property_id == prop.id,
                     PricingGrid.room_type_id == rec.room_type_id,
                     PricingGrid.target_date == rec.target_date,
                 )
@@ -212,7 +214,7 @@ async def act_on_recommendation(
 
     room = await db.get(RoomType, rec.room_type_id)
     setting_result = await db.execute(
-        select(ApprovalSetting).where(ApprovalSetting.property_id == property_id)
+        select(ApprovalSetting).where(ApprovalSetting.property_id == prop.id)
     )
     s = setting_result.scalar_one_or_none()
     threshold = s.auto_approve_threshold_levels if s else 1

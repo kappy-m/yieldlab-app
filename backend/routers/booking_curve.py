@@ -12,6 +12,8 @@ from pydantic import BaseModel
 
 from ..database import get_db
 from ..models import BookingSnapshot, PricingGrid, RoomType, DailyPerformance
+from ..models.property import Property
+from ..dependencies import get_authed_property
 
 router = APIRouter(prefix="/properties/{property_id}/booking-curve", tags=["booking-curve"])
 
@@ -55,8 +57,8 @@ class BookingHeatmapOut(BaseModel):
 
 @router.get("/", response_model=BookingCurveOut)
 async def get_booking_curve(
-    property_id: int,
     target_date: Optional[str] = Query(default=None, description="宿泊対象日 YYYY-MM-DD"),
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -68,39 +70,35 @@ async def get_booking_curve(
     else:
         tgt = date.today() + timedelta(days=30)
 
-    # 物件の総室数を取得（全部屋タイプ合計）
     rooms_result = await db.execute(
-        select(func.sum(RoomType.total_rooms)).where(RoomType.property_id == property_id)
+        select(func.sum(RoomType.total_rooms)).where(RoomType.property_id == prop.id)
     )
-    total_rooms = rooms_result.scalar() or 134  # デフォルト
+    total_rooms = rooms_result.scalar() or 134
 
-    # 今年のスナップショット
     snap_result = await db.execute(
         select(BookingSnapshot).where(
             and_(
-                BookingSnapshot.property_id == property_id,
+                BookingSnapshot.property_id == prop.id,
                 BookingSnapshot.target_date == tgt,
             )
         ).order_by(BookingSnapshot.capture_date)
     )
     snaps = snap_result.scalars().all()
 
-    # 前年同期のスナップショット（target_date を1年前にずらす）
     prev_tgt = tgt.replace(year=tgt.year - 1)
     prev_snap_result = await db.execute(
         select(BookingSnapshot).where(
             and_(
-                BookingSnapshot.property_id == property_id,
+                BookingSnapshot.property_id == prop.id,
                 BookingSnapshot.target_date == prev_tgt,
             )
         ).order_by(BookingSnapshot.capture_date)
     )
     prev_snaps = prev_snap_result.scalars().all()
 
-    # 理想ライン: 全 target_date の平均ブッキングペース（days_before ごとに集計）
     all_snaps_result = await db.execute(
         select(BookingSnapshot).where(
-            BookingSnapshot.property_id == property_id
+            BookingSnapshot.property_id == prop.id
         )
     )
     all_snaps = all_snaps_result.scalars().all()
@@ -159,8 +157,8 @@ async def get_booking_curve(
 
 @router.get("/monthly", response_model=list[MonthlyOnhandOut])
 async def get_monthly_onhand(
-    property_id: int,
     months_ahead: int = Query(default=3, le=12),
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -170,9 +168,8 @@ async def get_monthly_onhand(
     today = date.today()
     results: list[MonthlyOnhandOut] = []
 
-    # 物件の総室数
     rooms_result = await db.execute(
-        select(func.sum(RoomType.total_rooms)).where(RoomType.property_id == property_id)
+        select(func.sum(RoomType.total_rooms)).where(RoomType.property_id == prop.id)
     )
     total_rooms = int(rooms_result.scalar() or 134)
 
@@ -197,7 +194,7 @@ async def get_monthly_onhand(
                 func.avg(DailyPerformance.occupancy_rate).label("avg_occ"),
             ).where(
                 and_(
-                    DailyPerformance.property_id == property_id,
+                    DailyPerformance.property_id == prop.id,
                     DailyPerformance.date >= month_start,
                     DailyPerformance.date <= min(month_end, today - timedelta(days=1)),
                 )
@@ -205,7 +202,6 @@ async def get_monthly_onhand(
         )
         perf = perf_result.one()
 
-        # 未来分は pricing_grid から推計（available_rooms を引いて booked と見なす）
         future_result = await db.execute(
             select(
                 func.sum(RoomType.total_rooms - PricingGrid.available_rooms).label("booked"),
@@ -213,7 +209,7 @@ async def get_monthly_onhand(
             ).join(RoomType, PricingGrid.room_type_id == RoomType.id)
             .where(
                 and_(
-                    PricingGrid.property_id == property_id,
+                    PricingGrid.property_id == prop.id,
                     PricingGrid.target_date > today,
                     PricingGrid.target_date >= month_start,
                     PricingGrid.target_date <= month_end,
@@ -242,7 +238,7 @@ async def get_monthly_onhand(
                 func.sum(DailyPerformance.rooms_sold).label("rooms_sold"),
             ).where(
                 and_(
-                    DailyPerformance.property_id == property_id,
+                    DailyPerformance.property_id == prop.id,
                     DailyPerformance.date >= date(prev_year, month, 1),
                     DailyPerformance.date <= month_end.replace(year=prev_year),
                 )
@@ -281,8 +277,8 @@ async def get_monthly_onhand(
 
 @router.get("/heatmap", response_model=BookingHeatmapOut)
 async def get_booking_heatmap(
-    property_id: int,
     days: int = Query(default=10, le=30),
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -293,7 +289,7 @@ async def get_booking_heatmap(
     lead_times = [90, 60, 45, 30, 21, 14, 7, 3, 0]
 
     rooms_result = await db.execute(
-        select(func.sum(RoomType.total_rooms)).where(RoomType.property_id == property_id)
+        select(func.sum(RoomType.total_rooms)).where(RoomType.property_id == prop.id)
     )
     total_rooms = int(rooms_result.scalar() or 134)
 
@@ -307,7 +303,7 @@ async def get_booking_heatmap(
     all_snaps_result = await db.execute(
         select(BookingSnapshot).where(
             and_(
-                BookingSnapshot.property_id == property_id,
+                BookingSnapshot.property_id == prop.id,
                 BookingSnapshot.target_date.in_(target_dates),
             )
         )

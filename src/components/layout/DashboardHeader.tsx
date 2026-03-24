@@ -3,7 +3,9 @@
 import { Building2, Star, MapPin, ChevronDown, LogOut, User } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
-import { fetchProperties } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { fetchProperties, logout } from "@/lib/api";
+import { ProductSwitcher } from "./ProductSwitcher";
 
 interface Property {
   id: number;
@@ -20,11 +22,20 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ propertyId, onPropertyChange }: DashboardHeaderProps) {
+  const router = useRouter();
   const [properties, setProperties] = useState<Property[]>([]);
   const [open, setOpen] = useState(false);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
+  const [userName, setUserName] = useState<string>("");
+
+  useEffect(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem("yl_user") ?? "{}");
+      setUserName(user.name ?? "");
+    } catch { /* no-op */ }
+  }, []);
 
   useEffect(() => {
     fetchProperties().then((list) => {
@@ -50,8 +61,8 @@ export function DashboardHeader({ propertyId, onPropertyChange }: DashboardHeade
       style={{ background: "linear-gradient(135deg, #1E3A8A 0%, #1e40af 100%)" }}
     >
       <div className="px-6 py-0 flex items-center justify-between h-14">
-        {/* ロゴ（クリックでダッシュボードTOPへ） */}
-        <Link href="/dashboard" className="flex items-center gap-3 group">
+        {/* ロゴ（クリックでYieldへ） */}
+        <Link href="/yield" className="flex items-center gap-3 group">
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 border border-white/20 group-hover:bg-white/20 transition-colors">
             <svg viewBox="0 0 24 24" fill="none" className="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
               <path d="M3 18L9 6L15 14L19 8L21 18H3Z" fill="#CA8A04" stroke="#CA8A04" strokeWidth="1.5" strokeLinejoin="round" />
@@ -62,6 +73,9 @@ export function DashboardHeader({ propertyId, onPropertyChange }: DashboardHeade
             <span className="text-sm font-light leading-none" style={{ color: "#CA8A04" }}>manage</span>
           </div>
         </Link>
+
+        {/* 中央：プロダクトスイッチャー */}
+        <ProductSwitcher />
 
         {/* 右側：プロパティスイッチャー + 設定 + アバター */}
         <div className="flex items-center gap-3">
@@ -155,21 +169,25 @@ export function DashboardHeader({ propertyId, onPropertyChange }: DashboardHeade
             {avatarOpen && (
               <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50">
                 <div className="px-4 py-3 border-b border-slate-100">
-                  <p className="text-xs font-semibold text-slate-700">Kazuki Murayama</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">管理者</p>
+                  <p className="text-xs font-semibold text-slate-700">{userName || "ユーザー"}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">YieldLab</p>
                 </div>
                 <div className="py-1">
                   <Link
-                    href="/profile"
+                    href="/settings"
                     onClick={() => setAvatarOpen(false)}
                     className="flex items-center gap-2.5 px-4 py-2 text-xs text-slate-600 hover:bg-slate-50 transition-colors"
                   >
                     <User className="w-3.5 h-3.5 text-slate-400" />
-                    プロフィール
+                    設定
                   </Link>
                   <button
                     className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
-                    onClick={() => setAvatarOpen(false)}
+                    onClick={async () => {
+                      setAvatarOpen(false);
+                      await logout();
+                      router.replace("/login");
+                    }}
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     ログアウト

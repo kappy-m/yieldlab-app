@@ -16,6 +16,8 @@ from pydantic import BaseModel
 
 from ..database import get_db
 from ..models import DailyPerformance
+from ..models.property import Property
+from ..dependencies import get_authed_property
 
 router = APIRouter(prefix="/properties/{property_id}/daily-performance", tags=["daily-performance"])
 
@@ -38,25 +40,22 @@ class DailyPerfOut(BaseModel):
 
 class DailySummaryOut(BaseModel):
     """デイリータブ向け集計レスポンス"""
-    # 最新日（前日実績）
     latest: Optional[DailyPerfOut]
-    # 前日比（対2日前）
-    occ_change: Optional[float]       # 稼働率の変化ポイント
-    revenue_change_pct: Optional[float]  # 売上変化率 (%)
+    occ_change: Optional[float]
+    revenue_change_pct: Optional[float]
     new_bookings_change_pct: Optional[float]
-    # 直近7日トレンド
     trend_7d: list[DailyPerfOut]
 
 
 @router.get("/", response_model=list[DailyPerfOut])
 async def get_daily_performances(
-    property_id: int,
     date_from: Optional[date] = Query(None),
     date_to: Optional[date] = Query(None),
     limit: int = Query(90, le=365),
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
-    conditions = [DailyPerformance.property_id == property_id]
+    conditions = [DailyPerformance.property_id == prop.id]
     if date_from:
         conditions.append(DailyPerformance.date >= date_from)
     if date_to:
@@ -74,19 +73,18 @@ async def get_daily_performances(
 
 @router.get("/summary", response_model=DailySummaryOut)
 async def get_daily_summary(
-    property_id: int,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """デイリーダッシュボード向け: 前日実績 + 前日比 + 直近7日トレンド"""
     today = date.today()
-    # 直近10日分取得（計算に余裕を持たせる）
     cutoff = today - timedelta(days=10)
     stmt = (
         select(DailyPerformance)
         .where(
-            DailyPerformance.property_id == property_id,
+            DailyPerformance.property_id == prop.id,
             DailyPerformance.date >= cutoff,
-            DailyPerformance.date < today,  # 今日以前（前日まで）
+            DailyPerformance.date < today,
         )
         .order_by(DailyPerformance.date.desc())
         .limit(10)
@@ -128,8 +126,8 @@ class ImportResultOut(BaseModel):
 
 @router.post("/import", response_model=ImportResultOut)
 async def import_daily_performance_csv(
-    property_id: int,
     file: UploadFile = File(...),
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -144,7 +142,7 @@ async def import_daily_performance_csv(
 
     content = await file.read()
     try:
-        text = content.decode("utf-8-sig")  # BOM対応
+        text = content.decode("utf-8-sig")
     except UnicodeDecodeError:
         text = content.decode("shift_jis", errors="ignore")
 
@@ -154,7 +152,7 @@ async def import_daily_performance_csv(
     skipped = 0
     errors: list[str] = []
 
-    for i, row in enumerate(reader, start=2):  # 行番号は2行目から
+    for i, row in enumerate(reader, start=2):
         try:
             row_date = date.fromisoformat(row["date"].strip())
         except (KeyError, ValueError) as e:
@@ -176,10 +174,9 @@ async def import_daily_performance_csv(
             skipped += 1
             continue
 
-        # UPSERT: 既存レコードを更新、なければ作成
         existing = await db.execute(
             select(DailyPerformance).where(
-                DailyPerformance.property_id == property_id,
+                DailyPerformance.property_id == prop.id,
                 DailyPerformance.date == row_date,
             )
         )
@@ -198,7 +195,7 @@ async def import_daily_performance_csv(
             updated += 1
         else:
             db.add(DailyPerformance(
-                property_id=property_id,
+                property_id=prop.id,
                 date=row_date,
                 occupancy_rate=occ,
                 rooms_sold=rooms_sold,

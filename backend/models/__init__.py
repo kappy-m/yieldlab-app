@@ -11,6 +11,7 @@ from .approval_log import ApprovalLog
 from .daily_performance import DailyPerformance
 from .competitor_rating import CompetitorRating
 from .user import User
+from .user_product_role import UserProductRole
 from .booking_snapshot import BookingSnapshot
 from .cost_setting import CostSetting
 from .budget_target import BudgetTarget
@@ -29,6 +30,7 @@ __all__ = [
     "DailyPerformance",
     "CompetitorRating",
     "User",
+    "UserProductRole",
     "BookingSnapshot",
     "CostSetting",
     "BudgetTarget",

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from .database import init_db, engine
 from .config import settings
 from .routers import properties, pricing, recommendations, competitor, comp_set, market
-from .routers import daily_performance, competitor_ratings, auth, booking_curve, cost_budget
+from .routers import daily_performance, competitor_ratings, auth, booking_curve, cost_budget, users
 from .services.scheduler import create_scheduler
 
 _scheduler = create_scheduler()
@@ -115,6 +115,14 @@ async def _migrate_competitor_ratings_columns():
         # comp_sets
         "ALTER TABLE comp_sets ADD COLUMN google_place_id TEXT",
         "ALTER TABLE comp_sets ADD COLUMN tripadvisor_location_id TEXT",
+        # user_product_roles（マルチプロダクト権限テーブル）
+        """CREATE TABLE IF NOT EXISTS user_product_roles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            product_code VARCHAR(30) NOT NULL,
+            role VARCHAR(20) NOT NULL DEFAULT 'viewer',
+            UNIQUE(user_id, product_code)
+        )""",
     ]
 
     applied = 0
@@ -243,6 +251,7 @@ async def _auto_seed_users_if_empty():
         pwd_hash = "admin123"
 
     from .models.user import User
+    from .models.user_product_role import UserProductRole
     from .models.organization import Organization
     from sqlalchemy import select
 
@@ -251,15 +260,30 @@ async def _auto_seed_users_if_empty():
         if not org:
             return
 
+        # デモ用ユーザー3名を作成
         demo_users = [
-            User(org_id=org.id, email="admin@example.com",    password_hash=pwd_hash, name="管理者",          role="admin"),
+            User(org_id=org.id, email="admin@example.com",    password_hash=pwd_hash, name="管理者",              role="admin"),
             User(org_id=org.id, email="revenue@example.com",  password_hash=pwd_hash, name="レベニューマネージャー", role="revenue_manager"),
-            User(org_id=org.id, email="viewer@example.com",   password_hash=pwd_hash, name="閲覧ユーザー",      role="viewer"),
+            User(org_id=org.id, email="viewer@example.com",   password_hash=pwd_hash, name="閲覧ユーザー",          role="viewer"),
         ]
         for u in demo_users:
             db.add(u)
+        await db.flush()
+
+        # 管理者: 全プロダクトに admin 権限
+        all_products = ["yield", "manage", "review", "reservation"]
+        for product_code in all_products:
+            db.add(UserProductRole(user_id=demo_users[0].id, product_code=product_code, role="admin"))
+
+        # レベニューマネージャー: yield (editor) + review (viewer)
+        db.add(UserProductRole(user_id=demo_users[1].id, product_code="yield",  role="editor"))
+        db.add(UserProductRole(user_id=demo_users[1].id, product_code="review", role="viewer"))
+
+        # 閲覧ユーザー: yield のみ viewer
+        db.add(UserProductRole(user_id=demo_users[2].id, product_code="yield", role="viewer"))
+
         await db.commit()
-        logger.info("[AutoSeed] Demo users created.")
+        logger.info("[AutoSeed] Demo users + product roles created.")
 
 
 async def _auto_seed_canvas_event_area():
@@ -401,6 +425,7 @@ app.include_router(daily_performance.router)
 app.include_router(competitor_ratings.router)
 app.include_router(booking_curve.router)
 app.include_router(cost_budget.router)
+app.include_router(users.router)
 
 
 # ─── 管理エンドポイント認証 ────────────────────────────────────────────────────

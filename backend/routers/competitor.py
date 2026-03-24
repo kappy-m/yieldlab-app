@@ -5,7 +5,9 @@ from pydantic import BaseModel, field_serializer
 from datetime import date, datetime, timedelta
 from ..database import get_db
 from ..models import CompetitorPrice
+from ..models.property import Property
 from ..services.scraper import scrape_dates_range
+from ..dependencies import get_authed_property
 
 router = APIRouter(prefix="/properties/{property_id}/competitor", tags=["competitor"])
 
@@ -45,13 +47,13 @@ class ScrapeRequest(BaseModel):
 
 @router.get("/prices", response_model=list[CompetitorPriceOut])
 async def get_competitor_prices(
-    property_id: int,
     date_from: date | None = None,
     date_to: date | None = None,
     competitor_name: str | None = None,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(CompetitorPrice).where(CompetitorPrice.property_id == property_id)
+    query = select(CompetitorPrice).where(CompetitorPrice.property_id == prop.id)
     if date_from:
         query = query.where(CompetitorPrice.target_date >= date_from)
     if date_to:
@@ -66,9 +68,9 @@ async def get_competitor_prices(
 
 @router.get("/averages", response_model=list[CompetitorAvgOut])
 async def get_competitor_averages(
-    property_id: int,
     date_from: date | None = None,
     date_to: date | None = None,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """競合の日別平均・最安・最高価格を集計"""
@@ -78,7 +80,7 @@ async def get_competitor_averages(
         func.min(CompetitorPrice.price).label("min_price"),
         func.max(CompetitorPrice.price).label("max_price"),
         func.count(CompetitorPrice.id).label("count"),
-    ).where(CompetitorPrice.property_id == property_id)
+    ).where(CompetitorPrice.property_id == prop.id)
 
     if date_from:
         query = query.where(CompetitorPrice.target_date >= date_from)
@@ -101,13 +103,13 @@ async def get_competitor_averages(
 
 @router.delete("/prices/clear")
 async def clear_competitor_prices(
-    property_id: int,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """競合価格データを全削除（comp-set変更後のリセット用）"""
     from sqlalchemy import delete
     result = await db.execute(
-        delete(CompetitorPrice).where(CompetitorPrice.property_id == property_id)
+        delete(CompetitorPrice).where(CompetitorPrice.property_id == prop.id)
     )
     await db.commit()
     return {"status": "cleared", "deleted_rows": result.rowcount}
@@ -115,8 +117,8 @@ async def clear_competitor_prices(
 
 @router.get("/demand-curve")
 async def get_demand_curve(
-    property_id: int,
     check_in_date: date,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -140,7 +142,7 @@ async def get_demand_curve(
         )
         .where(
             and_(
-                CompetitorPrice.property_id == property_id,
+                CompetitorPrice.property_id == prop.id,
                 CompetitorPrice.target_date == check_in_date,
             )
         )
@@ -216,7 +218,7 @@ async def get_demand_curve(
 
     return {
         "check_in_date": check_in_date.isoformat(),
-        "property_id": property_id,
+        "property_id": prop.id,
         "competitors": summary,
         "note": "plans_availableは楽天APIのroomInfo件数（予約可能プラン数）。直接の残室数ではなく逼迫度の代理指標として使用。",
     }
@@ -224,12 +226,14 @@ async def get_demand_curve(
 
 @router.post("/scrape")
 async def trigger_scrape(
-    property_id: int,
     body: ScrapeRequest,
     background_tasks: BackgroundTasks,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """Expedia スクレイピングをバックグラウンドで実行"""
+    property_id = prop.id
+
     async def run_scrape():
         from datetime import date as d
         prices = await scrape_dates_range(

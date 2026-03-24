@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8400";
+import { UserAccessPanel } from "./UserAccessPanel";
 import {
   Plus, Trash2, Edit3, Check, X, Play, ExternalLink,
   Zap, RefreshCw, AlertCircle, CheckCircle2, Building2, Star,
@@ -19,7 +20,7 @@ import { cn } from "@/lib/utils";
 // ============================================================
 // 共通定数
 // ============================================================
-type SettingsSubTab = "compset" | "barladder" | "approval" | "integrations" | "data";
+type SettingsSubTab = "compset" | "barladder" | "approval" | "integrations" | "data" | "users";
 
 const SCRAPE_MODE_LABELS: Record<string, { label: string; color: string }> = {
   mock:    { label: "モック",       color: "text-yellow-600 bg-yellow-50 border-yellow-200" },
@@ -1334,6 +1335,7 @@ const SUB_TABS: { id: SettingsSubTab; label: string }[] = [
   { id: "approval",     label: "承認設定" },
   { id: "data",         label: "データ管理" },
   { id: "integrations", label: "外部システム連携" },
+  { id: "users",        label: "ユーザー管理" },
 ];
 
 export function SettingsTab({ propertyId }: { propertyId: number }) {
@@ -1370,6 +1372,7 @@ export function SettingsTab({ propertyId }: { propertyId: number }) {
       {activeSubTab === "approval"     && <ApprovalPanel     propertyId={propertyId} />}
       {activeSubTab === "data"         && <CsvImportPanel    propertyId={propertyId} />}
       {activeSubTab === "integrations" && <IntegrationsPanel />}
+      {activeSubTab === "users"        && <UserAccessPanel />}
     </div>
   );
 }

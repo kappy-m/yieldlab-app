@@ -4,6 +4,8 @@ from sqlalchemy import select
 from pydantic import BaseModel
 from ..database import get_db
 from ..models import CompSet
+from ..models.property import Property
+from ..dependencies import get_authed_property
 
 router = APIRouter(prefix="/properties/{property_id}/comp-set", tags=["comp-set"])
 
@@ -47,10 +49,13 @@ class CompSetUpdate(BaseModel):
 
 
 @router.get("/", response_model=list[CompSetOut])
-async def list_comp_set(property_id: int, db: AsyncSession = Depends(get_db)):
+async def list_comp_set(
+    prop: Property = Depends(get_authed_property),
+    db: AsyncSession = Depends(get_db),
+):
     result = await db.execute(
         select(CompSet)
-        .where(CompSet.property_id == property_id)
+        .where(CompSet.property_id == prop.id)
         .order_by(CompSet.sort_order)
     )
     return result.scalars().all()
@@ -58,11 +63,11 @@ async def list_comp_set(property_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.post("/", response_model=CompSetOut, status_code=201)
 async def create_comp_hotel(
-    property_id: int,
     body: CompSetCreate,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
-    hotel = CompSet(property_id=property_id, **body.model_dump())
+    hotel = CompSet(property_id=prop.id, **body.model_dump())
     db.add(hotel)
     await db.commit()
     await db.refresh(hotel)
@@ -71,13 +76,13 @@ async def create_comp_hotel(
 
 @router.patch("/{comp_id}", response_model=CompSetOut)
 async def update_comp_hotel(
-    property_id: int,
     comp_id: int,
     body: CompSetUpdate,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     hotel = await db.get(CompSet, comp_id)
-    if not hotel or hotel.property_id != property_id:
+    if not hotel or hotel.property_id != prop.id:
         raise HTTPException(status_code=404, detail="CompSet not found")
     for field, value in body.model_dump(exclude_none=True).items():
         setattr(hotel, field, value)
@@ -88,12 +93,12 @@ async def update_comp_hotel(
 
 @router.delete("/{comp_id}", status_code=204)
 async def delete_comp_hotel(
-    property_id: int,
     comp_id: int,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     hotel = await db.get(CompSet, comp_id)
-    if not hotel or hotel.property_id != property_id:
+    if not hotel or hotel.property_id != prop.id:
         raise HTTPException(status_code=404, detail="CompSet not found")
     await db.delete(hotel)
     await db.commit()

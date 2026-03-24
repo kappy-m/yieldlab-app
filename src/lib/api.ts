@@ -26,12 +26,17 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 // ---- Auth ----
 
+export type ProductCode = "yield" | "manage" | "review" | "reservation";
+export type ProductRole = "admin" | "editor" | "viewer";
+
 export interface LoginResponse {
   access_token: string;
   token_type: string;
   user_id: number;
   name: string;
   role: string;
+  org_id: number;
+  product_roles: Record<ProductCode, ProductRole>;
 }
 
 export interface UserOut {
@@ -40,19 +45,18 @@ export interface UserOut {
   email: string;
   role: string;
   org_id: number;
+  product_roles: Record<ProductCode, ProductRole>;
 }
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
   const form = new URLSearchParams();
   form.set("username", email);
   form.set("password", password);
-  const token = getAuthToken();
-  const headers: Record<string, string> = {};
-  if (token) headers["Authorization"] = `Bearer ${token}`;
 
   const res = await fetch(`${API_BASE}/auth/login`, {
     method: "POST",
-    headers: { ...headers, "Content-Type": "application/x-www-form-urlencoded" },
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    credentials: "include",  // HttpOnly cookie を受け取る
     body: form.toString(),
   });
   if (!res.ok) {
@@ -60,6 +64,15 @@ export async function login(email: string, password: string): Promise<LoginRespo
     throw new Error(data.detail ?? "ログインに失敗しました");
   }
   return res.json();
+}
+
+export async function logout(): Promise<void> {
+  await fetch(`${API_BASE}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
+  localStorage.removeItem("yl_token");
+  localStorage.removeItem("yl_user");
 }
 
 export function fetchCurrentUser(): Promise<UserOut> {
@@ -602,4 +615,57 @@ export function updatePropertySettingsFull(
     `/properties/${propertyId}/settings`,
     { method: "PATCH", body: JSON.stringify(data) }
   );
+}
+
+
+// ---- User Management ----
+
+export interface UserManageOut {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+  is_active: boolean;
+  product_roles: Partial<Record<ProductCode, ProductRole>>;
+}
+
+export function fetchUsers(): Promise<UserManageOut[]> {
+  return apiFetch<UserManageOut[]>("/users/");
+}
+
+export function createUser(data: {
+  email: string;
+  name: string;
+  password: string;
+  role?: string;
+  product_roles?: Partial<Record<ProductCode, ProductRole>>;
+}): Promise<UserManageOut> {
+  return apiFetch<UserManageOut>("/users/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateUser(
+  userId: number,
+  data: { name?: string; role?: string; is_active?: boolean; password?: string }
+): Promise<UserManageOut> {
+  return apiFetch<UserManageOut>(`/users/${userId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteUser(userId: number): Promise<void> {
+  return apiFetch<void>(`/users/${userId}`, { method: "DELETE" });
+}
+
+export function setUserProductRoles(
+  userId: number,
+  roles: Array<{ product_code: ProductCode; role: ProductRole }>
+): Promise<UserManageOut> {
+  return apiFetch<UserManageOut>(`/users/${userId}/product-roles`, {
+    method: "PUT",
+    body: JSON.stringify(roles),
+  });
 }

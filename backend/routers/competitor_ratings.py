@@ -25,6 +25,7 @@ from ..models.property import Property
 from ..services.rakuten_rating_fetcher import fetch_ratings_for_property, fetch_hotel_rating
 from ..services.google_rating_fetcher import fetch_google_ratings_for_property
 from ..services.tripadvisor_rating_fetcher import fetch_tripadvisor_ratings_for_property
+from ..dependencies import get_authed_property
 
 logger = logging.getLogger(__name__)
 
@@ -63,13 +64,13 @@ class CompetitorRatingOut(BaseModel):
 
 @router.get("/", response_model=list[CompetitorRatingOut])
 async def list_competitor_ratings(
-    property_id: int,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """最新の競合評価データ一覧。ソースごとにレコードが存在する。"""
     result = await db.execute(
         select(CompetitorRating)
-        .where(CompetitorRating.property_id == property_id)
+        .where(CompetitorRating.property_id == prop.id)
         .order_by(CompetitorRating.source, CompetitorRating.hotel_name)
     )
     rows = result.scalars().all()
@@ -101,14 +102,14 @@ async def list_competitor_ratings(
 
 @router.post("/refresh")
 async def refresh_ratings(
-    property_id: int,
     background_tasks: BackgroundTasks,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """全評価ソース（楽天・Google・TripAdvisor）をバックグラウンドで再取得する。"""
     result = await db.execute(
         select(CompSet).where(
-            CompSet.property_id == property_id,
+            CompSet.property_id == prop.id,
             CompSet.is_active == True,
         )
     )
@@ -123,12 +124,8 @@ async def refresh_ratings(
         for c in comp_sets
     ]
 
-    prop = await db.get(Property, property_id)
-    if not prop:
-        raise HTTPException(status_code=404, detail="Property not found")
     own_rakuten_no = getattr(prop, "own_rakuten_hotel_no", None)
-
-    background_tasks.add_task(_run_rating_fetch, property_id, comp_list, own_rakuten_no, prop.name)
+    background_tasks.add_task(_run_rating_fetch, prop.id, comp_list, own_rakuten_no, prop.name)
     rakuten_count = sum(1 for c in comp_list if c.get("rakuten_hotel_no"))
     return {
         "status": "started",
@@ -138,6 +135,7 @@ async def refresh_ratings(
             "tripadvisor": len(comp_list),
         },
     }
+
 
 
 async def _run_rating_fetch(

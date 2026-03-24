@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from ..database import get_db
 from ..models.property import Property
+from ..dependencies import get_authed_property
 
 router = APIRouter(prefix="/properties/{property_id}/market", tags=["market"])
 
@@ -24,8 +25,8 @@ class MarketEventOut(BaseModel):
 
 @router.get("/events", response_model=list[MarketEventOut])
 async def get_market_events(
-    property_id: int,
     days: int = 90,
+    prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -34,9 +35,6 @@ async def get_market_events(
     """
     from ..services.market_service import get_market_events as _get_events
 
-    # property から event_area を取得（デフォルト: nihonbashi）
-    prop = await db.get(Property, property_id)
-    event_area = getattr(prop, "event_area", "nihonbashi") if prop else "nihonbashi"
-
-    events = await _get_events(days_ahead=days, property_id=property_id, event_area=event_area)
+    event_area = getattr(prop, "event_area", "nihonbashi") or "nihonbashi"
+    events = await _get_events(days_ahead=days, property_id=prop.id, event_area=event_area)
     return events
