@@ -53,10 +53,10 @@ export async function login(email: string, password: string): Promise<LoginRespo
   form.set("username", email);
   form.set("password", password);
 
-  const res = await fetch(`${API_BASE}/auth/login`, {
+  // Next.js API Route を経由してミドルウェア用 HttpOnly cookie を同一ドメインにセット
+  const res = await fetch(`/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    credentials: "include",  // HttpOnly cookie を受け取る
     body: form.toString(),
   });
   if (!res.ok) {
@@ -67,9 +67,8 @@ export async function login(email: string, password: string): Promise<LoginRespo
 }
 
 export async function logout(): Promise<void> {
-  await fetch(`${API_BASE}/auth/logout`, {
+  await fetch(`/api/auth/logout`, {
     method: "POST",
-    credentials: "include",
   });
   localStorage.removeItem("yl_token");
   localStorage.removeItem("yl_user");

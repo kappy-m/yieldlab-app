@@ -115,6 +115,7 @@ async def _migrate_competitor_ratings_columns():
         # comp_sets
         "ALTER TABLE comp_sets ADD COLUMN google_place_id TEXT",
         "ALTER TABLE comp_sets ADD COLUMN tripadvisor_location_id TEXT",
+        "ALTER TABLE comp_sets ADD COLUMN rakuten_hotel_no TEXT",
         # user_product_roles（マルチプロダクト権限テーブル）
         """CREATE TABLE IF NOT EXISTS user_product_roles (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -230,7 +231,7 @@ async def _auto_seed_booking_snapshots_if_empty():
 
 
 async def _auto_seed_users_if_empty():
-    """デモ用ユーザーが未登録なら投入する。"""
+    """デモ用ユーザーが未登録なら投入する。既存ユーザーのproduct_rolesも補完する。"""
     import logging
     from sqlalchemy import text
     from .database import AsyncSessionLocal
@@ -239,6 +240,32 @@ async def _auto_seed_users_if_empty():
     async with AsyncSessionLocal() as db:
         user_count = (await db.execute(text("SELECT COUNT(*) FROM users"))).scalar()
         org_count = (await db.execute(text("SELECT COUNT(*) FROM organizations"))).scalar()
+        role_count = (await db.execute(text("SELECT COUNT(*) FROM user_product_roles"))).scalar()
+
+    from .models.user import User
+    from .models.user_product_role import UserProductRole
+    from .models.organization import Organization
+    from sqlalchemy import select
+
+    # ユーザーが既存でもproduct_rolesが空なら補完する
+    if user_count > 0 and role_count == 0 and org_count > 0:
+        async with AsyncSessionLocal() as db:
+            users = (await db.execute(select(User).order_by(User.id))).scalars().all()
+            all_products = ["yield", "manage", "review", "reservation"]
+
+            for user in users:
+                if user.role == "admin":
+                    for product_code in all_products:
+                        db.add(UserProductRole(user_id=user.id, product_code=product_code, role="admin"))
+                elif user.role == "revenue_manager":
+                    db.add(UserProductRole(user_id=user.id, product_code="yield",  role="editor"))
+                    db.add(UserProductRole(user_id=user.id, product_code="review", role="viewer"))
+                else:
+                    db.add(UserProductRole(user_id=user.id, product_code="yield", role="viewer"))
+
+            await db.commit()
+            logger.info("[AutoSeed] Product roles backfilled for existing users.")
+        return
 
     if user_count > 0 or org_count == 0:
         return
@@ -249,11 +276,6 @@ async def _auto_seed_users_if_empty():
         pwd_hash = _bc.hashpw(b"admin123", salt).decode()
     except Exception:
         pwd_hash = "admin123"
-
-    from .models.user import User
-    from .models.user_product_role import UserProductRole
-    from .models.organization import Organization
-    from sqlalchemy import select
 
     async with AsyncSessionLocal() as db:
         org = (await db.execute(select(Organization).limit(1))).scalar_one_or_none()

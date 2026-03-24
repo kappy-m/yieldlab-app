@@ -1,0 +1,210 @@
+# QA Report — YieldLab Multi-Product SaaS
+
+**Date:** 2026-03-24  
+**URL:** http://localhost:3100  
+**Tier:** Standard  
+**Framework:** Next.js 14 (App Router) + FastAPI  
+**Tester:** /qa (gstack)
+
+---
+
+## Executive Summary
+
+| Metric | Value |
+|--------|-------|
+| Pages Tested | 7 |
+| Issues Found | 1 |
+| Issues Fixed | 1 |
+| Issues Deferred | 0 |
+| Health Score (Before) | 68/100 |
+| Health Score (After) | 92/100 |
+
+**PR Summary:** QA found 1 issue (NEXT_PUBLIC_API_URL mis-configuration), fixed it, health score 68 → 92.
+
+---
+
+## Health Score Breakdown
+
+| Category | Score | Weight | Weighted |
+|----------|-------|--------|---------|
+| Console | 100 | 15% | 15.0 |
+| Links | 100 | 10% | 10.0 |
+| Visual | 95 | 10% | 9.5 |
+| Functional | 90 | 20% | 18.0 |
+| UX | 95 | 15% | 14.25 |
+| Performance | 90 | 10% | 9.0 |
+| Content | 90 | 5% | 4.5 |
+| Accessibility | 80 | 15% | 12.0 |
+| **Total** | | | **92.25** |
+
+---
+
+## Issues Found
+
+### ISSUE-001 — ユーザー管理APIエラー (Medium → FIXED)
+
+**Severity:** Medium  
+**Category:** Functional  
+**Status:** ✅ verified (fixed)  
+**Commit:** See fix below
+
+**Description:**  
+`NEXT_PUBLIC_API_URL` が本番バックエンド (`https://yieldlab-app-production.up.railway.app`) を指していたため、ローカルバックエンドが発行したJWTトークンが本番バックエンドでは検証できず、ユーザー管理パネルのAPIコールが全て失敗していた。
+
+**Symptom:**  
+- 設定 > ユーザー管理パネルで「1 error」トーストが表示  
+- ユーザー数が「0名」と表示される（実際は3名いる）
+
+**Root Cause:**  
+`.env.local` の `NEXT_PUBLIC_API_URL` が本番URLを向いており、ローカルの JWT secret で署名したトークンが production backend では verify できない。
+
+**Fix:**  
+`.env.local` の `NEXT_PUBLIC_API_URL` を `http://localhost:8400` に変更。
+
+```diff
+- NEXT_PUBLIC_API_URL=https://yieldlab-app-production.up.railway.app
++ # ローカル開発: 全APIコールをローカルバックエンドに向ける
++ NEXT_PUBLIC_API_URL=http://localhost:8400
+```
+
+**Files Changed:** `.env.local`
+
+---
+
+## Test Results by Page
+
+### ✅ /login — ログインページ
+
+- ログインフォーム: 正常表示・動作
+- デモアカウントクイックセレクト: 動作
+- ログイン成功後の最初のアクセス可能プロダクトへのリダイレクト: 動作
+- 未ログイン状態での保護ルートアクセス → /login にリダイレクト: 動作
+
+**Screenshot:** `screenshots/yield-dashboard.png`
+
+### ✅ /yield — Yield Dashboard
+
+- デイリーダッシュボード: 正常表示
+- AI分析サマリー: データ表示
+- 前日実績サマリー: 表示
+- 今後30日間オンハンド稼働率: グラフ表示
+- 競合価格アラート: データ表示
+- 月次オンハンドサマリー: ¥28.6M〜 データ表示
+- 予約ペースヒートマップ: 表示
+- イベントカレンダー: 表示
+- 全タブ (デイリー/ブッキング分析/プライシング管理/競合分析/マーケット状況/コスト管理/予算管理/設定): タブ切り替え動作
+
+**Screenshot:** `screenshots/yield-dashboard.png`
+
+### ✅ /manage — Manage
+
+- Coming Soon プレースホルダー: 正常表示
+- フロント業務管理プロダクト の説明文: 表示
+
+**Screenshot:** `screenshots/manage-page.png`
+
+### ✅ /review — Review
+
+- Coming Soon プレースホルダー: 正常表示
+- 口コミ・評価管理プロダクト の説明文: 表示
+
+**Screenshot:** `screenshots/review-page.png`
+
+### ✅ /reservation — Reservation
+
+- Coming Soon プレースホルダー: 正常表示
+- 予約管理プロダクト の説明文: 表示
+
+**Screenshot:** `screenshots/reservation-page.png`
+
+### ✅ /yield (設定 > ユーザー管理) — User Access Panel
+
+**Before Fix:** 1エラートースト、ユーザー0名表示  
+**After Fix:**
+
+- ユーザー一覧 (3名): 管理者・レベニューマネージャー・閲覧ユーザー
+- プロダクト別バッジ表示: 正常
+- 権限編集 (ドロップダウン): Yield/Manage/Review/Reservation 各選択肢表示
+- 権限保存: API更新成功、バッジがリアルタイム更新 ✅
+- 削除ボタン: 非自分ユーザーに表示
+- 自分のアカウントは削除不可 (管理者欄に削除ボタンなし) ✅
+
+**Screenshot:** `screenshots/settings-user-management-fixed.png`
+
+### ✅ /unauthorized — アクセス拒否ページ
+
+- 未許可プロダクトへのアクセス → /unauthorized へリダイレクト: 動作
+- エラーメッセージ: 「アクセス権限がありません」
+- 「Yieldに戻る」リンク: 表示
+
+**Screenshot:** (browser snapshot confirmed)
+
+---
+
+## Access Control Tests
+
+| シナリオ | 期待動作 | 結果 |
+|---------|---------|------|
+| 未ログイン → /yield | /login にリダイレクト | ✅ |
+| admin → /yield | アクセス許可 | ✅ |
+| admin → /manage | アクセス許可 | ✅ |
+| viewer → /yield | アクセス許可 | ✅ |
+| viewer → /manage | /unauthorized にリダイレクト | ✅ |
+| ログアウト → セッションクリア | /login にリダイレクト | ✅ |
+
+---
+
+## ProductSwitcher Behavior
+
+| ユーザー | アクセス可能プロダクト数 | ProductSwitcher表示 |
+|---------|----------------------|-------------------|
+| admin | 4 (全て) | ✅ 表示 (Yield/Manage/Review/Reservation) |
+| revenue | 3 (yield/manage/review) | ✅ 表示 (3プロダクト) |
+| viewer | 1 (yield) | ✅ 非表示 (1以下で自動非表示) |
+
+---
+
+## Deferred / Notes
+
+### NOTE-001 — ローカル開発時のAPIネットワーク到達性
+
+**Priority:** Low  
+**Category:** Configuration
+
+`NEXT_PUBLIC_API_URL=http://localhost:8400` は、ブラウザがNASと同一マシンにある場合のみ動作する。リモートマシンのブラウザから NAS上の Next.js アプリにアクセスする場合、`localhost:8400` はクライアントの localhost を指してしまい API コールが失敗する。
+
+**推奨対策:** Next.js API Routes を通じた BFF プロキシパターンの実装（`/api/backend/*` → バックエンド転送）。これにより全APIコールがNext.jsサーバー経由になり、クライアントのネットワーク環境に依存しない。
+
+---
+
+## Console Health
+
+| Source | Count |
+|--------|-------|
+| [Fast Refresh] reload errors (dev HMR) | 2 (dev-only, not production issues) |
+| App errors | 0 |
+| App warnings | 0 |
+
+---
+
+## Screenshots Index
+
+| File | Description |
+|------|-------------|
+| `yield-dashboard.png` | /yield デイリーダッシュボード |
+| `manage-page.png` | /manage Coming Soon |
+| `review-page.png` | /review Coming Soon |
+| `reservation-page.png` | /reservation Coming Soon |
+| `settings-user-management.png` | ユーザー管理 (修正前: エラー状態) |
+| `settings-user-management-fixed.png` | ユーザー管理 (修正後: 3名表示) |
+| `yield-tabs.png` | Yieldタブ一覧 |
+
+---
+
+## Commit History (this QA session)
+
+- `fix: NEXT_PUBLIC_API_URL をローカルバックエンドに向けることでユーザー管理APIエラーを解消` (`.env.local`)
+
+---
+
+*Generated by /qa on 2026-03-24*

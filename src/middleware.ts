@@ -105,7 +105,15 @@ export function middleware(request: NextRequest) {
 
     // プロダクトアクセス権チェック
     const roles = payload.roles as Record<string, string> | undefined;
-    if (!roles?.[productCode]) {
+    if (!roles || Object.keys(roles).length === 0) {
+      // roles フィールドがない古い JWT → 再ログインを促す
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = "/login";
+      const res = NextResponse.redirect(loginUrl);
+      res.cookies.set("yl_token", "", { httpOnly: true, maxAge: 0, path: "/" });
+      return res;
+    }
+    if (!roles[productCode]) {
       const unauthorizedUrl = request.nextUrl.clone();
       unauthorizedUrl.pathname = "/unauthorized";
       return NextResponse.redirect(unauthorizedUrl);
