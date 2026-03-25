@@ -1,0 +1,268 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { X, Mail, PhoneCall, FileText, Sparkles, Check, ChevronDown, Send } from "lucide-react";
+import {
+  type Inquiry, type InquiryStatus, type InquiryPriority,
+  STATUS_CONFIG, PRIORITY_CONFIG, CHANNEL_CONFIG,
+} from "./inquiryData";
+
+const CHANNEL_ICONS = {
+  email: <Mail className="w-4 h-4" />,
+  form:  <FileText className="w-4 h-4" />,
+  phone: <PhoneCall className="w-4 h-4" />,
+};
+
+const LANG_REPLY_TEMPLATES: Record<string, string> = {
+  ja: "この度はお問い合わせいただき、誠にありがとうございます。\n\nご質問いただいた内容について、以下の通りご回答申し上げます。\n\n[ここに具体的な回答を記入]\n\nご不明な点がございましたら、お気軽にご連絡ください。今後ともよろしくお願いいたします。",
+  en: "Thank you for reaching out to us.\n\nRegarding your inquiry, please find our response below:\n\n[Please insert specific response here]\n\nIf you have any further questions, please don't hesitate to contact us. We look forward to hearing from you.",
+  zh: "感谢您的来函。\n\n关于您的咨询，请见以下回复：\n\n[请在此处填写具体回复内容]\n\n如有任何疑问，请随时与我们联系。期待为您服务。",
+  ko: "문의해 주셔서 감사합니다.\n\n문의하신 내용에 대해 아래와 같이 답변 드립니다.\n\n[구체적인 답변 내용을 여기에 입력해 주세요]\n\n추가적인 질문이 있으시면 언제든지 연락 주시기 바랍니다.",
+};
+
+interface Props {
+  inquiry: Inquiry | null;
+  onClose: () => void;
+  onStatusChange: (id: number, status: InquiryStatus) => void;
+  onPriorityChange: (id: number, priority: InquiryPriority) => void;
+}
+
+export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriorityChange }: Props) {
+  const [aiDraftOpen, setAiDraftOpen] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [sent, setSent] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // パネルを開くたびに状態リセット
+  useEffect(() => {
+    setAiDraftOpen(false);
+    setReplyText("");
+    setCopied(false);
+    setSent(false);
+  }, [inquiry?.id]);
+
+  // Escape キーで閉じる
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  const isOpen = inquiry !== null;
+  const draft = LANG_REPLY_TEMPLATES[inquiry?.language ?? "ja"];
+
+  const handleUseAIDraft = () => {
+    setReplyText(draft);
+    setAiDraftOpen(false);
+  };
+
+  const handleSend = () => {
+    setSent(true);
+    setTimeout(() => { setSent(false); onStatusChange(inquiry!.id, "resolved"); }, 1500);
+  };
+
+  return (
+    <>
+      {/* オーバーレイ */}
+      <div
+        className={`fixed inset-0 bg-black/20 backdrop-blur-[1px] z-40 transition-opacity duration-300 ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        onClick={onClose}
+      />
+
+      {/* スライドパネル */}
+      <div
+        ref={panelRef}
+        className={`fixed top-0 right-0 h-full w-[520px] max-w-full bg-white shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "translate-x-full"}`}
+      >
+        {!inquiry ? null : (
+          <>
+            {/* パネルヘッダー */}
+            <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-100 flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, #1E3A8A 0%, #1e40af 100%)" }}>
+              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 border border-white/20 flex-shrink-0 mt-0.5 text-white">
+                {CHANNEL_ICONS[inquiry.channel]}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-semibold text-sm leading-tight truncate">{inquiry.subject}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-white/70 text-xs">{inquiry.customerName}</span>
+                  <span className="text-white/40 text-[10px]">·</span>
+                  <span className="text-white/60 text-xs">{CHANNEL_CONFIG[inquiry.channel].label}</span>
+                  <span className="text-white/40 text-[10px]">·</span>
+                  <span className="text-white/60 text-xs">{inquiry.date}</span>
+                </div>
+              </div>
+              <button onClick={onClose}
+                className="text-white/70 hover:text-white transition-colors cursor-pointer flex-shrink-0 mt-0.5">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* スクロールコンテンツ */}
+            <div className="flex-1 overflow-y-auto">
+
+              {/* ステータス・優先度・担当者 */}
+              <div className="px-5 py-3 flex items-center gap-2 border-b border-slate-100 bg-slate-50/50">
+                {/* ステータス */}
+                <div className="relative group">
+                  <button className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold cursor-pointer ${STATUS_CONFIG[inquiry.status].color}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[inquiry.status].dot}`} />
+                    {STATUS_CONFIG[inquiry.status].label}
+                    <ChevronDown className="w-3 h-3 opacity-60" />
+                  </button>
+                  <div className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-10 hidden group-hover:block min-w-[120px]">
+                    {(Object.entries(STATUS_CONFIG) as [InquiryStatus, typeof STATUS_CONFIG[InquiryStatus]][]).map(([key, cfg]) => (
+                      <button key={key}
+                        onClick={() => onStatusChange(inquiry.id, key)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 cursor-pointer transition-colors ${inquiry.status === key ? "font-semibold" : ""}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                        {cfg.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 優先度 */}
+                <div className="relative group">
+                  <button className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer ${PRIORITY_CONFIG[inquiry.priority].color}`}>
+                    優先度: {PRIORITY_CONFIG[inquiry.priority].label}
+                    <ChevronDown className="w-3 h-3 opacity-60" />
+                  </button>
+                  <div className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-10 hidden group-hover:block min-w-[100px]">
+                    {(Object.entries(PRIORITY_CONFIG) as [InquiryPriority, typeof PRIORITY_CONFIG[InquiryPriority]][]).map(([key, cfg]) => (
+                      <button key={key}
+                        onClick={() => onPriorityChange(inquiry.id, key)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 cursor-pointer transition-colors ${inquiry.priority === key ? "font-semibold" : ""}`}>
+                        {cfg.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {inquiry.assignee && (
+                  <span className="ml-auto text-xs text-slate-500 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">
+                    担当: {inquiry.assignee}
+                  </span>
+                )}
+              </div>
+
+              {/* 連絡先情報 */}
+              {(inquiry.customerEmail || inquiry.customerPhone) && (
+                <div className="px-5 py-3 border-b border-slate-100 flex items-center gap-4">
+                  {inquiry.customerEmail && (
+                    <a href={`mailto:${inquiry.customerEmail}`}
+                      className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
+                      <Mail className="w-3.5 h-3.5" />
+                      {inquiry.customerEmail}
+                    </a>
+                  )}
+                  {inquiry.customerPhone && (
+                    <span className="flex items-center gap-1.5 text-xs text-slate-500">
+                      <PhoneCall className="w-3.5 h-3.5" />
+                      {inquiry.customerPhone}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* 本文 */}
+              <div className="px-5 py-4 border-b border-slate-100">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">内容</p>
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{inquiry.content}</p>
+                {inquiry.tags && inquiry.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {inquiry.tags.map((tag) => (
+                      <span key={tag} className="text-[10px] px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 既存の返信 */}
+              {inquiry.response && (
+                <div className="px-5 py-4 border-b border-slate-100">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">送信済み返信</p>
+                  <div className="pl-3 border-l-2 border-blue-200">
+                    <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{inquiry.response}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 返信エリア（クローズ以外） */}
+              {inquiry.status !== "closed" && (
+                <div className="px-5 py-4">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">返信を作成</p>
+
+                  {/* AI返信案ボタン */}
+                  <button
+                    onClick={() => setAiDraftOpen(!aiDraftOpen)}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border mb-3 transition-all cursor-pointer"
+                    style={aiDraftOpen
+                      ? { background: "#1E3A8A", color: "white", borderColor: "#1E3A8A" }
+                      : { background: "white", color: "#1E3A8A", borderColor: "#1E3A8A" }
+                    }
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    AI返信案を生成
+                    <span className="text-[10px] opacity-70 ml-1">Beta</span>
+                  </button>
+
+                  {/* AI ドラフト */}
+                  {aiDraftOpen && (
+                    <div className="mb-3 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-blue-700">AI 返信案 — GPT-4o</span>
+                        <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">Beta</span>
+                      </div>
+                      <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-white rounded-lg p-2.5 border border-blue-100">
+                        {draft}
+                      </p>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={handleUseAIDraft}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg cursor-pointer"
+                          style={{ background: "#1E3A8A" }}
+                        >
+                          <Check className="w-3 h-3" />
+                          返信欄にコピー
+                        </button>
+                        <button className="text-xs text-slate-500 hover:text-slate-700 cursor-pointer px-2 py-1.5 hover:bg-slate-100 rounded-lg">
+                          再生成
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* テキストエリア */}
+                  <textarea
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                    placeholder="返信内容を入力してください..."
+                    rows={6}
+                    className="w-full text-sm text-slate-700 border border-slate-200 rounded-xl p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-300 leading-relaxed placeholder:text-slate-300"
+                  />
+
+                  {/* 送信ボタン */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      onClick={handleSend}
+                      disabled={!replyText.trim() || sent}
+                      className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                      style={{ background: sent ? "#16A34A" : "#1E3A8A" }}
+                    >
+                      {sent ? <><Check className="w-3.5 h-3.5" />送信しました</> : <><Send className="w-3.5 h-3.5" />送信（スタブ）</>}
+                    </button>
+                    {copied && <span className="text-xs text-green-600">コピーしました</span>}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+}

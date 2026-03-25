@@ -5,14 +5,16 @@ import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { ReviewSummaryTab } from "@/components/review/ReviewSummaryTab";
 import { ReviewListTab } from "@/components/review/ReviewListTab";
 import { ReviewAnalyticsTab } from "@/components/review/ReviewAnalyticsTab";
+import { InquiryListTab } from "@/components/review/InquiryListTab";
 import { cn } from "@/lib/utils";
 
-type ReviewTabId = "summary" | "list" | "analytics";
+type ReviewTabId = "summary" | "list" | "analytics" | "inquiry";
 
 const TABS: { id: ReviewTabId; label: string }[] = [
   { id: "summary",   label: "サマリー" },
   { id: "list",      label: "口コミ一覧" },
   { id: "analytics", label: "分析" },
+  { id: "inquiry",   label: "問い合わせ" },
 ];
 
 export default function ReviewPage() {
@@ -60,6 +62,7 @@ export default function ReviewPage() {
         {activeTab === "summary"   && <ReviewSummaryTab   propertyId={propertyId} />}
         {activeTab === "list"      && <ReviewListTab      propertyId={propertyId} />}
         {activeTab === "analytics" && <ReviewAnalyticsTab propertyId={propertyId} />}
+        {activeTab === "inquiry"   && <InquiryListTab     propertyId={propertyId} />}
       </main>
     </div>
   );
