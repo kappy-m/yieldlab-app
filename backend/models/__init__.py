@@ -1,3 +1,4 @@
+from ..database import Base
 from .organization import Organization
 from .property import Property
 from .bar_ladder import BarLadder
@@ -21,6 +22,7 @@ from .guest_stay import GuestStay
 from .reservation import Reservation
 
 __all__ = [
+    "Base",
     "Organization",
     "Property",
     "BarLadder",

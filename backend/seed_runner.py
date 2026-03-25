@@ -435,3 +435,11 @@ async def run_seed():
             ))
 
         await session.commit()
+
+    # 追加シード: レビュー・問い合わせ・ゲスト滞在・予約
+    from .seed_reviews import seed_reviews
+    from .seed_front import seed_front
+    from .seed_reservation import seed_reservation
+    await seed_reviews()
+    await seed_front()
+    await seed_reservation()
