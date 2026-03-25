@@ -435,7 +435,7 @@ app = FastAPI(
     version="0.1.0",
     description="Hotel dynamic pricing SaaS backend",
     lifespan=lifespan,
-    redirect_slashes=False,  # trailing slash の有無を自動吸収
+    # redirect_slashes=True（デフォルト）: trailing slash 不一致を自動リダイレクト
 )
 
 # ─── Rate Limiting ─────────────────────────────────────────────────────────────

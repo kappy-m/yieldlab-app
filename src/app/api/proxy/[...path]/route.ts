@@ -42,6 +42,7 @@ async function proxyRequest(
     method: req.method,
     headers,
     body,
+    redirect: "follow",
   });
 
   const resContentType =
