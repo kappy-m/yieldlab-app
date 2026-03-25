@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { fetchProperties, logout } from "@/lib/api";
-import { ProductSwitcher } from "./ProductSwitcher";
 
 const PRODUCT_LABELS: Record<string, string> = {
   yield: "yield",
@@ -98,10 +97,7 @@ export function DashboardHeader({ propertyId, onPropertyChange }: DashboardHeade
           </div>
         </Link>
 
-        {/* 中央：プロダクトスイッチャー */}
-        <ProductSwitcher />
-
-        {/* 右側：プロパティスイッチャー + 設定 + アバター */}
+        {/* 右側：プロパティスイッチャー + アバター */}
         <div className="flex items-center gap-3">
 
           {/* プロパティスイッチャー */}

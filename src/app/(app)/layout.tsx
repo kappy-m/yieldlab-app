@@ -1,9 +1,17 @@
+import { ProductSidebar } from "@/components/layout/ProductSidebar";
+
 /**
  * (app) Route Group Layout
- * 全プロダクト共通: AppShell は各プロダクトページが自身の DashboardHeader を持つため、
- * ここではシンプルに children をレンダリングするだけ。
- * 将来: ここにグローバルナビゲーション / Toast / AnalyticsProvider を追加できる。
+ * 全プロダクト共通シェル: 左サイドバー（アクセス可能プロダクトが2つ以上の場合のみ表示）
+ * 1プロダクトのみのユーザーはサイドバーなしのフルワイドレイアウトになる。
  */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return (
+    <div className="flex min-h-screen">
+      <ProductSidebar />
+      <div className="flex-1 min-w-0">
+        {children}
+      </div>
+    </div>
+  );
 }
