@@ -13,6 +13,20 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { "Content-Type": "application/json" },
     ...init,
   });
+
+  // 401: セッション切れ → Cookie を削除してログインページへリダイレクト
+  if (res.status === 401) {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } catch {
+      // ログアウト失敗しても強制遷移
+    }
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+    }
+    throw new Error("セッションが切れました。再ログインしてください。");
+  }
+
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`API error ${res.status}: ${text}`);
