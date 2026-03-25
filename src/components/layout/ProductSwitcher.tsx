@@ -58,7 +58,7 @@ export function ProductSwitcher() {
   if (accessibleProducts.length <= 1) return null;
 
   return (
-    <nav className="flex items-center gap-1 bg-white/10 rounded-lg p-1 border border-white/20">
+    <nav className="flex items-center bg-white/10 rounded-lg p-1 border border-white/20">
       {accessibleProducts.map((product) => {
         const Icon = product.icon;
         const isActive = pathname.startsWith(product.href);
@@ -67,7 +67,7 @@ export function ProductSwitcher() {
             key={product.code}
             href={product.href}
             className={`
-              flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all
+              flex items-center justify-center gap-1.5 min-w-[96px] py-1.5 rounded-md text-xs font-medium transition-all
               ${isActive
                 ? "bg-white text-slate-900 shadow-sm"
                 : "text-white/70 hover:text-white hover:bg-white/10"
@@ -75,7 +75,7 @@ export function ProductSwitcher() {
             `}
             title={product.description}
           >
-            <Icon className="w-3.5 h-3.5" />
+            <Icon className="w-3.5 h-3.5 flex-shrink-0" />
             <span>{product.label}</span>
           </Link>
         );
