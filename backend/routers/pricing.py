@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from ..database import get_db
 from ..models import PricingGrid, RoomType, Recommendation, DailyPerformance
@@ -30,10 +30,38 @@ class PricingCellOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+BAR_LEVELS = {"BAR1", "BAR2", "BAR3", "BAR4", "BAR5", "CLOSED"}
+
+
 class PricingCellUpdate(BaseModel):
     bar_level: str
     price: int
     available_rooms: int
+
+    @field_validator("price")
+    @classmethod
+    def validate_price(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("price は 0 以上で入力してください")
+        if v > 9_999_999:
+            raise ValueError("price が上限を超えています (最大 9,999,999)")
+        return v
+
+    @field_validator("available_rooms")
+    @classmethod
+    def validate_available_rooms(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("available_rooms は 0 以上で入力してください")
+        if v > 9999:
+            raise ValueError("available_rooms の値が大きすぎます")
+        return v
+
+    @field_validator("bar_level")
+    @classmethod
+    def validate_bar_level(cls, v: str) -> str:
+        if v not in BAR_LEVELS:
+            raise ValueError(f"bar_level は {BAR_LEVELS} のいずれかを指定してください")
+        return v
 
 
 @router.get("/", response_model=list[PricingCellOut])

@@ -10,7 +10,9 @@ PUT    /users/{user_id}/product-roles → プロダクト権限を一括設定
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
+from typing import Annotated
+from pydantic import StringConstraints
 
 from ..database import get_db
 from ..models.user import User
@@ -21,6 +23,7 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 PRODUCT_CODES = {"yield", "manage", "review", "reservation"}
 PRODUCT_ROLES = {"admin", "editor", "viewer"}
+USER_ROLES = {"admin", "manager", "viewer"}
 
 
 # ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -28,6 +31,20 @@ PRODUCT_ROLES = {"admin", "editor", "viewer"}
 class ProductRoleItem(BaseModel):
     product_code: str
     role: str
+
+    @field_validator("product_code")
+    @classmethod
+    def validate_product_code(cls, v: str) -> str:
+        if v not in PRODUCT_CODES:
+            raise ValueError(f"product_code は {PRODUCT_CODES} のいずれかを指定してください")
+        return v
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in PRODUCT_ROLES:
+            raise ValueError(f"role は {PRODUCT_ROLES} のいずれかを指定してください")
+        return v
 
 
 class UserOut(BaseModel):
@@ -41,19 +58,47 @@ class UserOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# 名前: 1〜100文字、前後の空白は除去
+_NameStr = Annotated[str, StringConstraints(min_length=1, max_length=100, strip_whitespace=True)]
+
+
 class UserCreate(BaseModel):
-    email: str
-    name: str
-    password: str
+    email: EmailStr
+    name: _NameStr
+    password: Annotated[str, StringConstraints(min_length=8, max_length=128)]
     role: str = "viewer"
     product_roles: dict[str, str] = {}
 
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in USER_ROLES:
+            raise ValueError(f"role は {USER_ROLES} のいずれかを指定してください")
+        return v
+
+    @field_validator("product_roles")
+    @classmethod
+    def validate_product_roles(cls, v: dict[str, str]) -> dict[str, str]:
+        for code, role in v.items():
+            if code not in PRODUCT_CODES:
+                raise ValueError(f"product_code は {PRODUCT_CODES} のいずれかを指定してください")
+            if role not in PRODUCT_ROLES:
+                raise ValueError(f"role は {PRODUCT_ROLES} のいずれかを指定してください")
+        return v
+
 
 class UserUpdate(BaseModel):
-    name: str | None = None
+    name: _NameStr | None = None
     role: str | None = None
     is_active: bool | None = None
-    password: str | None = None
+    password: Annotated[str, StringConstraints(min_length=8, max_length=128)] | None = None
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str | None) -> str | None:
+        if v is not None and v not in USER_ROLES:
+            raise ValueError(f"role は {USER_ROLES} のいずれかを指定してください")
+        return v
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────

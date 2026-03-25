@@ -7,7 +7,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,7 @@ from pydantic import BaseModel
 
 from ..database import get_db
 from ..models.user import User
+from ..rate_limit import limiter
 
 try:
     from jose import jwt, JWTError
@@ -147,12 +148,15 @@ async def require_auth(
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.post("/login", response_model=TokenOut)
+@limiter.limit("5/minute")
 async def login(
+    request: Request,
     response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
-    """email / password でログインし JWT トークンを発行する。"""
+    """email / password でログインし JWT トークンを発行する。ブルートフォース防止: 5回/分。"""
+    
     result = await db.execute(select(User).where(User.email == form_data.username))
     user = result.scalar_one_or_none()
 
