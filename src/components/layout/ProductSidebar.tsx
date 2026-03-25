@@ -8,14 +8,14 @@ import { TrendingUp, Building2, Star, Calendar } from "lucide-react";
 const PRODUCTS = [
   {
     code: "yield",
-    label: "Yield",
+    label: "Manage",
     icon: TrendingUp,
     href: "/yield",
     description: "レベニューマネジメント",
   },
   {
     code: "manage",
-    label: "Manage",
+    label: "Front",
     icon: Building2,
     href: "/manage",
     description: "フロント業務管理",

@@ -9,8 +9,8 @@ import { UserPlus, Trash2, Shield, ChevronDown, ChevronUp, Check, Loader2 } from
 import { cn } from "@/lib/utils";
 
 const PRODUCTS: { code: ProductCode; label: string; color: string }[] = [
-  { code: "yield",       label: "Yield",       color: "bg-blue-100 text-blue-700" },
-  { code: "manage",      label: "Manage",      color: "bg-indigo-100 text-indigo-700" },
+  { code: "yield",       label: "Manage",      color: "bg-blue-100 text-blue-700" },
+  { code: "manage",      label: "Front",       color: "bg-indigo-100 text-indigo-700" },
   { code: "review",      label: "Review",      color: "bg-yellow-100 text-yellow-700" },
   { code: "reservation", label: "Reservation", color: "bg-green-100 text-green-700" },
 ];

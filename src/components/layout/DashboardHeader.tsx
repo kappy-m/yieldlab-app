@@ -7,8 +7,8 @@ import { useRouter, usePathname } from "next/navigation";
 import { fetchProperties, logout } from "@/lib/api";
 
 const PRODUCT_LABELS: Record<string, string> = {
-  yield: "yield",
-  manage: "manage",
+  yield: "manage",
+  manage: "front",
   review: "review",
   reservation: "reservation",
 };
