@@ -3,23 +3,22 @@
 import { useState } from "react";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { ReviewSummaryTab } from "@/components/review/ReviewSummaryTab";
-import { ReviewListTab } from "@/components/review/ReviewListTab";
 import { ReviewAnalyticsTab } from "@/components/review/ReviewAnalyticsTab";
-import { InquiryListTab } from "@/components/review/InquiryListTab";
+import { InboxTab } from "@/components/review/InboxTab";
 import { cn } from "@/lib/utils";
 
-type ReviewTabId = "summary" | "list" | "analytics" | "inquiry";
+type ReviewTabId = "summary" | "inbox" | "analytics";
 
 const TABS: { id: ReviewTabId; label: string }[] = [
   { id: "summary",   label: "サマリー" },
-  { id: "list",      label: "口コミ一覧" },
+  { id: "inbox",     label: "口コミ・問い合わせ" },
   { id: "analytics", label: "分析" },
-  { id: "inquiry",   label: "問い合わせ" },
 ];
 
 export default function ReviewPage() {
   const [activeTab, setActiveTab] = useState<ReviewTabId>("summary");
   const [propertyId, setPropertyId] = useState<number>(1);
+
 
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
@@ -60,9 +59,8 @@ export default function ReviewPage() {
       {/* コンテンツ */}
       <main className="max-w-[1400px] mx-auto px-6 py-5">
         {activeTab === "summary"   && <ReviewSummaryTab   propertyId={propertyId} />}
-        {activeTab === "list"      && <ReviewListTab      propertyId={propertyId} />}
+        {activeTab === "inbox"     && <InboxTab           propertyId={propertyId} />}
         {activeTab === "analytics" && <ReviewAnalyticsTab propertyId={propertyId} />}
-        {activeTab === "inquiry"   && <InquiryListTab     propertyId={propertyId} />}
       </main>
     </div>
   );
