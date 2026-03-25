@@ -189,7 +189,6 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
           </thead>
           <tbody>
             {hotels.map((hotel) => (
-              <>
               <tr key={hotel.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                 {editingId === hotel.id ? (
                   <td colSpan={5} className="px-4 py-3">
@@ -327,7 +326,6 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
                   </>
                 )}
               </tr>
-              </>
             ))}
             {hotels.length === 0 && (
               <tr>
