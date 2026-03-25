@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { TrendingUp, Building2, Star, ClipboardList, Calendar } from "lucide-react";
+import { TrendingUp, Building2, Star, Calendar } from "lucide-react";
 
 const PRODUCTS = [
   {

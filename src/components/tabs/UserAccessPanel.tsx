@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  fetchUsers, createUser, updateUser, deleteUser, setUserProductRoles,
+  fetchUsers, createUser, deleteUser, setUserProductRoles,
   type UserManageOut, type ProductCode, type ProductRole,
 } from "@/lib/api";
-import { UserPlus, Trash2, Shield, ChevronDown, ChevronUp, Check, X, Loader2 } from "lucide-react";
+import { UserPlus, Trash2, Shield, ChevronDown, ChevronUp, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const PRODUCTS: { code: ProductCode; label: string; color: string }[] = [
@@ -20,23 +20,6 @@ const ROLE_OPTIONS: { value: ProductRole; label: string }[] = [
   { value: "editor", label: "編集者" },
   { value: "viewer", label: "閲覧のみ" },
 ];
-
-function RoleBadge({ role }: { role: ProductRole | undefined }) {
-  if (!role) return <span className="text-xs text-slate-400">-</span>;
-  const colors: Record<ProductRole, string> = {
-    admin:  "bg-purple-100 text-purple-700",
-    editor: "bg-blue-100 text-blue-700",
-    viewer: "bg-slate-100 text-slate-600",
-  };
-  const labels: Record<ProductRole, string> = {
-    admin: "管理者", editor: "編集者", viewer: "閲覧",
-  };
-  return (
-    <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded", colors[role])}>
-      {labels[role]}
-    </span>
-  );
-}
 
 // ── 権限編集行 ────────────────────────────────────────────────
 function ProductRoleEditor({
