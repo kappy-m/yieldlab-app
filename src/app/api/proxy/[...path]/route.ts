@@ -38,27 +38,54 @@ async function proxyRequest(
     body = await req.text();
   }
 
-  // redirect: "manual" で 307/308 を手動追従し、Authorization header を保持する。
-  // Node.js fetch は redirect: "follow" 時に 3xx リダイレクト後の再リクエストで
-  // Authorization header を落とすため、この実装が必須。
-  let finalRes = await fetch(url.toString(), {
-    method: req.method,
+  // redirect: "manual" で 3xx を手動追従し、Authorization header を保持する。
+  //
+  // 【問題の背景】
+  // Node.js fetch は redirect:"follow" 時に 3xx 後の再リクエストで Authorization
+  // header を自動的に削除する。Railway は FastAPI の redirect_slashes=True により
+  // /overview → /overview/ の 307 を返すが、その Location が http:// になるため
+  // さらに 301 (HTTP→HTTPS) が発生する。全リダイレクトで Authorization を保持する。
+  //
+  // リダイレクト仕様:
+  //   307/308: method・body・headers を維持
+  //   301/302: method を GET に変更（body なし）、headers は維持
+  const MAX_REDIRECTS = 5;
+  let currentUrl = url.toString();
+  let currentMethod = req.method;
+  let currentBody = body;
+  let finalRes = await fetch(currentUrl, {
+    method: currentMethod,
     headers,
-    body,
+    body: currentBody,
     redirect: "manual",
   });
 
-  // 307 / 308 のみ手動で追従（Authorization header を引き継ぐ）
-  if (
-    (finalRes.status === 307 || finalRes.status === 308) &&
-    finalRes.headers.get("location")
-  ) {
-    const location = finalRes.headers.get("location")!;
-    const redirectUrl = new URL(location, url.toString());
-    finalRes = await fetch(redirectUrl.toString(), {
-      method: req.method,
+  for (let i = 0; i < MAX_REDIRECTS; i++) {
+    const { status } = finalRes;
+    if (![301, 302, 307, 308].includes(status)) break;
+    const location = finalRes.headers.get("location");
+    if (!location) break;
+
+    // Railway の http:// リダイレクトを https:// に正規化（逆方向は維持）
+    const redirectUrl = new URL(location, currentUrl);
+    if (
+      redirectUrl.hostname === url.hostname &&
+      url.protocol === "https:" &&
+      redirectUrl.protocol === "http:"
+    ) {
+      redirectUrl.protocol = "https:";
+    }
+
+    // 301/302 は method を GET に変更
+    if (status === 301 || status === 302) {
+      currentMethod = "GET";
+      currentBody = undefined;
+    }
+    currentUrl = redirectUrl.toString();
+    finalRes = await fetch(currentUrl, {
+      method: currentMethod,
       headers,
-      body,
+      body: currentBody,
       redirect: "manual",
     });
   }
