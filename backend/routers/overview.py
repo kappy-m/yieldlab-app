@@ -47,7 +47,7 @@ class OverviewResponse(BaseModel):
     weekly_trend: list[WeeklyTrendPoint]
 
 
-@router.get("/overview/", response_model=OverviewResponse)
+@router.get("/overview", response_model=OverviewResponse)
 async def get_overview(
     property_id: int,
     db: AsyncSession = Depends(get_db),

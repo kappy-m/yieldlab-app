@@ -38,19 +38,37 @@ async function proxyRequest(
     body = await req.text();
   }
 
-  const backendRes = await fetch(url.toString(), {
+  // redirect: "manual" で 307/308 を手動追従し、Authorization header を保持する。
+  // Node.js fetch は redirect: "follow" 時に 3xx リダイレクト後の再リクエストで
+  // Authorization header を落とすため、この実装が必須。
+  let finalRes = await fetch(url.toString(), {
     method: req.method,
     headers,
     body,
-    redirect: "follow",
+    redirect: "manual",
   });
 
+  // 307 / 308 のみ手動で追従（Authorization header を引き継ぐ）
+  if (
+    (finalRes.status === 307 || finalRes.status === 308) &&
+    finalRes.headers.get("location")
+  ) {
+    const location = finalRes.headers.get("location")!;
+    const redirectUrl = new URL(location, url.toString());
+    finalRes = await fetch(redirectUrl.toString(), {
+      method: req.method,
+      headers,
+      body,
+      redirect: "manual",
+    });
+  }
+
   const resContentType =
-    backendRes.headers.get("content-type") ?? "application/json";
-  const resBody = await backendRes.text();
+    finalRes.headers.get("content-type") ?? "application/json";
+  const resBody = await finalRes.text();
 
   return new NextResponse(resBody, {
-    status: backendRes.status,
+    status: finalRes.status,
     headers: { "Content-Type": resContentType },
   });
 }
