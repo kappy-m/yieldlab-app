@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from .database import init_db, engine
 from .config import settings
 from .routers import properties, pricing, recommendations, competitor, comp_set, market
-from .routers import daily_performance, competitor_ratings, auth, booking_curve, cost_budget, users
+from .routers import daily_performance, competitor_ratings, auth, booking_curve, cost_budget, users, overview
 from .services.scheduler import create_scheduler
 
 _scheduler = create_scheduler()
@@ -401,8 +401,13 @@ _db_ready = False
 async def lifespan(app: FastAPI):
     global _db_ready
     try:
-        await init_db()
-        await _migrate_competitor_ratings_columns()   # スキーマ確定をシード・パイプラインより前に実行
+        # PostgreSQL 環境: Alembic でスキーマ管理
+        # SQLite フォールバック環境: create_all で互換維持
+        db_url = settings.DATABASE_URL
+        if "sqlite" in db_url:
+            await init_db()
+            await _migrate_competitor_ratings_columns()
+
         await _auto_seed_if_empty()
         await _auto_seed_daily_perf_if_empty()
         await _auto_seed_users_if_empty()
@@ -448,6 +453,7 @@ app.include_router(competitor_ratings.router)
 app.include_router(booking_curve.router)
 app.include_router(cost_budget.router)
 app.include_router(users.router)
+app.include_router(overview.router)
 
 
 # ─── 管理エンドポイント認証 ────────────────────────────────────────────────────

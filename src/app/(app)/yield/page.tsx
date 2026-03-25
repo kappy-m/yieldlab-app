@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { DashboardTabs, type TabId } from "@/components/layout/DashboardTabs";
+import { OverviewTab } from "@/components/tabs/OverviewTab";
 import { DailyTab } from "@/components/tabs/DailyTab";
 import { PricingTab } from "@/components/tabs/PricingTab";
 import { CompetitorTab } from "@/components/tabs/CompetitorTab";
@@ -12,16 +14,45 @@ import { SettingsTab } from "@/components/tabs/SettingsTab";
 import { CostTab } from "@/components/tabs/CostTab";
 import { BudgetTab } from "@/components/tabs/BudgetTab";
 
-// コンテンツ型タブは常にマウントしておき、CSSで表示/非表示を切り替える。
+// URLに永続化するタブID一覧（overview がデフォルト）
+const VALID_TABS: TabId[] = [
+  "overview", "daily", "booking", "pricing", "competitor", "market", "cost", "budget", "settings",
+];
+
+// 常時マウントしてCSSで表示切り替えするタブ（overview は軽量なのでオンデマンドでよい）
 const ALWAYS_MOUNTED_TABS: TabId[] = [
   "daily", "pricing", "competitor", "booking", "market", "settings", "cost", "budget",
 ];
 
-export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<TabId>("daily");
+function DashboardInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // URL の ?tab= からタブを復元、なければ overview をデフォルトに
+  const tabFromUrl = searchParams.get("tab") as TabId | null;
+  const initialTab: TabId = tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : "overview";
+
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
   const [propertyId, setPropertyId] = useState<number>(1);
 
-  // JWT ガードは middleware.ts に一元化済み。client-side 二重チェック不要。
+  // タブ変更 → URL を同期（ブラウザ履歴を汚さないよう replace）
+  const handleTabChange = useCallback(
+    (tab: TabId) => {
+      setActiveTab(tab);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", tab);
+      router.replace(`?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
+
+  // URL が外部から変わった場合（ブラウザ戻る/進む）に同期
+  useEffect(() => {
+    const tab = searchParams.get("tab") as TabId | null;
+    if (tab && VALID_TABS.includes(tab) && tab !== activeTab) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
@@ -29,11 +60,29 @@ export default function DashboardPage() {
         propertyId={propertyId}
         onPropertyChange={(id) => {
           setPropertyId(id);
-          setActiveTab("daily");
+          handleTabChange("overview");
         }}
       />
-      <DashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
-      <main className="max-w-[1400px] mx-auto px-6 py-5">
+      <DashboardTabs activeTab={activeTab} onTabChange={handleTabChange} />
+
+      {/* スキップリンク（キーボードユーザー向け） */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:border focus:border-[#1E3A8A] focus:rounded focus:text-[#1E3A8A] focus:text-sm font-medium"
+      >
+        メインコンテンツへスキップ
+      </a>
+
+      <main id="main-content" className="max-w-[1400px] mx-auto px-6 py-5">
+        {/* Overview タブ（オンデマンドマウント） */}
+        {activeTab === "overview" && (
+          <OverviewTab
+            key={propertyId}
+            propertyId={propertyId}
+            onTabChange={handleTabChange}
+          />
+        )}
+
         {/* 常時マウントタブ: CSSで表示切り替え（瞬時遷移） */}
         {ALWAYS_MOUNTED_TABS.map((tab) => (
           <div
@@ -41,7 +90,6 @@ export default function DashboardPage() {
             className={activeTab === tab ? "block" : "hidden"}
             aria-hidden={activeTab !== tab}
           >
-            {/* key={propertyId} により物件変更時だけ再マウント（再フェッチ） */}
             {tab === "daily"      && <DailyTab      key={propertyId} propertyId={propertyId} />}
             {tab === "pricing"    && <PricingTab    key={propertyId} propertyId={propertyId} />}
             {tab === "competitor" && <CompetitorTab key={propertyId} propertyId={propertyId} />}
@@ -54,5 +102,13 @@ export default function DashboardPage() {
         ))}
       </main>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#F9FAFB]" />}>
+      <DashboardInner />
+    </Suspense>
   );
 }

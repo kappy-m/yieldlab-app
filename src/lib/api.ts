@@ -1,20 +1,16 @@
-// ブラウザ: NEXT_PUBLIC_API_URL（本番）/ SSR時: rewrite経由で /api/backend に流す
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8400";
+/**
+ * API クライアント
+ *
+ * 全リクエストは /api/proxy/* (BFF) 経由でバックエンドに転送される。
+ * JWT は HttpOnly Cookie (yl_token) で管理し、localStorage には格納しない。
+ */
 
-export const PROPERTY_ID = 1; // シードで生成される property_id
-
-function getAuthToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("yl_token");
-}
+const BFF_BASE = "/api/proxy";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getAuthToken();
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (token) headers["Authorization"] = `Bearer ${token}`;
-
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers,
+  const res = await fetch(`${BFF_BASE}${path}`, {
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
     ...init,
   });
   if (!res.ok) {
@@ -48,12 +44,14 @@ export interface UserOut {
   product_roles: Record<ProductCode, ProductRole>;
 }
 
-export async function login(email: string, password: string): Promise<LoginResponse> {
+export async function login(
+  email: string,
+  password: string
+): Promise<LoginResponse> {
   const form = new URLSearchParams();
   form.set("username", email);
   form.set("password", password);
 
-  // Next.js API Route を経由してミドルウェア用 HttpOnly cookie を同一ドメインにセット
   const res = await fetch(`/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -67,11 +65,12 @@ export async function login(email: string, password: string): Promise<LoginRespo
 }
 
 export async function logout(): Promise<void> {
-  await fetch(`/api/auth/logout`, {
-    method: "POST",
-  });
-  localStorage.removeItem("yl_token");
-  localStorage.removeItem("yl_user");
+  await fetch(`/api/auth/logout`, { method: "POST" });
+  // HttpOnly Cookie は /api/auth/logout がクリアする
+  // yl_user キャッシュのみ削除（機密情報ではないため localStorage 利用継続）
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("yl_user");
+  }
 }
 
 export function fetchCurrentUser(): Promise<UserOut> {
@@ -130,21 +129,26 @@ export function fetchBarLadder(propertyId: number) {
   return apiFetch<BarLadderOut[]>(`/properties/${propertyId}/bar-ladder`);
 }
 
-export function updateBarLadderEntry(propertyId: number, barId: number, price: number, label?: string) {
-  return apiFetch<BarLadderOut>(`/properties/${propertyId}/bar-ladder/${barId}`, {
-    method: "PATCH",
-    body: JSON.stringify({ price, label }),
-  });
+export function updateBarLadderEntry(
+  propertyId: number,
+  barId: number,
+  price: number,
+  label?: string
+) {
+  return apiFetch<BarLadderOut>(
+    `/properties/${propertyId}/bar-ladder/${barId}`,
+    { method: "PATCH", body: JSON.stringify({ price, label }) }
+  );
 }
 
 export function bulkUpdateBarLadder(
   propertyId: number,
   items: { id: number; price: number; label?: string }[]
 ) {
-  return apiFetch<BarLadderOut[]>(`/properties/${propertyId}/bar-ladder/bulk`, {
-    method: "PUT",
-    body: JSON.stringify({ items }),
-  });
+  return apiFetch<BarLadderOut[]>(
+    `/properties/${propertyId}/bar-ladder/bulk`,
+    { method: "PUT", body: JSON.stringify({ items }) }
+  );
 }
 
 export function syncGridFromBarLadder(propertyId: number) {
@@ -154,16 +158,6 @@ export function syncGridFromBarLadder(propertyId: number) {
   );
 }
 
-export function updateApprovalSettings(
-  propertyId: number,
-  body: { auto_approve_threshold_levels?: number; notification_channel?: string; notification_email?: string }
-) {
-  return apiFetch<ApprovalSettingOut>(`/properties/${propertyId}/approval-settings`, {
-    method: "PATCH",
-    body: JSON.stringify(body),
-  });
-}
-
 export interface ApprovalSettingOut {
   id: number;
   auto_approve_threshold_levels: number;
@@ -171,8 +165,24 @@ export interface ApprovalSettingOut {
   notification_email: string | null;
 }
 
+export function updateApprovalSettings(
+  propertyId: number,
+  body: {
+    auto_approve_threshold_levels?: number;
+    notification_channel?: string;
+    notification_email?: string;
+  }
+) {
+  return apiFetch<ApprovalSettingOut>(
+    `/properties/${propertyId}/approval-settings`,
+    { method: "PATCH", body: JSON.stringify(body) }
+  );
+}
+
 export function fetchApprovalSettings(propertyId: number) {
-  return apiFetch<ApprovalSettingOut | null>(`/properties/${propertyId}/approval-settings`);
+  return apiFetch<ApprovalSettingOut | null>(
+    `/properties/${propertyId}/approval-settings`
+  );
 }
 
 // ---- Pricing Grid ----
@@ -193,9 +203,13 @@ export function fetchPricingGrid(
   params?: { date_from?: string; date_to?: string }
 ) {
   const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v != null)) as Record<string, string>
+    Object.fromEntries(
+      Object.entries(params ?? {}).filter(([, v]) => v != null)
+    ) as Record<string, string>
   ).toString();
-  return apiFetch<PricingCellOut[]>(`/properties/${propertyId}/pricing/${qs ? `?${qs}` : ""}`);
+  return apiFetch<PricingCellOut[]>(
+    `/properties/${propertyId}/pricing/${qs ? `?${qs}` : ""}`
+  );
 }
 
 export function updatePricingCell(
@@ -229,7 +243,9 @@ export interface RecommendationOut {
 
 export function fetchRecommendations(propertyId: number, status?: string) {
   const qs = status ? `?status=${status}` : "";
-  return apiFetch<RecommendationOut[]>(`/properties/${propertyId}/recommendations/${qs}`);
+  return apiFetch<RecommendationOut[]>(
+    `/properties/${propertyId}/recommendations/${qs}`
+  );
 }
 
 export function generateRecommendations(propertyId: number, daysAhead = 30) {
@@ -255,16 +271,6 @@ export function actOnRecommendation(
   );
 }
 
-// ---- Competitor Prices ----
-
-export interface CompetitorAvgOut {
-  target_date: string;
-  avg_price: number;
-  min_price: number;
-  max_price: number;
-  count: number;
-}
-
 // ---- Comp Set ----
 
 export interface CompSetOut {
@@ -275,7 +281,7 @@ export interface CompSetOut {
   rakuten_hotel_no: string | null;
   google_place_id: string | null;
   tripadvisor_location_id: string | null;
-  scrape_mode: string;   // "mock" | "rakuten" | "live"
+  scrape_mode: string;
   is_active: boolean;
   sort_order: number;
 }
@@ -284,35 +290,54 @@ export function fetchCompSet(propertyId: number) {
   return apiFetch<CompSetOut[]>(`/properties/${propertyId}/comp-set/`);
 }
 
-export function createCompHotel(propertyId: number, body: {
-  name: string;
-  expedia_hotel_id?: string;
-  expedia_url?: string;
-  rakuten_hotel_no?: string;
-  google_place_id?: string;
-  tripadvisor_location_id?: string;
-  scrape_mode?: string;
-  sort_order?: number;
-}) {
+export function createCompHotel(
+  propertyId: number,
+  body: {
+    name: string;
+    expedia_hotel_id?: string;
+    expedia_url?: string;
+    rakuten_hotel_no?: string;
+    google_place_id?: string;
+    tripadvisor_location_id?: string;
+    scrape_mode?: string;
+    sort_order?: number;
+  }
+) {
   return apiFetch<CompSetOut>(`/properties/${propertyId}/comp-set/`, {
     method: "POST",
     body: JSON.stringify(body),
   });
 }
 
-export function updateCompHotel(propertyId: number, compId: number, body: Partial<CompSetOut>) {
-  return apiFetch<CompSetOut>(`/properties/${propertyId}/comp-set/${compId}`, {
-    method: "PATCH",
-    body: JSON.stringify(body),
-  });
+export function updateCompHotel(
+  propertyId: number,
+  compId: number,
+  body: Partial<CompSetOut>
+) {
+  return apiFetch<CompSetOut>(
+    `/properties/${propertyId}/comp-set/${compId}`,
+    { method: "PATCH", body: JSON.stringify(body) }
+  );
 }
 
 export function deleteCompHotel(propertyId: number, compId: number) {
-  return apiFetch<void>(`/properties/${propertyId}/comp-set/${compId}`, { method: "DELETE" });
+  return apiFetch<void>(`/properties/${propertyId}/comp-set/${compId}`, {
+    method: "DELETE",
+  });
 }
 
 export function triggerPipeline(propertyId: number) {
-  return apiFetch<{ status: string }>(`/admin/run-pipeline/${propertyId}`, { method: "POST" });
+  return apiFetch<{ status: string }>(`/admin/run-pipeline/${propertyId}`, {
+    method: "POST",
+  });
+}
+
+export interface CompetitorAvgOut {
+  target_date: string;
+  avg_price: number;
+  min_price: number;
+  max_price: number;
+  count: number;
 }
 
 export interface CompetitorPriceOut {
@@ -329,21 +354,27 @@ export function fetchCompetitorPrices(
   params?: { date_from?: string; date_to?: string; competitor_name?: string }
 ) {
   const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v != null)) as Record<string, string>
+    Object.fromEntries(
+      Object.entries(params ?? {}).filter(([, v]) => v != null)
+    ) as Record<string, string>
   ).toString();
-  return apiFetch<CompetitorPriceOut[]>(`/properties/${propertyId}/competitor/prices${qs ? `?${qs}` : ""}`);
+  return apiFetch<CompetitorPriceOut[]>(
+    `/properties/${propertyId}/competitor/prices${qs ? `?${qs}` : ""}`
+  );
 }
-
-// ---- Competitor Prices ----
 
 export function fetchCompetitorAverages(
   propertyId: number,
   params?: { date_from?: string; date_to?: string }
 ) {
   const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v != null)) as Record<string, string>
+    Object.fromEntries(
+      Object.entries(params ?? {}).filter(([, v]) => v != null)
+    ) as Record<string, string>
   ).toString();
-  return apiFetch<CompetitorAvgOut[]>(`/properties/${propertyId}/competitor/averages${qs ? `?${qs}` : ""}`);
+  return apiFetch<CompetitorAvgOut[]>(
+    `/properties/${propertyId}/competitor/averages${qs ? `?${qs}` : ""}`
+  );
 }
 
 // ---- Market Events ----
@@ -363,7 +394,9 @@ export interface MarketEventOut {
 }
 
 export function fetchMarketEvents(propertyId: number, days = 90) {
-  return apiFetch<MarketEventOut[]>(`/properties/${propertyId}/market/events?days=${days}`);
+  return apiFetch<MarketEventOut[]>(
+    `/properties/${propertyId}/market/events?days=${days}`
+  );
 }
 
 // ---- Daily Performance ----
@@ -391,7 +424,25 @@ export interface DailySummaryOut {
 }
 
 export function fetchDailySummary(propertyId: number) {
-  return apiFetch<DailySummaryOut>(`/properties/${propertyId}/daily-performance/summary`);
+  return apiFetch<DailySummaryOut>(
+    `/properties/${propertyId}/daily-performance/summary`
+  );
+}
+
+export function fetchDailyPerformances(
+  propertyId: number,
+  params?: { date_from?: string; date_to?: string; limit?: number }
+) {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params ?? {})
+        .filter(([, v]) => v != null)
+        .map(([k, v]) => [k, String(v)])
+    ) as Record<string, string>
+  ).toString();
+  return apiFetch<DailyPerfOut[]>(
+    `/properties/${propertyId}/daily-performance${qs ? `?${qs}` : ""}`
+  );
 }
 
 // ---- Competitor Ratings ----
@@ -420,6 +471,19 @@ export interface CompetitorRatingOut {
   fetched_at: string;
 }
 
+export function fetchCompetitorRatings(propertyId: number) {
+  return apiFetch<CompetitorRatingOut[]>(
+    `/properties/${propertyId}/competitor-ratings/`
+  );
+}
+
+export function refreshCompetitorRatings(propertyId: number) {
+  return apiFetch<{ status: string; targets: number }>(
+    `/properties/${propertyId}/competitor-ratings/refresh`,
+    { method: "POST" }
+  );
+}
+
 export function updatePropertySettings(
   propertyId: number,
   data: { own_rakuten_hotel_no?: string | null }
@@ -430,25 +494,18 @@ export function updatePropertySettings(
   );
 }
 
-export function fetchCompetitorRatings(propertyId: number) {
-  return apiFetch<CompetitorRatingOut[]>(`/properties/${propertyId}/competitor-ratings/`);
-}
-
-export function refreshCompetitorRatings(propertyId: number) {
-  return apiFetch<{ status: string; targets: number }>(
-    `/properties/${propertyId}/competitor-ratings/refresh`,
-    { method: "POST" }
-  );
-}
-
-export function fetchDailyPerformances(
+export function updatePropertySettingsFull(
   propertyId: number,
-  params?: { date_from?: string; date_to?: string; limit?: number }
+  data: { own_rakuten_hotel_no?: string | null; event_area?: string }
 ) {
-  const qs = new URLSearchParams(
-    Object.fromEntries(Object.entries(params ?? {}).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])) as Record<string, string>
-  ).toString();
-  return apiFetch<DailyPerfOut[]>(`/properties/${propertyId}/daily-performance${qs ? `?${qs}` : ""}`);
+  return apiFetch<{
+    id: number;
+    own_rakuten_hotel_no: string | null;
+    event_area: string;
+  }>(`/properties/${propertyId}/settings`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
 }
 
 // ---- Booking Curve ----
@@ -489,15 +546,21 @@ export interface BookingHeatmapOut {
 
 export function fetchBookingCurve(propertyId: number, targetDate?: string) {
   const qs = targetDate ? `?target_date=${targetDate}` : "";
-  return apiFetch<BookingCurveOut>(`/properties/${propertyId}/booking-curve/${qs}`);
+  return apiFetch<BookingCurveOut>(
+    `/properties/${propertyId}/booking-curve/${qs}`
+  );
 }
 
 export function fetchMonthlyOnhand(propertyId: number, monthsAhead = 3) {
-  return apiFetch<MonthlyOnhandOut[]>(`/properties/${propertyId}/booking-curve/monthly?months_ahead=${monthsAhead}`);
+  return apiFetch<MonthlyOnhandOut[]>(
+    `/properties/${propertyId}/booking-curve/monthly?months_ahead=${monthsAhead}`
+  );
 }
 
 export function fetchBookingHeatmap(propertyId: number, days = 10) {
-  return apiFetch<BookingHeatmapOut>(`/properties/${propertyId}/booking-curve/heatmap?days=${days}`);
+  return apiFetch<BookingHeatmapOut>(
+    `/properties/${propertyId}/booking-curve/heatmap?days=${days}`
+  );
 }
 
 // ---- Cost / Budget ----
@@ -542,22 +605,35 @@ export function fetchCosts(propertyId: number) {
   return apiFetch<CostSettingOut[]>(`/properties/${propertyId}/costs`);
 }
 
-export function createCost(propertyId: number, body: { cost_category: string; amount_per_room_night: number; fixed_monthly: number }) {
+export function createCost(
+  propertyId: number,
+  body: {
+    cost_category: string;
+    amount_per_room_night: number;
+    fixed_monthly: number;
+  }
+) {
   return apiFetch<CostSettingOut>(`/properties/${propertyId}/costs`, {
     method: "POST",
     body: JSON.stringify(body),
   });
 }
 
-export function updateCost(propertyId: number, costId: number, body: { amount_per_room_night?: number; fixed_monthly?: number }) {
-  return apiFetch<CostSettingOut>(`/properties/${propertyId}/costs/${costId}`, {
-    method: "PATCH",
-    body: JSON.stringify(body),
-  });
+export function updateCost(
+  propertyId: number,
+  costId: number,
+  body: { amount_per_room_night?: number; fixed_monthly?: number }
+) {
+  return apiFetch<CostSettingOut>(
+    `/properties/${propertyId}/costs/${costId}`,
+    { method: "PATCH", body: JSON.stringify(body) }
+  );
 }
 
 export function deleteCost(propertyId: number, costId: number) {
-  return apiFetch<void>(`/properties/${propertyId}/costs/${costId}`, { method: "DELETE" });
+  return apiFetch<void>(`/properties/${propertyId}/costs/${costId}`, {
+    method: "DELETE",
+  });
 }
 
 export function fetchBudget(propertyId: number, year?: number) {
@@ -565,13 +641,17 @@ export function fetchBudget(propertyId: number, year?: number) {
   return apiFetch<BudgetTargetOut[]>(`/properties/${propertyId}/budget${qs}`);
 }
 
-export function upsertBudget(propertyId: number, body: {
-  year: number; month: number;
-  target_occupancy?: number | null;
-  target_adr?: number | null;
-  target_revpar?: number | null;
-  target_revenue?: number | null;
-}) {
+export function upsertBudget(
+  propertyId: number,
+  body: {
+    year: number;
+    month: number;
+    target_occupancy?: number | null;
+    target_adr?: number | null;
+    target_revpar?: number | null;
+    target_revenue?: number | null;
+  }
+) {
   return apiFetch<BudgetTargetOut>(`/properties/${propertyId}/budget`, {
     method: "POST",
     body: JSON.stringify(body),
@@ -579,18 +659,24 @@ export function upsertBudget(propertyId: number, body: {
 }
 
 export function fetchCostSummary(propertyId: number, months = 3) {
-  return apiFetch<CostSummaryOut[]>(`/properties/${propertyId}/cost-summary?months=${months}`);
+  return apiFetch<CostSummaryOut[]>(
+    `/properties/${propertyId}/cost-summary?months=${months}`
+  );
 }
 
 // ---- Pricing Export ----
 
-export function getPricingExportUrl(propertyId: number, dateFrom?: string, dateTo?: string): string {
-  const token = getAuthToken();
+export function getPricingExportUrl(
+  propertyId: number,
+  dateFrom?: string,
+  dateTo?: string
+): string {
+  // BFF 経由でエクスポートURLを構築
   const params = new URLSearchParams();
   if (dateFrom) params.set("date_from", dateFrom);
   if (dateTo) params.set("date_to", dateTo);
-  if (token) params.set("token", token);  // 認証トークンをクエリパラメータで渡す（ダウンロード用）
-  return `${API_BASE}/properties/${propertyId}/pricing/export?${params.toString()}`;
+  const qs = params.toString();
+  return `${BFF_BASE}/properties/${propertyId}/pricing/export${qs ? `?${qs}` : ""}`;
 }
 
 // ---- Pricing AI Summary ----
@@ -601,21 +687,10 @@ export interface PricingAiSummaryOut {
 }
 
 export function fetchPricingAiSummary(propertyId: number) {
-  return apiFetch<PricingAiSummaryOut>(`/properties/${propertyId}/pricing/ai-summary`);
-}
-
-// ---- Property Settings (event_area) ----
-
-export function updatePropertySettingsFull(
-  propertyId: number,
-  data: { own_rakuten_hotel_no?: string | null; event_area?: string }
-) {
-  return apiFetch<{ id: number; own_rakuten_hotel_no: string | null; event_area: string }>(
-    `/properties/${propertyId}/settings`,
-    { method: "PATCH", body: JSON.stringify(data) }
+  return apiFetch<PricingAiSummaryOut>(
+    `/properties/${propertyId}/pricing/ai-summary`
   );
 }
-
 
 // ---- User Management ----
 
@@ -667,4 +742,38 @@ export function setUserProductRoles(
     method: "PUT",
     body: JSON.stringify(roles),
   });
+}
+
+// ---- Overview ----
+
+export interface OverviewAlertOut {
+  type: "pending_recommendation" | "competitor_change" | "upcoming_event";
+  count: number;
+  message: string;
+  severity: "critical" | "warning" | "info";
+}
+
+export interface WeeklyTrendPointOut {
+  date: string;
+  occ: number;
+  adr: number;
+  revpar: number;
+}
+
+export interface OverviewOut {
+  today_kpi: {
+    occ: number;
+    occ_change: number;
+    adr: number;
+    adr_change: number;
+    revpar: number;
+    revpar_change: number;
+    budget_progress: number | null;
+  };
+  alerts: OverviewAlertOut[];
+  weekly_trend: WeeklyTrendPointOut[];
+}
+
+export function fetchOverview(propertyId: number) {
+  return apiFetch<OverviewOut>(`/properties/${propertyId}/overview/`);
 }

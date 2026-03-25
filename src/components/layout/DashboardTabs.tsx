@@ -3,9 +3,10 @@
 import { Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type TabId = "daily" | "booking" | "pricing" | "competitor" | "market" | "cost" | "budget" | "settings";
+export type TabId = "overview" | "daily" | "booking" | "pricing" | "competitor" | "market" | "cost" | "budget" | "settings";
 
 const MAIN_TABS: { id: TabId; label: string }[] = [
+  { id: "overview",   label: "ホーム" },
   { id: "daily",      label: "デイリー" },
   { id: "booking",    label: "ブッキング分析" },
   { id: "pricing",    label: "プライシング管理" },

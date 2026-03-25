@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { login } from "@/lib/api";
 import { TrendingUp, Lock, Mail, Eye, EyeOff } from "lucide-react";
@@ -13,10 +13,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const token = localStorage.getItem("yl_token");
-    if (token) router.replace("/yield");
-  }, [router]);
+  // HttpOnly Cookie ベースの認証に移行済み。localStorage の yl_token チェックは削除。
+  // ミドルウェアがリダイレクトを担当する。
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,7 +22,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await login(email, password);
-      localStorage.setItem("yl_token", res.access_token);
+      // yl_token は /api/auth/login BFF が HttpOnly Cookie でセット済み
+      // yl_user はユーザー表示用にのみ localStorage に保持（機密情報ではない）
       localStorage.setItem("yl_user", JSON.stringify({
         id: res.user_id,
         name: res.name,
