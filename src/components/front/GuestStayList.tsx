@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  LogIn, LogOut, Users, Search, Filter, RefreshCw,
-  ChevronRight, Star, Globe, Phone, Mail, BedDouble,
+  LogIn, LogOut, Users, Search, RefreshCw,
+  ChevronRight, Star, Phone, Mail, BedDouble,
   Clock, AlertCircle,
 } from "lucide-react";
 import { fetchGuestStays, updateGuestStayStatus, type GuestStayOut, type GuestStayListOut } from "@/lib/api";

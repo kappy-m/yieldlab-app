@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Calendar, List, Search, ChevronLeft, ChevronRight,
-  ChevronRight as ChevronRightIcon, Users, Globe, Clock,
+  ChevronRight as ChevronRightIcon, Users, Clock,
 } from "lucide-react";
 import { fetchReservations, type ReservationOut, type ReservationListOut } from "@/lib/api";
 import { cn } from "@/lib/utils";
