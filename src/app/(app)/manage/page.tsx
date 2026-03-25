@@ -1,5 +1,5 @@
 "use client";
-
+// BL-007: Front product v2 - GuestStayList integration
 import { useState } from "react";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { ProductSidebar } from "@/components/layout/ProductSidebar";
