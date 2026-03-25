@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { DashboardTabs, type TabId } from "@/components/layout/DashboardTabs";
 import { DailyTab } from "@/components/tabs/DailyTab";
@@ -19,27 +18,10 @@ const ALWAYS_MOUNTED_TABS: TabId[] = [
 ];
 
 export default function DashboardPage() {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("daily");
   const [propertyId, setPropertyId] = useState<number>(1);
-  const [authChecked, setAuthChecked] = useState(false);
 
-  useEffect(() => {
-    const token = localStorage.getItem("yl_token");
-    if (!token) {
-      router.replace("/login");
-    } else {
-      setAuthChecked(true);
-    }
-  }, [router]);
-
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center">
-        <div className="text-sm text-slate-400">読み込み中...</div>
-      </div>
-    );
-  }
+  // JWT ガードは middleware.ts に一元化済み。client-side 二重チェック不要。
 
   return (
     <div className="min-h-screen bg-[#F9FAFB]">

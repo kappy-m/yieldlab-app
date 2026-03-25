@@ -3,9 +3,16 @@
 import { Building2, Star, MapPin, ChevronDown, LogOut, User } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { fetchProperties, logout } from "@/lib/api";
 import { ProductSwitcher } from "./ProductSwitcher";
+
+const PRODUCT_LABELS: Record<string, string> = {
+  yield: "yield",
+  manage: "manage",
+  review: "review",
+  reservation: "reservation",
+};
 
 interface Property {
   id: number;
@@ -23,12 +30,29 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ propertyId, onPropertyChange }: DashboardHeaderProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [properties, setProperties] = useState<Property[]>([]);
   const [open, setOpen] = useState(false);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
   const [userName, setUserName] = useState<string>("");
+
+  // 現在のプロダクトラベルをパスから取得
+  const currentProductLabel = (() => {
+    const segment = pathname.split("/")[1] ?? "";
+    return PRODUCT_LABELS[segment] ?? "manage";
+  })();
+
+  // ユーザー名からイニシャルを生成（最大2文字）
+  const avatarInitials = (() => {
+    if (!userName) return "–";
+    const parts = userName.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return userName.slice(0, 2).toUpperCase();
+  })();
 
   useEffect(() => {
     try {
@@ -70,7 +94,7 @@ export function DashboardHeader({ propertyId, onPropertyChange }: DashboardHeade
           </div>
           <div className="flex items-baseline gap-1.5">
             <span className="text-white font-semibold text-base tracking-tight leading-none">Yieldlab</span>
-            <span className="text-sm font-light leading-none" style={{ color: "#CA8A04" }}>manage</span>
+            <span className="text-sm font-light leading-none" style={{ color: "#CA8A04" }}>{currentProductLabel}</span>
           </div>
         </Link>
 
@@ -163,7 +187,7 @@ export function DashboardHeader({ propertyId, onPropertyChange }: DashboardHeade
               className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold border border-white/20 hover:ring-2 hover:ring-white/30 transition-all cursor-pointer"
               style={{ background: "#CA8A04", color: "#1E3A8A" }}
             >
-              KM
+              {avatarInitials}
             </button>
 
             {avatarOpen && (

@@ -6,6 +6,7 @@ const plusJakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
   variable: "--font-plus-jakarta",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -20,7 +21,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja" className={plusJakarta.variable}>
-      <body className="font-sans">{children}</body>
+      <body className={`${plusJakarta.className} antialiased`}>{children}</body>
     </html>
   );
 }

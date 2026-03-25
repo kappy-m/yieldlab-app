@@ -1,25 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { Building2, Wrench } from "lucide-react";
 
+// JWT ガードは middleware.ts に一元化済み。
 export default function ManagePage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    const token = localStorage.getItem("yl_token");
-    if (!token) {
-      router.replace("/login");
-      return;
-    }
-    const user = JSON.parse(localStorage.getItem("yl_user") ?? "{}");
-    if (!user.product_roles?.manage) {
-      router.replace("/unauthorized");
-    }
-  }, [router]);
-
   return (
     <div className="min-h-screen bg-slate-50">
       <DashboardHeader propertyId={1} onPropertyChange={() => {}} />

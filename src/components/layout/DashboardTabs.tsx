@@ -31,13 +31,20 @@ export function DashboardTabs({ activeTab, onTabChange }: DashboardTabsProps) {
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={cn(
-                "relative px-4 py-3 text-sm font-medium transition-all duration-200 cursor-pointer",
+                "relative px-4 py-3 text-sm font-medium transition-colors duration-150 cursor-pointer",
                 activeTab === tab.id
-                  ? "text-[#1E3A8A] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#1E3A8A] after:rounded-t"
+                  ? "text-[#1E3A8A]"
                   : "text-slate-500 hover:text-slate-700 hover:bg-slate-50/80 rounded-t-md"
               )}
             >
               {tab.label}
+              {/* アンダーラインを span で実装して transition を効かせる */}
+              <span
+                className={cn(
+                  "absolute bottom-0 left-0 right-0 h-0.5 bg-[#1E3A8A] rounded-t transition-transform duration-200 origin-bottom",
+                  activeTab === tab.id ? "scale-y-100" : "scale-y-0"
+                )}
+              />
             </button>
           ))}
         </div>
@@ -46,14 +53,20 @@ export function DashboardTabs({ activeTab, onTabChange }: DashboardTabsProps) {
         <button
           onClick={() => onTabChange("settings")}
           className={cn(
-            "relative flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-all duration-200 cursor-pointer",
+            "relative flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors duration-150 cursor-pointer",
             activeTab === "settings"
-              ? "text-[#1E3A8A] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-0.5 after:bg-[#1E3A8A] after:rounded-t"
+              ? "text-[#1E3A8A]"
               : "text-slate-400 hover:text-slate-600 hover:bg-slate-50/80 rounded-t-md"
           )}
         >
           <Settings className="w-3.5 h-3.5" />
           設定
+          <span
+            className={cn(
+              "absolute bottom-0 left-0 right-0 h-0.5 bg-[#1E3A8A] rounded-t transition-transform duration-200 origin-bottom",
+              activeTab === "settings" ? "scale-y-100" : "scale-y-0"
+            )}
+          />
         </button>
       </div>
     </nav>

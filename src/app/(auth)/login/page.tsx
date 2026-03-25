@@ -93,7 +93,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -128,7 +128,7 @@ export default function LoginPage() {
                   key={u.email}
                   type="button"
                   onClick={() => { setEmail(u.email); setPassword("admin123"); }}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 transition-colors text-left"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/5 transition-colors text-left cursor-pointer"
                 >
                   <span className="text-xs text-slate-300">{u.email}</span>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${u.badge}`}>{u.role}</span>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { TrendingUp, Building2, Star, Calendar } from "lucide-react";
 
 const PRODUCTS = [
@@ -37,17 +38,20 @@ const PRODUCTS = [
 
 export function ProductSwitcher() {
   const pathname = usePathname();
+  // null = 未マウント（SSR・ハイドレーション中はレンダリング抑制）
+  const [productRoles, setProductRoles] = useState<Record<string, string> | null>(null);
 
-  // ログイン済みユーザーのプロダクト権限を取得
-  const productRoles: Record<string, string> = (() => {
-    if (typeof window === "undefined") return {};
+  useEffect(() => {
     try {
       const user = JSON.parse(localStorage.getItem("yl_user") ?? "{}");
-      return user.product_roles ?? {};
+      setProductRoles(user.product_roles ?? {});
     } catch {
-      return {};
+      setProductRoles({});
     }
-  })();
+  }, []);
+
+  // マウント前はレンダリングしない（ハイドレーションミスマッチ防止）
+  if (productRoles === null) return null;
 
   const accessibleProducts = PRODUCTS.filter((p) => productRoles[p.code]);
 

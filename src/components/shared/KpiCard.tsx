@@ -24,7 +24,7 @@ export function KpiCard({ label, value, unit, change, changePositive, accentColo
       <div className="flex items-start justify-between mb-2">
         <span className="text-xs text-gray-500 font-medium">{label}</span>
         {detail && (
-          <button className="text-xs text-blue-500 hover:underline">詳細</button>
+          <button className="text-xs text-blue-500 hover:underline cursor-pointer">詳細</button>
         )}
       </div>
       <div className="flex items-baseline gap-1.5">
