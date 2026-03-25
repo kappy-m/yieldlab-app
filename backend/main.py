@@ -681,6 +681,56 @@ async def reset_seed(_: None = Depends(_verify_admin)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/admin/seed-new-tables")
+async def seed_new_tables(_: None = Depends(_verify_admin)):
+    """Review / Inquiry / GuestStay / Reservation テーブルのシードデータを投入（既存データは保持）"""
+    import traceback
+    from sqlalchemy import select, func
+    from .database import AsyncSessionLocal
+    from .models import ReviewEntry, InquiryEntry, GuestStay, Reservation
+    _logger.info("[Admin] seed-new-tables called")
+    try:
+        async with AsyncSessionLocal() as session:
+            review_count = (await session.execute(select(func.count()).select_from(ReviewEntry))).scalar_one()
+            inquiry_count = (await session.execute(select(func.count()).select_from(InquiryEntry))).scalar_one()
+            stay_count = (await session.execute(select(func.count()).select_from(GuestStay))).scalar_one()
+            res_count = (await session.execute(select(func.count()).select_from(Reservation))).scalar_one()
+
+        results = {}
+        if review_count == 0:
+            from .seed_reviews import seed_reviews
+            await seed_reviews()
+            results["reviews"] = "seeded"
+        else:
+            results["reviews"] = f"skipped ({review_count} exist)"
+
+        if inquiry_count == 0:
+            results["inquiries"] = "seeded (included in seed_reviews)"
+        else:
+            results["inquiries"] = f"skipped ({inquiry_count} exist)"
+
+        if stay_count == 0:
+            from .seed_front import seed_front
+            await seed_front()
+            results["guest_stays"] = "seeded"
+        else:
+            results["guest_stays"] = f"skipped ({stay_count} exist)"
+
+        if res_count == 0:
+            from .seed_reservation import seed_reservation
+            await seed_reservation()
+            results["reservations"] = "seeded"
+        else:
+            results["reservations"] = f"skipped ({res_count} exist)"
+
+        return {"status": "ok", "results": results}
+    except Exception as e:
+        err = traceback.format_exc()
+        _logger.error(f"[Admin] seed-new-tables FAILED: {err}")
+        from fastapi import HTTPException
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/admin/patch-comp-set")
 async def patch_comp_set(_: None = Depends(_verify_admin)):
     """既存のComp-Setエントリを最新のseed定義で更新する（DBリセット不要）"""
