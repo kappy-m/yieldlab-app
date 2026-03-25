@@ -23,8 +23,8 @@ interface DashboardTabsProps {
 
 export function DashboardTabs({ activeTab, onTabChange }: DashboardTabsProps) {
   return (
-    <nav className="bg-white border-b border-slate-200 px-6 shadow-sm">
-      <div className="flex items-center justify-between">
+    <nav className="sticky top-14 z-30 bg-white border-b border-slate-200 shadow-sm overflow-x-auto">
+      <div className="flex items-center justify-between px-4 min-w-max">
         {/* メインタブ */}
         <div className="flex gap-0.5">
           {MAIN_TABS.map((tab) => (
@@ -32,7 +32,7 @@ export function DashboardTabs({ activeTab, onTabChange }: DashboardTabsProps) {
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
               className={cn(
-                "relative px-4 py-3 text-sm font-medium transition-colors duration-150 cursor-pointer",
+                "relative px-3 py-3 text-sm font-medium transition-colors duration-150 cursor-pointer whitespace-nowrap",
                 activeTab === tab.id
                   ? "text-[#1E3A8A]"
                   : "text-slate-500 hover:text-slate-700 hover:bg-slate-50/80 rounded-t-md"
@@ -54,7 +54,7 @@ export function DashboardTabs({ activeTab, onTabChange }: DashboardTabsProps) {
         <button
           onClick={() => onTabChange("settings")}
           className={cn(
-            "relative flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors duration-150 cursor-pointer",
+            "relative flex items-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors duration-150 cursor-pointer whitespace-nowrap ml-4",
             activeTab === "settings"
               ? "text-[#1E3A8A]"
               : "text-slate-400 hover:text-slate-600 hover:bg-slate-50/80 rounded-t-md"

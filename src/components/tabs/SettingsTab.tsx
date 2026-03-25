@@ -148,7 +148,7 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
           <button
             onClick={handleRunPipeline}
             disabled={running}
-            className="flex items-center gap-1.5 text-xs bg-[#7C3AED] text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 disabled:opacity-50 font-medium"
+            className="flex items-center gap-1.5 text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
           >
             <Play className="w-3 h-3" />
             {running ? "実行中..." : "今すぐ実行"}
@@ -164,7 +164,7 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
       </div>
 
       {pipelineMsg && (
-        <div className="mb-4 px-4 py-3 bg-purple-50 border border-purple-200 rounded-lg text-xs text-purple-700">
+        <div className="mb-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-700">
           <Zap className="w-3 h-3 inline mr-1" />{pipelineMsg}
         </div>
       )}
@@ -199,7 +199,7 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
                           <input
                             value={editForm.name ?? hotel.name}
                             onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                            className="w-full text-xs border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                            className="w-full text-xs border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
                           />
                         </div>
                         <div>
@@ -208,7 +208,7 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
                             value={editForm.expedia_hotel_id ?? hotel.expedia_hotel_id ?? ""}
                             onChange={e => setEditForm(f => ({ ...f, expedia_hotel_id: e.target.value }))}
                             placeholder="例: 12345678"
-                            className="w-full text-xs border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                            className="w-full text-xs border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
                           />
                         </div>
                         <div>
@@ -217,7 +217,7 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
                             value={editForm.rakuten_hotel_no ?? hotel.rakuten_hotel_no ?? ""}
                             onChange={e => setEditForm(f => ({ ...f, rakuten_hotel_no: e.target.value }))}
                             placeholder="例: 149164"
-                            className="w-full text-xs border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                            className="w-full text-xs border rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
                           />
                         </div>
                         <div>
@@ -263,7 +263,7 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
                               type="checkbox"
                               checked={editForm.is_active ?? hotel.is_active}
                               onChange={e => setEditForm(f => ({ ...f, is_active: e.target.checked }))}
-                              className="w-4 h-4 accent-purple-600 mt-0.5"
+                              className="w-4 h-4 accent-blue-600 mt-0.5"
                             />
                           </div>
                         </div>
@@ -272,7 +272,7 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
                         <button onClick={() => setEditingId(null)} className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1 px-2 py-1">
                           <X className="w-3 h-3" />キャンセル
                         </button>
-                        <button onClick={() => handleSaveEdit(hotel.id)} className="text-xs bg-[#7C3AED] text-white px-3 py-1 rounded-lg hover:bg-purple-700 flex items-center gap-1">
+                        <button onClick={() => handleSaveEdit(hotel.id)} className="text-xs bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 flex items-center gap-1">
                           <Check className="w-3 h-3" />保存
                         </button>
                       </div>
@@ -347,7 +347,7 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
                   value={addForm.name}
                   onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="例: セルリアンタワー東急ホテル"
-                  className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                  className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
                 />
               </div>
               <div>
@@ -356,7 +356,7 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
                   value={addForm.expedia_hotel_id}
                   onChange={e => setAddForm(f => ({ ...f, expedia_hotel_id: e.target.value }))}
                   placeholder="例: 12345678"
-                  className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+                  className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
                 />
               </div>
               <div>
@@ -390,7 +390,7 @@ const BAR_LEVELS = ["A", "B", "C", "D", "E"] as const;
 type BarLevel = typeof BAR_LEVELS[number];
 
 const BAR_META: Record<BarLevel, { label: string; badge: string; accent: string }> = {
-  A: { label: "最高価格帯", badge: "bar-badge-a", accent: "bg-purple-50 text-purple-700 border-purple-200" },
+  A: { label: "最高価格帯", badge: "bar-badge-a", accent: "bg-blue-50 text-blue-700 border-blue-200" },
   B: { label: "高価格帯",   badge: "bar-badge-b", accent: "bg-blue-50 text-blue-700 border-blue-200" },
   C: { label: "標準価格帯", badge: "bar-badge-c", accent: "bg-gray-50 text-gray-700 border-gray-200" },
   D: { label: "割引価格帯", badge: "bar-badge-d", accent: "bg-amber-50 text-amber-700 border-amber-200" },
@@ -664,12 +664,12 @@ function BarLadderPanel({ propertyId }: { propertyId: number }) {
                             className={cn(
                               "w-full pl-6 pr-2 py-1.5 text-right text-xs rounded-lg border transition-all focus:outline-none",
                               isChanged
-                                ? "border-purple-400 bg-purple-50 text-purple-800 font-semibold focus:ring-2 focus:ring-purple-300/40"
-                                : "border-gray-200 bg-white text-gray-800 focus:border-purple-400 focus:ring-2 focus:ring-purple-300/20"
+                                ? "border-blue-400 bg-blue-50 text-blue-800 font-semibold focus:ring-2 focus:ring-blue-300/40"
+                                : "border-gray-200 bg-white text-gray-800 focus:border-blue-400 focus:ring-2 focus:ring-blue-300/20"
                             )}
                           />
                           {isChanged && (
-                            <div className="absolute -top-1.5 -right-1.5 w-2 h-2 bg-purple-500 rounded-full" />
+                            <div className="absolute -top-1.5 -right-1.5 w-2 h-2 bg-blue-500 rounded-full" />
                           )}
                         </div>
                       </td>
@@ -689,7 +689,7 @@ function BarLadderPanel({ propertyId }: { propertyId: number }) {
                           </div>
                           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-gradient-to-r from-purple-400 to-red-400 rounded-full transition-all"
+                              className="h-full bg-gradient-to-r from-blue-400 to-red-400 rounded-full transition-all"
                               style={{ width: `${100 - ratioE}%` }}
                             />
                           </div>
@@ -706,7 +706,7 @@ function BarLadderPanel({ propertyId }: { propertyId: number }) {
 
       <div className="mt-3 flex items-start gap-4 text-[11px] text-gray-400">
         <div className="flex items-center gap-1">
-          <div className="w-2 h-2 bg-purple-500 rounded-full" />
+          <div className="w-2 h-2 bg-blue-500 rounded-full" />
           <span>変更済みセル</span>
         </div>
         <span>・セルをクリックして数値を入力 → 「変更を保存」で確定</span>
@@ -787,7 +787,7 @@ function ApprovalPanel({ propertyId }: { propertyId: number }) {
                   className={cn(
                     "flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors",
                     form.threshold === opt.value
-                      ? "border-purple-400 bg-purple-50"
+                      ? "border-blue-400 bg-blue-50"
                       : "border-gray-200 hover:bg-gray-50"
                   )}
                 >
@@ -797,7 +797,7 @@ function ApprovalPanel({ propertyId }: { propertyId: number }) {
                     value={opt.value}
                     checked={form.threshold === opt.value}
                     onChange={e => setForm(f => ({ ...f, threshold: e.target.value }))}
-                    className="mt-0.5 accent-purple-600"
+                    className="mt-0.5 accent-blue-600"
                   />
                   <div>
                     <div className="text-xs font-medium text-gray-800">{opt.label}</div>
@@ -813,7 +813,7 @@ function ApprovalPanel({ propertyId }: { propertyId: number }) {
             <select
               value={form.channel}
               onChange={e => setForm(f => ({ ...f, channel: e.target.value }))}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400/30"
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
             >
               <option value="email">Email</option>
               <option value="slack">Slack（近日対応予定）</option>
@@ -829,7 +829,7 @@ function ApprovalPanel({ propertyId }: { propertyId: number }) {
                 value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                 placeholder="rm@yourhotel.com"
-                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-400/30"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
               />
             </div>
           )}
@@ -1019,7 +1019,7 @@ function IntegrationCard({
         <div className={cn(
           "w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0",
           system.category === "channel_manager" ? "bg-blue-100 text-blue-700" :
-          system.category === "pms" ? "bg-purple-100 text-purple-700" :
+          system.category === "pms" ? "bg-blue-100 text-blue-700" :
           "bg-orange-100 text-orange-700"
         )}>
           {system.logoLabel}
@@ -1051,7 +1051,7 @@ function IntegrationCard({
                 value={formData[field.key] || ""}
                 onChange={e => setFormData(prev => ({ ...prev, [field.key]: e.target.value }))}
                 placeholder={field.placeholder}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30 focus:border-[#7C3AED]"
+                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600"
               />
             </div>
           ))}
@@ -1069,7 +1069,7 @@ function IntegrationCard({
             <button
               onClick={handleTest}
               disabled={status === "testing"}
-              className="flex-1 px-3 py-2 text-xs font-medium border border-[#7C3AED] text-[#7C3AED] rounded-md hover:bg-[#7C3AED]/5 transition-colors disabled:opacity-50"
+              className="flex-1 px-3 py-2 text-xs font-medium border border-blue-600 text-blue-600 rounded-md hover:bg-blue-600/5 transition-colors disabled:opacity-50"
             >
               {status === "testing" ? "テスト中..." : "接続テスト"}
             </button>
@@ -1077,7 +1077,7 @@ function IntegrationCard({
               onClick={handleSave}
               className={cn(
                 "flex-1 px-3 py-2 text-xs font-medium rounded-md transition-colors",
-                isSaved ? "bg-green-500 text-white" : "bg-[#7C3AED] text-white hover:bg-[#6D28D9]"
+                isSaved ? "bg-green-500 text-white" : "bg-blue-600 text-white hover:bg-blue-700"
               )}
             >
               {isSaved ? "保存しました ✓" : "保存"}
@@ -1168,7 +1168,7 @@ function IntegrationsPanel() {
             <div className={cn(
               "w-2 h-2 rounded-full",
               catKey === "channel_manager" ? "bg-blue-500" :
-              catKey === "pms" ? "bg-purple-500" : "bg-orange-500"
+              catKey === "pms" ? "bg-blue-500" : "bg-orange-500"
             )} />
             <h3 className="text-sm font-semibold text-gray-700">{catLabel}</h3>
             <span className="text-xs text-gray-400">{systems.length}システム</span>
@@ -1209,7 +1209,7 @@ function EventAreaPanel({ propertyId }: { propertyId: number }) {
   };
 
   return (
-    <div className="yl-card p-4 mb-5 border-purple-200 bg-purple-50/30">
+    <div className="yl-card p-4 mb-5 border-blue-200 bg-blue-50/30">
       <h4 className="text-sm font-semibold text-slate-800 mb-2">マーケットイベントエリア</h4>
       <p className="text-xs text-slate-500 mb-3">
         マーケットタブに表示されるエリア特化イベント（展示会・祭り等）の地域を選択します。
@@ -1218,7 +1218,7 @@ function EventAreaPanel({ propertyId }: { propertyId: number }) {
         <select
           value={area}
           onChange={(e) => setArea(e.target.value)}
-          className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-purple-400/30"
+          className="text-sm border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400/30"
         >
           <option value="nihonbashi">日本橋エリア</option>
           <option value="ginza">銀座エリア</option>
@@ -1226,7 +1226,7 @@ function EventAreaPanel({ propertyId }: { propertyId: number }) {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="text-xs bg-purple-600 text-white px-4 py-1.5 rounded-lg hover:bg-purple-700 disabled:opacity-50"
+          className="text-xs bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
         >
           {saving ? "保存中..." : saved ? "保存済み ✓" : "保存"}
         </button>
@@ -1350,7 +1350,7 @@ export function SettingsTab({ propertyId }: { propertyId: number }) {
             className={cn(
               "px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px cursor-pointer",
               activeSubTab === tab.id
-                ? "text-[#7C3AED] border-[#7C3AED]"
+                ? "text-blue-600 border-blue-600"
                 : "text-gray-500 border-transparent hover:text-gray-700"
             )}
           >

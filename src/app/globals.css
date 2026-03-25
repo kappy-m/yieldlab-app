@@ -10,7 +10,7 @@
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-color: 222.2 84% 4.9%;
-    --primary: 262 83% 58%;
+    --primary: 221 83% 53%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -22,7 +22,7 @@
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 262 83% 58%;
+    --ring: 221 83% 53%;
     --radius: 0.5rem;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
@@ -49,7 +49,7 @@
   }
 
   .yl-ai-card {
-    @apply bg-[#F5F3FF] border border-[#DDD6FE] rounded-xl p-4;
+    @apply bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl p-4;
   }
 
   .yl-kpi-positive {
@@ -61,7 +61,7 @@
   }
 
   .bar-badge-a {
-    @apply bg-[#EDE9FE] text-[#7C3AED] text-xs font-bold px-1.5 py-0.5 rounded;
+    @apply bg-[#DBEAFE] text-[#1D4ED8] text-xs font-bold px-1.5 py-0.5 rounded;
   }
   .bar-badge-b {
     @apply bg-[#DBEAFE] text-[#2563EB] text-xs font-bold px-1.5 py-0.5 rounded;

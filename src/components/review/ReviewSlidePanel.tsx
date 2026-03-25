@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Sparkles, Check, Send } from "lucide-react";
 import {
-  type Review,
   PLATFORM_LABELS, PLATFORM_COLORS, LANG_LABELS, LANG_COLORS,
   type Language,
 } from "./reviewData";
+import type { ReviewOut } from "@/lib/api";
+import { generateAiReply } from "@/lib/api";
 
 const LANG_REPLY_TEMPLATES: Record<Language, string> = {
   ja: "この度はご宿泊いただき、また貴重なご意見をお聞かせいただき誠にありがとうございます。\n\n[ここに具体的なコメントを入力]\n\nスタッフ一同、皆様に快適にお過ごしいただけるよう努力してまいります。またのご来館を心よりお待ちしております。",
@@ -34,19 +35,24 @@ const RATING_COLOR: Record<number, string> = {
 };
 
 interface Props {
-  review: Review | null;
+  review: ReviewOut | null;
   onClose: () => void;
-  onMarkResponded: (id: number) => void;
+  onMarkResponded: (id: number, responseText: string) => void;
+  propertyId: number;
 }
 
 export function ReviewSlidePanel({ review, onClose, onMarkResponded }: Props) {
   const [aiDraftOpen, setAiDraftOpen] = useState(false);
+  const [aiDraftText, setAiDraftText] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [sent, setSent] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setAiDraftOpen(false);
+    setAiDraftText(null);
+    setAiLoading(false);
     setReplyText("");
     setSent(false);
   }, [review?.id]);
@@ -58,16 +64,39 @@ export function ReviewSlidePanel({ review, onClose, onMarkResponded }: Props) {
   }, [onClose]);
 
   const isOpen = review !== null;
-  const draft = LANG_REPLY_TEMPLATES[review?.language ?? "ja"];
+  const fallbackDraft = LANG_REPLY_TEMPLATES[(review?.language ?? "ja") as Language];
+
+  const handleGenerateAiDraft = async () => {
+    if (!review) return;
+    setAiDraftOpen(true);
+    setAiLoading(true);
+    setAiDraftText(null);
+    try {
+      const res = await generateAiReply({
+        content_type: "review",
+        content: review.text,
+        language: (review.language ?? "ja") as "ja" | "en" | "zh" | "ko" | "de",
+        platform: review.platform,
+        rating: review.rating,
+      });
+      setAiDraftText(res.reply);
+    } catch {
+      setAiDraftText(fallbackDraft);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleUseAIDraft = () => {
-    setReplyText(draft);
+    setReplyText(aiDraftText ?? fallbackDraft);
     setAiDraftOpen(false);
   };
 
   const handleSend = () => {
+    if (!replyText.trim() || !review) return;
     setSent(true);
-    setTimeout(() => { setSent(false); onMarkResponded(review!.id); }, 1500);
+    onMarkResponded(review.id, replyText.trim());
+    setTimeout(() => setSent(false), 1500);
   };
 
   return (
@@ -88,11 +117,11 @@ export function ReviewSlidePanel({ review, onClose, onMarkResponded }: Props) {
               style={{ background: "linear-gradient(135deg, #1E3A8A 0%, #1e40af 100%)" }}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${PLATFORM_COLORS[review.platform]}`}>
-                    {PLATFORM_LABELS[review.platform]}
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${PLATFORM_COLORS[review.platform as import("./reviewData").Platform] ?? "bg-slate-100 text-slate-600"}`}>
+                    {PLATFORM_LABELS[review.platform as import("./reviewData").Platform] ?? review.platform}
                   </span>
-                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0 ${LANG_COLORS[review.language]}`}>
-                    {LANG_LABELS[review.language]}
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0 ${LANG_COLORS[review.language] ?? "bg-slate-100 text-slate-600"}`}>
+                    {LANG_LABELS[review.language] ?? review.language}
                   </span>
                   {review.responded && (
                     <span className="flex items-center gap-0.5 text-[10px] text-green-300 bg-green-900/30 px-1.5 py-0.5 rounded-full">
@@ -140,15 +169,16 @@ export function ReviewSlidePanel({ review, onClose, onMarkResponded }: Props) {
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">返信を作成</p>
 
                   <button
-                    onClick={() => setAiDraftOpen(!aiDraftOpen)}
-                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border mb-3 transition-all cursor-pointer"
+                    onClick={handleGenerateAiDraft}
+                    disabled={aiLoading}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border mb-3 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                     style={aiDraftOpen
                       ? { background: "#1E3A8A", color: "white", borderColor: "#1E3A8A" }
                       : { background: "white", color: "#1E3A8A", borderColor: "#1E3A8A" }
                     }
                   >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    AI返信案を生成
+                    <Sparkles className={`w-3.5 h-3.5 ${aiLoading ? "animate-spin" : ""}`} />
+                    {aiLoading ? "生成中..." : "AI返信案を生成"}
                     <span className="text-[10px] opacity-70 ml-1">Beta</span>
                   </button>
 
@@ -158,19 +188,32 @@ export function ReviewSlidePanel({ review, onClose, onMarkResponded }: Props) {
                         <span className="text-xs font-semibold text-blue-700">AI 返信案 — GPT-4o</span>
                         <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">Beta</span>
                       </div>
-                      <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-white rounded-lg p-2.5 border border-blue-100">
-                        {draft}
-                      </p>
+                      {aiLoading ? (
+                        <div className="bg-white rounded-lg p-2.5 border border-blue-100 space-y-2">
+                          <div className="h-3 bg-blue-100 rounded animate-pulse w-full" />
+                          <div className="h-3 bg-blue-100 rounded animate-pulse w-5/6" />
+                          <div className="h-3 bg-blue-100 rounded animate-pulse w-4/6" />
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-white rounded-lg p-2.5 border border-blue-100">
+                          {aiDraftText ?? fallbackDraft}
+                        </p>
+                      )}
                       <div className="flex gap-2 mt-2">
                         <button
                           onClick={handleUseAIDraft}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg cursor-pointer"
+                          disabled={aiLoading}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg cursor-pointer disabled:opacity-50"
                           style={{ background: "#1E3A8A" }}
                         >
                           <Check className="w-3 h-3" />
                           返信欄にコピー
                         </button>
-                        <button className="text-xs text-slate-500 hover:text-slate-700 cursor-pointer px-2 py-1.5 hover:bg-slate-100 rounded-lg">
+                        <button
+                          onClick={handleGenerateAiDraft}
+                          disabled={aiLoading}
+                          className="text-xs text-slate-500 hover:text-slate-700 cursor-pointer px-2 py-1.5 hover:bg-slate-100 rounded-lg disabled:opacity-50"
+                        >
                           再生成
                         </button>
                       </div>

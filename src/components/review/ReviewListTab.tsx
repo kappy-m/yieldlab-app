@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Search, MessageSquare, ChevronDown, Check, AlertCircle } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { Search, MessageSquare, ChevronDown, Check, AlertCircle, Loader2 } from "lucide-react";
 import {
-  MOCK_REVIEWS, PLATFORM_LABELS, PLATFORM_COLORS, LANG_LABELS, LANG_COLORS,
-  type Platform, type Language, type Review,
+  PLATFORM_LABELS, PLATFORM_COLORS, LANG_LABELS, LANG_COLORS,
+  type Platform, type Language,
 } from "./reviewData";
 import { ReviewSlidePanel } from "./ReviewSlidePanel";
+import { fetchReviews, respondToReview, type ReviewOut } from "@/lib/api";
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -21,13 +22,30 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-export function ReviewListTab({ propertyId: _propertyId }: { propertyId: number }) {
-  const [reviews, setReviews] = useState<Review[]>(MOCK_REVIEWS);
-  const [selected, setSelected] = useState<Review | null>(null);
+export function ReviewListTab({ propertyId }: { propertyId: number }) {
+  const [reviews, setReviews]       = useState<ReviewOut[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [unresponded, setUnresponded] = useState(0);
+  const [selected, setSelected]     = useState<ReviewOut | null>(null);
   const [platformFilter, setPlatformFilter] = useState<Platform | "all">("all");
-  const [ratingFilter, setRatingFilter] = useState<number | "all">("all");
-  const [langFilter, setLangFilter] = useState<Language | "all">("all");
-  const [search, setSearch] = useState("");
+  const [ratingFilter, setRatingFilter]     = useState<number | "all">("all");
+  const [langFilter, setLangFilter]         = useState<Language | "all">("all");
+  const [search, setSearch]                 = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchReviews(propertyId);
+      setReviews(data.items);
+      setUnresponded(data.unresponded);
+    } catch {
+      // エラー時はモックフォールバックなし — エンプティステートを表示
+    } finally {
+      setLoading(false);
+    }
+  }, [propertyId]);
+
+  useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(() => {
     return reviews.filter((r) => {
@@ -40,12 +58,24 @@ export function ReviewListTab({ propertyId: _propertyId }: { propertyId: number 
     });
   }, [reviews, platformFilter, ratingFilter, langFilter, search]);
 
-  const unrespondedCount = reviews.filter((r) => !r.responded).length;
-
-  const handleMarkResponded = (id: number) => {
-    setReviews((prev) => prev.map((r) => r.id === id ? { ...r, responded: true } : r));
-    setSelected((prev) => prev?.id === id ? { ...prev, responded: true } : prev);
+  const handleMarkResponded = async (id: number, responseText: string) => {
+    try {
+      const updated = await respondToReview(propertyId, id, responseText);
+      setReviews((prev) => prev.map((r) => r.id === id ? { ...r, ...updated } : r));
+      setSelected((prev) => prev?.id === id ? { ...prev, ...updated } : prev);
+      setUnresponded((n) => Math.max(0, n - 1));
+    } catch {
+      // サイレントエラー — UIは変更しない
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -54,7 +84,7 @@ export function ReviewListTab({ propertyId: _propertyId }: { propertyId: number 
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
             <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
-            <span className="text-xs font-semibold text-amber-700">未返信 {unrespondedCount} 件</span>
+            <span className="text-xs font-semibold text-amber-700">未返信 {unresponded} 件</span>
           </div>
           <span className="text-xs text-slate-400">全 {reviews.length} 件 / 表示 {filtered.length} 件</span>
         </div>
@@ -123,13 +153,14 @@ export function ReviewListTab({ propertyId: _propertyId }: { propertyId: number 
             <ul className="divide-y divide-slate-100">
               {filtered.map((review) => {
                 const isSelected = selected?.id === review.id;
+                const platformKey = review.platform as Platform;
+                const langKey = review.language;
                 return (
                   <li key={review.id}>
                     <button
                       onClick={() => setSelected(review)}
                       className={`w-full text-left px-5 py-4 flex items-start gap-4 hover:bg-slate-50/80 transition-colors cursor-pointer ${isSelected ? "bg-blue-50/50" : ""}`}
                     >
-                      {/* 評価 */}
                       <div className={`flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0 mt-0.5 font-bold text-sm ${
                         Math.round(review.rating) >= 4 ? "bg-green-100 text-green-600" :
                         Math.round(review.rating) === 3 ? "bg-amber-100 text-amber-600" :
@@ -138,11 +169,10 @@ export function ReviewListTab({ propertyId: _propertyId }: { propertyId: number 
                         {review.rating.toFixed(1)}
                       </div>
 
-                      {/* メインコンテンツ */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${PLATFORM_COLORS[review.platform]}`}>
-                            {PLATFORM_LABELS[review.platform]}
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${PLATFORM_COLORS[platformKey] ?? "bg-slate-100 text-slate-600"}`}>
+                            {PLATFORM_LABELS[platformKey] ?? review.platform}
                           </span>
                           <span className="text-sm font-semibold text-slate-800 truncate">{review.author}</span>
                           <StarRating rating={review.rating} />
@@ -153,8 +183,8 @@ export function ReviewListTab({ propertyId: _propertyId }: { propertyId: number 
                           )}
                         </div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${LANG_COLORS[review.language]}`}>
-                            {LANG_LABELS[review.language]}
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${LANG_COLORS[langKey] ?? "bg-slate-100 text-slate-600"}`}>
+                            {LANG_LABELS[langKey] ?? langKey}
                           </span>
                           {!review.responded && (
                             <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">
@@ -165,7 +195,6 @@ export function ReviewListTab({ propertyId: _propertyId }: { propertyId: number 
                         <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">{review.text}</p>
                       </div>
 
-                      {/* 右側 */}
                       <div className="flex-shrink-0 text-right">
                         <span className="text-xs text-slate-400">{review.date}</span>
                       </div>
@@ -182,6 +211,7 @@ export function ReviewListTab({ propertyId: _propertyId }: { propertyId: number 
         review={selected}
         onClose={() => setSelected(null)}
         onMarkResponded={handleMarkResponded}
+        propertyId={propertyId}
       />
     </>
   );

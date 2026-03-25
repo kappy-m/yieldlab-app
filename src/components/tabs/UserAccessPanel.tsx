@@ -63,7 +63,7 @@ function ProductRoleEditor({
                   [code]: (e.target.value as ProductRole) || undefined,
                 }))
               }
-              className="w-full text-xs border border-slate-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-purple-400"
+              className="w-full text-xs border border-slate-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400"
             >
               <option value="">アクセス不可</option>
               {ROLE_OPTIONS.map((r) => (
@@ -77,7 +77,7 @@ function ProductRoleEditor({
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-1.5 text-xs bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded px-3 py-1.5 transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded px-3 py-1.5 transition-colors cursor-pointer"
         >
           {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : saved ? <Check className="w-3 h-3" /> : null}
           {saved ? "保存済み" : "保存"}
@@ -117,7 +117,7 @@ function UserRow({
   return (
     <div className="border border-slate-200 rounded-lg overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-3 bg-white">
-        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center text-xs font-bold text-purple-700 flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-700 flex-shrink-0">
           {user.name[0]?.toUpperCase() ?? "?"}
         </div>
 
@@ -205,7 +205,7 @@ function NewUserForm({ onCreated }: { onCreated: () => void }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 text-sm text-purple-600 hover:text-purple-700 font-medium cursor-pointer"
+        className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 font-medium cursor-pointer"
       >
         <UserPlus className="w-4 h-4" />
         ユーザーを追加
@@ -214,7 +214,7 @@ function NewUserForm({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="border border-purple-200 rounded-lg p-4 bg-purple-50/40 space-y-3">
+    <form onSubmit={handleSubmit} className="border border-blue-200 rounded-lg p-4 bg-blue-50/40 space-y-3">
       <p className="text-sm font-semibold text-slate-700">新規ユーザーを追加</p>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div>
@@ -224,7 +224,7 @@ function NewUserForm({ onCreated }: { onCreated: () => void }) {
             onChange={(e) => setName(e.target.value)}
             required
             placeholder="山田 太郎"
-            className="w-full text-sm border border-slate-200 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+            className="w-full text-sm border border-slate-200 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
         </div>
         <div>
@@ -235,7 +235,7 @@ function NewUserForm({ onCreated }: { onCreated: () => void }) {
             onChange={(e) => setEmail(e.target.value)}
             required
             placeholder="user@example.com"
-            className="w-full text-sm border border-slate-200 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+            className="w-full text-sm border border-slate-200 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
         </div>
         <div>
@@ -246,7 +246,7 @@ function NewUserForm({ onCreated }: { onCreated: () => void }) {
             onChange={(e) => setPassword(e.target.value)}
             required
             placeholder="••••••••"
-            className="w-full text-sm border border-slate-200 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-purple-400"
+            className="w-full text-sm border border-slate-200 rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
           />
         </div>
       </div>
@@ -262,7 +262,7 @@ function NewUserForm({ onCreated }: { onCreated: () => void }) {
         <button
           type="submit"
           disabled={saving}
-          className="flex items-center gap-1.5 text-xs bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded px-3 py-1.5 transition-colors cursor-pointer"
+          className="flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded px-3 py-1.5 transition-colors cursor-pointer"
         >
           {saving && <Loader2 className="w-3 h-3 animate-spin" />}
           作成する
@@ -302,7 +302,7 @@ export function UserAccessPanel() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-5 h-5 animate-spin text-purple-600" />
+        <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
       </div>
     );
   }
@@ -312,7 +312,7 @@ export function UserAccessPanel() {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-            <Shield className="w-4 h-4 text-purple-600" />
+            <Shield className="w-4 h-4 text-blue-600" />
             ユーザーとアクセス権限管理
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">

@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, Mail, PhoneCall, FileText, Sparkles, Check, ChevronDown, Send } from "lucide-react";
 import {
-  type Inquiry, type InquiryStatus, type InquiryPriority,
+  type InquiryChannel, type InquiryStatus, type InquiryPriority,
   STATUS_CONFIG, PRIORITY_CONFIG, CHANNEL_CONFIG,
 } from "./inquiryData";
+import type { InquiryOut } from "@/lib/api";
+import { generateAiReply, sendMail } from "@/lib/api";
 
-const CHANNEL_ICONS = {
+const CHANNEL_ICONS: Record<InquiryChannel, React.ReactNode> = {
   email: <Mail className="w-4 h-4" />,
   form:  <FileText className="w-4 h-4" />,
   phone: <PhoneCall className="w-4 h-4" />,
@@ -21,14 +23,18 @@ const LANG_REPLY_TEMPLATES: Record<string, string> = {
 };
 
 interface Props {
-  inquiry: Inquiry | null;
+  inquiry: InquiryOut | null;
   onClose: () => void;
   onStatusChange: (id: number, status: InquiryStatus) => void;
   onPriorityChange: (id: number, priority: InquiryPriority) => void;
+  onRespond?: (id: number, responseText: string) => void;
+  propertyId?: number;
 }
 
-export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriorityChange }: Props) {
+export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriorityChange, onRespond }: Props) {
   const [aiDraftOpen, setAiDraftOpen] = useState(false);
+  const [aiDraftText, setAiDraftText] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [copied, setCopied] = useState(false);
   const [sent, setSent] = useState(false);
@@ -37,6 +43,8 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
   // パネルを開くたびに状態リセット
   useEffect(() => {
     setAiDraftOpen(false);
+    setAiDraftText(null);
+    setAiLoading(false);
     setReplyText("");
     setCopied(false);
     setSent(false);
@@ -50,16 +58,60 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
   }, [onClose]);
 
   const isOpen = inquiry !== null;
-  const draft = LANG_REPLY_TEMPLATES[inquiry?.language ?? "ja"];
+  const fallbackDraft = LANG_REPLY_TEMPLATES[inquiry?.language ?? "ja"];
+
+  const handleGenerateAiDraft = async () => {
+    if (!inquiry) return;
+    setAiDraftOpen(true);
+    setAiLoading(true);
+    setAiDraftText(null);
+    try {
+      const res = await generateAiReply({
+        content_type: "inquiry",
+        content: inquiry.content,
+        language: (inquiry.language ?? "ja") as "ja" | "en" | "zh" | "ko" | "de",
+      });
+      setAiDraftText(res.reply);
+    } catch {
+      setAiDraftText(fallbackDraft);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   const handleUseAIDraft = () => {
-    setReplyText(draft);
+    setReplyText(aiDraftText ?? fallbackDraft);
     setAiDraftOpen(false);
   };
 
-  const handleSend = () => {
+  const [mailSending, setMailSending] = useState(false);
+  const [mailResult, setMailResult] = useState<"sent" | "simulated" | "failed" | null>(null);
+
+  const handleSend = async () => {
+    if (!replyText.trim() || !inquiry) return;
     setSent(true);
-    setTimeout(() => { setSent(false); onStatusChange(inquiry!.id, "resolved"); }, 1500);
+    onRespond?.(inquiry.id, replyText.trim());
+
+    // メール送信（メールアドレスがある場合）
+    if (inquiry.customerEmail) {
+      setMailSending(true);
+      try {
+        const res = await sendMail({
+          to_email: inquiry.customerEmail,
+          to_name: inquiry.customerName,
+          subject: `Re: ${inquiry.subject}`,
+          body: replyText.trim(),
+          inquiry_id: inquiry.id,
+        });
+        setMailResult(res.status === "failed" ? "failed" : res.status);
+      } catch {
+        setMailResult("failed");
+      } finally {
+        setMailSending(false);
+      }
+    }
+
+    setTimeout(() => { setSent(false); setMailResult(null); }, 3000);
   };
 
   return (
@@ -81,14 +133,14 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
             <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-100 flex-shrink-0"
               style={{ background: "linear-gradient(135deg, #1E3A8A 0%, #1e40af 100%)" }}>
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 border border-white/20 flex-shrink-0 mt-0.5 text-white">
-                {CHANNEL_ICONS[inquiry.channel]}
+                {CHANNEL_ICONS[inquiry.channel as InquiryChannel] ?? CHANNEL_ICONS.email}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-white font-semibold text-sm leading-tight truncate">{inquiry.subject}</p>
                 <div className="flex items-center gap-2 mt-0.5">
                   <span className="text-white/70 text-xs">{inquiry.customerName}</span>
                   <span className="text-white/40 text-[10px]">·</span>
-                  <span className="text-white/60 text-xs">{CHANNEL_CONFIG[inquiry.channel].label}</span>
+                  <span className="text-white/60 text-xs">{CHANNEL_CONFIG[inquiry.channel as InquiryChannel].label}</span>
                   <span className="text-white/40 text-[10px]">·</span>
                   <span className="text-white/60 text-xs">{inquiry.date}</span>
                 </div>
@@ -106,16 +158,16 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
               <div className="px-5 py-3 flex items-center gap-2 border-b border-slate-100 bg-slate-50/50">
                 {/* ステータス */}
                 <div className="relative group">
-                  <button className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold cursor-pointer ${STATUS_CONFIG[inquiry.status].color}`}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[inquiry.status].dot}`} />
-                    {STATUS_CONFIG[inquiry.status].label}
+                  <button className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold cursor-pointer ${STATUS_CONFIG[inquiry.status as InquiryStatus].color}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[inquiry.status as InquiryStatus].dot}`} />
+                    {STATUS_CONFIG[inquiry.status as InquiryStatus].label}
                     <ChevronDown className="w-3 h-3 opacity-60" />
                   </button>
                   <div className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-10 hidden group-hover:block min-w-[120px]">
                     {(Object.entries(STATUS_CONFIG) as [InquiryStatus, typeof STATUS_CONFIG[InquiryStatus]][]).map(([key, cfg]) => (
                       <button key={key}
                         onClick={() => onStatusChange(inquiry.id, key)}
-                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 cursor-pointer transition-colors ${inquiry.status === key ? "font-semibold" : ""}`}>
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-slate-50 cursor-pointer transition-colors ${inquiry.status === (key as string) ? "font-semibold" : ""}`}>
                         <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
                         {cfg.label}
                       </button>
@@ -125,8 +177,8 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
 
                 {/* 優先度 */}
                 <div className="relative group">
-                  <button className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer ${PRIORITY_CONFIG[inquiry.priority].color}`}>
-                    優先度: {PRIORITY_CONFIG[inquiry.priority].label}
+                  <button className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer ${PRIORITY_CONFIG[inquiry.priority as InquiryPriority].color}`}>
+                    優先度: {PRIORITY_CONFIG[inquiry.priority as InquiryPriority].label}
                     <ChevronDown className="w-3 h-3 opacity-60" />
                   </button>
                   <div className="absolute top-full left-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-10 hidden group-hover:block min-w-[100px]">
@@ -198,15 +250,16 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
 
                   {/* AI返信案ボタン */}
                   <button
-                    onClick={() => setAiDraftOpen(!aiDraftOpen)}
-                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border mb-3 transition-all cursor-pointer"
+                    onClick={handleGenerateAiDraft}
+                    disabled={aiLoading}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border mb-3 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                     style={aiDraftOpen
                       ? { background: "#1E3A8A", color: "white", borderColor: "#1E3A8A" }
                       : { background: "white", color: "#1E3A8A", borderColor: "#1E3A8A" }
                     }
                   >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    AI返信案を生成
+                    <Sparkles className={`w-3.5 h-3.5 ${aiLoading ? "animate-spin" : ""}`} />
+                    {aiLoading ? "生成中..." : "AI返信案を生成"}
                     <span className="text-[10px] opacity-70 ml-1">Beta</span>
                   </button>
 
@@ -217,19 +270,32 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
                         <span className="text-xs font-semibold text-blue-700">AI 返信案 — GPT-4o</span>
                         <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">Beta</span>
                       </div>
-                      <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-white rounded-lg p-2.5 border border-blue-100">
-                        {draft}
-                      </p>
+                      {aiLoading ? (
+                        <div className="bg-white rounded-lg p-2.5 border border-blue-100 space-y-2">
+                          <div className="h-3 bg-blue-100 rounded animate-pulse w-full" />
+                          <div className="h-3 bg-blue-100 rounded animate-pulse w-5/6" />
+                          <div className="h-3 bg-blue-100 rounded animate-pulse w-4/6" />
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap bg-white rounded-lg p-2.5 border border-blue-100">
+                          {aiDraftText ?? fallbackDraft}
+                        </p>
+                      )}
                       <div className="flex gap-2 mt-2">
                         <button
                           onClick={handleUseAIDraft}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg cursor-pointer"
+                          disabled={aiLoading}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg cursor-pointer disabled:opacity-50"
                           style={{ background: "#1E3A8A" }}
                         >
                           <Check className="w-3 h-3" />
                           返信欄にコピー
                         </button>
-                        <button className="text-xs text-slate-500 hover:text-slate-700 cursor-pointer px-2 py-1.5 hover:bg-slate-100 rounded-lg">
+                        <button
+                          onClick={handleGenerateAiDraft}
+                          disabled={aiLoading}
+                          className="text-xs text-slate-500 hover:text-slate-700 cursor-pointer px-2 py-1.5 hover:bg-slate-100 rounded-lg disabled:opacity-50"
+                        >
                           再生成
                         </button>
                       </div>
@@ -246,15 +312,34 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
                   />
 
                   {/* 送信ボタン */}
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <button
                       onClick={handleSend}
-                      disabled={!replyText.trim() || sent}
+                      disabled={!replyText.trim() || sent || mailSending}
                       className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                       style={{ background: sent ? "#16A34A" : "#1E3A8A" }}
                     >
-                      {sent ? <><Check className="w-3.5 h-3.5" />送信しました</> : <><Send className="w-3.5 h-3.5" />送信（スタブ）</>}
+                      {sent ? (
+                        <><Check className="w-3.5 h-3.5" />送信しました</>
+                      ) : inquiry?.customerEmail ? (
+                        <><Send className="w-3.5 h-3.5" />返信してメール送信</>
+                      ) : (
+                        <><Send className="w-3.5 h-3.5" />返信を送信</>
+                      )}
                     </button>
+                    {mailResult === "sent" && (
+                      <span className="text-xs text-green-600 flex items-center gap-1">
+                        <Check className="w-3 h-3" />メール送信完了
+                      </span>
+                    )}
+                    {mailResult === "simulated" && (
+                      <span className="text-xs text-amber-600 flex items-center gap-1">
+                        <Check className="w-3 h-3" />返信記録済（メール未設定）
+                      </span>
+                    )}
+                    {mailResult === "failed" && (
+                      <span className="text-xs text-rose-500">メール送信に失敗しました</span>
+                    )}
                     {copied && <span className="text-xs text-green-600">コピーしました</span>}
                   </div>
                 </div>

@@ -7,7 +7,7 @@ interface KpiCardProps {
   unit?: string;
   change?: string;
   changePositive?: boolean;
-  accentColor?: "blue" | "red" | "green" | "purple";
+  accentColor?: "blue" | "red" | "green" | "indigo";
   detail?: boolean;
 }
 
@@ -15,7 +15,7 @@ const accentMap = {
   blue: "text-blue-600",
   red: "text-red-500",
   green: "text-green-600",
-  purple: "text-[#7C3AED]",
+  indigo: "text-indigo-600",
 };
 
 export function KpiCard({ label, value, unit, change, changePositive, accentColor = "blue", detail }: KpiCardProps) {

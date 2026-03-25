@@ -791,3 +791,234 @@ export interface OverviewOut {
 export function fetchOverview(propertyId: number) {
   return apiFetch<OverviewOut>(`/properties/${propertyId}/overview/`);
 }
+
+// ─── Review / Inquiry API ──────────────────────────────────────
+
+export interface ReviewOut {
+  id: number;
+  platform: string;
+  author: string;
+  rating: number;
+  text: string;
+  date: string;
+  language: string;
+  responded: boolean;
+  response?: string;
+}
+
+export interface ReviewListOut {
+  items: ReviewOut[];
+  total: number;
+  unresponded: number;
+}
+
+export interface InquiryOut {
+  id: number;
+  channel: string;
+  status: string;
+  priority: string;
+  customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  subject: string;
+  content: string;
+  date: string;
+  language: string;
+  assignee?: string;
+  tags: string[];
+  response?: string;
+}
+
+export interface InquiryListOut {
+  items: InquiryOut[];
+  total: number;
+  new_count: number;
+}
+
+export function fetchReviews(propertyId: number, params?: Record<string, string>) {
+  const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+  return apiFetch<ReviewListOut>(`/properties/${propertyId}/reviews${qs}`);
+}
+
+export function respondToReview(propertyId: number, reviewId: number, response: string) {
+  return apiFetch<ReviewOut>(`/properties/${propertyId}/reviews/${reviewId}/respond`, {
+    method: "POST",
+    body: JSON.stringify({ response }),
+  });
+}
+
+export function fetchInquiries(propertyId: number, params?: Record<string, string>) {
+  const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+  return apiFetch<InquiryListOut>(`/properties/${propertyId}/inquiries${qs}`);
+}
+
+export function respondToInquiry(propertyId: number, inquiryId: number, response: string) {
+  return apiFetch<InquiryOut>(`/properties/${propertyId}/inquiries/${inquiryId}/respond`, {
+    method: "POST",
+    body: JSON.stringify({ response }),
+  });
+}
+
+export function updateInquiryStatus(
+  propertyId: number,
+  inquiryId: number,
+  status: string,
+  assignee?: string
+) {
+  return apiFetch<InquiryOut>(`/properties/${propertyId}/inquiries/${inquiryId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, assignee }),
+  });
+}
+
+// ─── AI返信案生成 ─────────────────────────────────────────────────────────────
+
+export interface AiReplyRequest {
+  content_type: "review" | "inquiry";
+  content: string;
+  language?: "ja" | "en" | "zh" | "ko" | "de";
+  platform?: string;
+  rating?: number;
+  hotel_name?: string;
+}
+
+export interface AiReplyResponse {
+  reply: string;
+  model: string;
+  fallback: boolean;
+}
+
+export function generateAiReply(req: AiReplyRequest) {
+  return apiFetch<AiReplyResponse>("/ai/reply", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
+// ─── Front プロダクト ─────────────────────────────────────────────────────────
+
+export interface GuestStayOut {
+  id: number;
+  property_id: number;
+  reservation_no: string;
+  ota_channel: string | null;
+  guest_name: string;
+  guest_name_kana: string | null;
+  guest_email: string | null;
+  guest_phone: string | null;
+  guest_count: number;
+  nationality: string | null;
+  room_number: string | null;
+  room_type: string | null;
+  floor: number | null;
+  checkin_date: string;
+  checkout_date: string;
+  nights: number;
+  status: string;
+  checkin_time: string | null;
+  checkout_time: string | null;
+  plan_name: string | null;
+  special_requests: string | null;
+  is_repeat: boolean;
+}
+
+export interface GuestStayListOut {
+  items: GuestStayOut[];
+  total: number;
+  today_checkin: number;
+  today_checkout: number;
+  today_inhouse: number;
+}
+
+export function fetchGuestStays(
+  propertyId: number,
+  params?: Record<string, string>
+) {
+  const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+  return apiFetch<GuestStayListOut>(`/properties/${propertyId}/front/stays${qs}`);
+}
+
+export function updateGuestStayStatus(
+  propertyId: number,
+  stayId: number,
+  status: string,
+  room_number?: string
+) {
+  return apiFetch<GuestStayOut>(`/properties/${propertyId}/front/stays/${stayId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status, room_number }),
+  });
+}
+
+// ─── Reservation プロダクト ───────────────────────────────────────────────────
+
+export interface ReservationOut {
+  id: number;
+  property_id: number;
+  reservation_no: string;
+  ota_channel: string | null;
+  booking_date: string;
+  guest_name: string;
+  guest_name_kana: string | null;
+  guest_email: string | null;
+  guest_count: number;
+  nationality: string | null;
+  checkin_date: string;
+  checkout_date: string;
+  nights: number;
+  room_type: string | null;
+  plan_name: string | null;
+  total_amount: number | null;
+  currency: string;
+  status: string;
+  is_group: boolean;
+}
+
+export interface ReservationListOut {
+  items: ReservationOut[];
+  total: number;
+  monthly_counts: Record<string, number>;
+}
+
+export function fetchReservations(
+  propertyId: number,
+  params?: Record<string, string>
+) {
+  const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+  return apiFetch<ReservationListOut>(`/properties/${propertyId}/reservations${qs}`);
+}
+
+export function updateReservationStatus(
+  propertyId: number,
+  reservationId: number,
+  status: string
+) {
+  return apiFetch<ReservationOut>(`/properties/${propertyId}/reservations/${reservationId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+// ─── メール送信 ───────────────────────────────────────────────────────────────
+
+export interface SendMailRequest {
+  to_email: string;
+  to_name?: string;
+  subject: string;
+  body: string;
+  reply_to?: string;
+  inquiry_id?: number;
+}
+
+export interface SendMailResponse {
+  message_id: string | null;
+  status: "sent" | "failed" | "simulated";
+  detail: string;
+}
+
+export function sendMail(req: SendMailRequest) {
+  return apiFetch<SendMailResponse>("/mail/send", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}

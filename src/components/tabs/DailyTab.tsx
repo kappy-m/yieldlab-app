@@ -308,7 +308,7 @@ export function DailyTab({ propertyId }: { propertyId: number }) {
             unit="%"
             change={occChange != null ? `${occChange >= 0 ? "+" : ""}${occChange}pt` : undefined}
             changePositive={occChange != null ? occChange >= 0 : undefined}
-            accentColor="purple"
+            accentColor="indigo"
           />
         </div>
       </div>
@@ -375,7 +375,7 @@ export function DailyTab({ propertyId }: { propertyId: number }) {
                   />
                   <Tooltip formatter={(v, name) => name === "稼働率" ? `${v}%` : `¥${Number(v).toLocaleString()}`} />
                   <Legend iconType="line" wrapperStyle={{ fontSize: 11 }} />
-                  <Line yAxisId="occ" type="monotone" dataKey="稼働率" stroke="#7C3AED" strokeWidth={2} dot={{ r: 3 }} />
+                  <Line yAxisId="occ" type="monotone" dataKey="稼働率" stroke="#4F46E5" strokeWidth={2} dot={{ r: 3 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -450,7 +450,7 @@ export function DailyTab({ propertyId }: { propertyId: number }) {
                   <div className="flex items-center justify-between mb-0.5">
                     <span className="text-xs font-semibold text-blue-600 truncate max-w-[130px]">{ev.name}</span>
                     <span className={`text-xs font-medium px-1.5 py-0.5 rounded flex-shrink-0 ${
-                      ev.impact === "影響大" ? "text-purple-600 bg-purple-50" : "text-blue-600 bg-blue-50"
+                      ev.impact === "影響大" ? "text-indigo-600 bg-indigo-50" : "text-blue-600 bg-blue-50"
                     }`}>
                       {ev.impact}
                     </span>

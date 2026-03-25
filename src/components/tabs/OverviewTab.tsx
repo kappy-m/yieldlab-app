@@ -284,8 +284,10 @@ export function OverviewTab({ propertyId, onTabChange }: OverviewTabProps) {
           {loading ? (
             <div className="h-64 bg-slate-100 rounded animate-pulse" />
           ) : data?.weekly_trend.length === 0 ? (
-            <div className="h-64 flex items-center justify-center text-slate-400 text-sm">
-              トレンドデータがありません
+            <div className="h-32 flex flex-col items-center justify-center gap-2 text-slate-400">
+              <svg className="w-8 h-8 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" /></svg>
+              <span className="text-sm">まだデータが蓄積されていません</span>
+              <span className="text-xs text-slate-300">ログを記録すると7日間のトレンドが表示されます</span>
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={260}>

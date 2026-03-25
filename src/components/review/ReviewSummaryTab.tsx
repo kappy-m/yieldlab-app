@@ -53,7 +53,7 @@ export function ReviewSummaryTab({ propertyId: _propertyId }: { propertyId: numb
       </div>
 
       {/* スコアカード */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {/* 総合 */}
         <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">総合評価</p>

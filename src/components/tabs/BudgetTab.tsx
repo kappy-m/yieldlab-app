@@ -174,7 +174,7 @@ export function BudgetTab({ propertyId }: { propertyId: number }) {
                       <div className="flex items-center gap-1.5">
                         {label}
                         {year === currentYear && month === today.getMonth() + 1 && (
-                          <span className="text-xs px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full">当月</span>
+                          <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full">当月</span>
                         )}
                       </div>
                     </td>

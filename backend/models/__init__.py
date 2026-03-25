@@ -15,6 +15,10 @@ from .user_product_role import UserProductRole
 from .booking_snapshot import BookingSnapshot
 from .cost_setting import CostSetting
 from .budget_target import BudgetTarget
+from .review_entry import ReviewEntry
+from .inquiry_entry import InquiryEntry
+from .guest_stay import GuestStay
+from .reservation import Reservation
 
 __all__ = [
     "Organization",
@@ -34,4 +38,8 @@ __all__ = [
     "BookingSnapshot",
     "CostSetting",
     "BudgetTarget",
+    "ReviewEntry",
+    "InquiryEntry",
+    "GuestStay",
+    "Reservation",
 ]

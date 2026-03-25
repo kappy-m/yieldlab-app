@@ -11,6 +11,11 @@ from .config import settings
 from .rate_limit import limiter
 from .routers import properties, pricing, recommendations, competitor, comp_set, market
 from .routers import daily_performance, competitor_ratings, auth, booking_curve, cost_budget, users, overview
+from .routers import review_entries
+from .routers import ai_reply
+from .routers import front
+from .routers import reservation as reservation_router
+from .routers import mail
 from .services.scheduler import create_scheduler
 
 _scheduler = create_scheduler()
@@ -476,6 +481,11 @@ app.include_router(booking_curve.router)
 app.include_router(cost_budget.router)
 app.include_router(users.router)
 app.include_router(overview.router)
+app.include_router(review_entries.router)
+app.include_router(ai_reply.router)
+app.include_router(front.router)
+app.include_router(reservation_router.router)
+app.include_router(mail.router)
 
 
 # ─── 管理エンドポイント認証 ────────────────────────────────────────────────────

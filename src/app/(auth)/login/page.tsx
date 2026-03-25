@@ -47,7 +47,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* ロゴ */}
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center">
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
             <TrendingUp className="w-5 h-5 text-white" />
           </div>
           <div>
@@ -72,7 +72,7 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   placeholder="admin@example.com"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
@@ -87,7 +87,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   placeholder="••••••••"
-                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg pl-10 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <button
                   type="button"
@@ -108,7 +108,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-medium rounded-lg py-2.5 text-sm transition-colors"
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-lg py-2.5 text-sm transition-colors"
             >
               {loading ? "ログイン中..." : "ログイン"}
             </button>
@@ -119,7 +119,7 @@ export default function LoginPage() {
             <p className="text-xs text-slate-500 mb-3">デモアカウント</p>
             <div className="space-y-2">
               {[
-                { role: "管理者", email: "admin@example.com", badge: "bg-purple-500/20 text-purple-300" },
+                { role: "管理者", email: "admin@example.com", badge: "bg-blue-500/20 text-blue-300" },
                 { role: "レベニューMgr", email: "revenue@example.com", badge: "bg-blue-500/20 text-blue-300" },
                 { role: "閲覧のみ", email: "viewer@example.com", badge: "bg-slate-500/20 text-slate-300" },
               ].map((u) => (

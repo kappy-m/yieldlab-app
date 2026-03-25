@@ -231,7 +231,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
             <button
               onClick={handleGenerate}
               disabled={generating}
-              className="text-xs bg-[#7C3AED] text-white rounded px-3 py-1 font-medium hover:bg-purple-700 disabled:opacity-50"
+              className="text-xs bg-blue-600 text-white rounded px-3 py-1 font-medium hover:bg-blue-700 disabled:opacity-50"
             >
               {generating ? "生成中..." : "AI推奨を生成"}
             </button>
@@ -325,7 +325,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
           </div>
           <div className="flex items-center gap-2">
             {pendingCount > 0 && (
-              <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-full">{pendingCount}件の変更提案</span>
+              <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">{pendingCount}件の変更提案</span>
             )}
             <button
               onClick={handleApproveAll}
@@ -340,7 +340,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
         {recommendations.length === 0 ? (
           <div className="text-center py-8 text-sm text-gray-400">
             <p>承認待ちの提案はありません</p>
-            <button onClick={handleGenerate} className="mt-2 text-xs text-purple-600 hover:underline">
+            <button onClick={handleGenerate} className="mt-2 text-xs text-blue-600 hover:underline">
               AI推奨を生成する
             </button>
           </div>
@@ -365,7 +365,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
                       <div className="text-xs text-gray-500">
                         <span className="font-medium">¥{rec.current_price.toLocaleString()}</span>
                         <span className="mx-1">→</span>
-                        <span className="font-medium text-purple-600">¥{rec.recommended_price.toLocaleString()}</span>
+                        <span className="font-medium text-blue-600">¥{rec.recommended_price.toLocaleString()}</span>
                         <span className="ml-2 text-gray-400">
                           ({rec.delta_levels > 0 ? "+" : ""}{rec.delta_levels}ランク)
                         </span>
@@ -375,7 +375,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button onClick={() => handleReject(rec.id)} className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1">却下</button>
-                    <button onClick={() => handleApprove(rec.id)} className="text-xs bg-[#7C3AED] text-white rounded px-3 py-1.5 hover:bg-purple-700 font-medium">承認</button>
+                    <button onClick={() => handleApprove(rec.id)} className="text-xs bg-blue-600 text-white rounded px-3 py-1.5 hover:bg-blue-700 font-medium">承認</button>
                   </div>
                 </div>
               </div>

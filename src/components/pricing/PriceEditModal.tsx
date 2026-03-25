@@ -105,7 +105,7 @@ export function PriceEditModal({ target, onClose, onSave }: PriceEditModalProps)
                   onChange={(e) => setPrice(Number(e.target.value))}
                   step={1000}
                   min={0}
-                  className="w-full text-sm text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30 focus:border-[#7C3AED] transition-colors"
+                  className="w-full text-sm text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 transition-colors"
                 />
               </div>
               <div className="text-xs text-gray-400 mt-1">
@@ -119,7 +119,7 @@ export function PriceEditModal({ target, onClose, onSave }: PriceEditModalProps)
                 value={stock}
                 onChange={(e) => setStock(Number(e.target.value))}
                 min={0}
-                className="w-full text-sm text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30 focus:border-[#7C3AED] transition-colors"
+                className="w-full text-sm text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 transition-colors"
               />
             </div>
           </div>
@@ -130,7 +130,7 @@ export function PriceEditModal({ target, onClose, onSave }: PriceEditModalProps)
               <select
                 value={level}
                 onChange={(e) => setLevel(e.target.value as BarLevel)}
-                className="w-full text-sm text-gray-900 border border-gray-200 rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/30 focus:border-[#7C3AED] transition-colors appearance-none bg-white cursor-pointer"
+                className="w-full text-sm text-gray-900 border border-gray-200 rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 transition-colors appearance-none bg-white cursor-pointer"
               >
                 {BAR_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>

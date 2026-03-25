@@ -33,3 +33,7 @@ class Property(Base):
     comp_sets: Mapped[list["CompSet"]] = relationship(back_populates="property")
     daily_performances: Mapped[list["DailyPerformance"]] = relationship(back_populates="property")
     competitor_ratings: Mapped[list["CompetitorRating"]] = relationship(back_populates="property")
+    review_entries:     Mapped[list["ReviewEntry"]]     = relationship(back_populates="property")
+    inquiry_entries:    Mapped[list["InquiryEntry"]]    = relationship(back_populates="property")
+    guest_stays:        Mapped[list["GuestStay"]]       = relationship(back_populates="property")
+    reservations:       Mapped[list["Reservation"]]     = relationship(back_populates="property")

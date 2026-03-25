@@ -182,6 +182,6 @@ export const LANG_COLORS: Record<string, string> = {
   ja: "bg-slate-100 text-slate-600",
   en: "bg-sky-100 text-sky-700",
   zh: "bg-red-50 text-red-600",
-  ko: "bg-purple-100 text-purple-700",
+  ko: "bg-fuchsia-50 text-fuchsia-700",
   de: "bg-green-100 text-green-700",
 };

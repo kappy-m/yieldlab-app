@@ -1,32 +1,50 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Mail, PhoneCall, FileText, Search, ChevronDown, AlertCircle } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { Mail, PhoneCall, FileText, Search, ChevronDown, AlertCircle, Loader2 } from "lucide-react";
 import {
-  MOCK_INQUIRIES, STATUS_CONFIG, PRIORITY_CONFIG, CHANNEL_CONFIG,
-  type Inquiry, type InquiryChannel, type InquiryStatus, type InquiryPriority,
+  STATUS_CONFIG, PRIORITY_CONFIG, CHANNEL_CONFIG,
+  type InquiryChannel, type InquiryStatus, type InquiryPriority,
 } from "./inquiryData";
 import { InquirySlidePanel } from "./InquirySlidePanel";
+import { fetchInquiries, updateInquiryStatus, respondToInquiry, type InquiryOut } from "@/lib/api";
 
 const CHANNEL_ICONS: Record<InquiryChannel, React.ReactNode> = {
   email: <Mail className="w-4 h-4" />,
   form:  <FileText className="w-4 h-4" />,
   phone: <PhoneCall className="w-4 h-4" />,
-};
+} as const;
+
+const CHANNEL_ICON_FALLBACK = <FileText className="w-4 h-4" />;
 
 const CHANNEL_BG: Record<InquiryChannel, string> = {
   email: "bg-blue-100 text-blue-600",
-  form:  "bg-violet-100 text-violet-600",
+  form:  "bg-indigo-100 text-indigo-600",
   phone: "bg-green-100 text-green-600",
 };
 
-export function InquiryListTab({ propertyId: _propertyId }: { propertyId: number }) {
-  const [inquiries, setInquiries] = useState<Inquiry[]>(MOCK_INQUIRIES);
-  const [selected, setSelected] = useState<Inquiry | null>(null);
-  const [channelFilter, setChannelFilter] = useState<InquiryChannel | "all">("all");
-  const [statusFilter, setStatusFilter] = useState<InquiryStatus | "all">("all");
+export function InquiryListTab({ propertyId }: { propertyId: number }) {
+  const [inquiries, setInquiries]   = useState<InquiryOut[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [selected, setSelected]     = useState<InquiryOut | null>(null);
+  const [channelFilter, setChannelFilter]   = useState<InquiryChannel | "all">("all");
+  const [statusFilter, setStatusFilter]     = useState<InquiryStatus | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<InquiryPriority | "all">("all");
-  const [search, setSearch] = useState("");
+  const [search, setSearch]                 = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchInquiries(propertyId);
+      setInquiries(data.items);
+    } catch {
+      // エンプティステートを表示
+    } finally {
+      setLoading(false);
+    }
+  }, [propertyId]);
+
+  useEffect(() => { load(); }, [load]);
 
   const filtered = useMemo(() => {
     return inquiries.filter((inq) => {
@@ -43,9 +61,12 @@ export function InquiryListTab({ propertyId: _propertyId }: { propertyId: number
     });
   }, [inquiries, channelFilter, statusFilter, priorityFilter, search]);
 
-  const handleStatusChange = (id: number, status: InquiryStatus) => {
-    setInquiries((prev) => prev.map((i) => i.id === id ? { ...i, status } : i));
-    if (selected?.id === id) setSelected((prev) => prev ? { ...prev, status } : prev);
+  const handleStatusChange = async (id: number, status: InquiryStatus) => {
+    try {
+      const updated = await updateInquiryStatus(propertyId, id, status);
+      setInquiries((prev) => prev.map((i) => i.id === id ? { ...i, ...updated } : i));
+      if (selected?.id === id) setSelected((prev) => prev ? { ...prev, ...updated } : prev);
+    } catch { /* no-op */ }
   };
 
   const handlePriorityChange = (id: number, priority: InquiryPriority) => {
@@ -53,13 +74,28 @@ export function InquiryListTab({ propertyId: _propertyId }: { propertyId: number
     if (selected?.id === id) setSelected((prev) => prev ? { ...prev, priority } : prev);
   };
 
-  // ステータス別カウント
+  const handleRespond = async (id: number, responseText: string) => {
+    try {
+      const updated = await respondToInquiry(propertyId, id, responseText);
+      setInquiries((prev) => prev.map((i) => i.id === id ? { ...i, ...updated } : i));
+      setSelected((prev) => prev?.id === id ? { ...prev, ...updated } : prev);
+    } catch { /* no-op */ }
+  };
+
   const counts = useMemo(() => ({
     new:         inquiries.filter((i) => i.status === "new").length,
     in_progress: inquiries.filter((i) => i.status === "in_progress").length,
     resolved:    inquiries.filter((i) => i.status === "resolved").length,
     closed:      inquiries.filter((i) => i.status === "closed").length,
   }), [inquiries]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -91,7 +127,6 @@ export function InquiryListTab({ propertyId: _propertyId }: { propertyId: number
         {/* フィルターバー */}
         <div className="bg-white rounded-xl border border-slate-100 p-3 shadow-sm">
           <div className="flex items-center gap-2 flex-wrap">
-            {/* 検索 */}
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
               <input
@@ -101,7 +136,6 @@ export function InquiryListTab({ propertyId: _propertyId }: { propertyId: number
               />
             </div>
 
-            {/* チャネル */}
             <div className="relative">
               <select value={channelFilter}
                 onChange={(e) => setChannelFilter(e.target.value as InquiryChannel | "all")}
@@ -115,7 +149,6 @@ export function InquiryListTab({ propertyId: _propertyId }: { propertyId: number
               <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
             </div>
 
-            {/* 優先度 */}
             <div className="relative">
               <select value={priorityFilter}
                 onChange={(e) => setPriorityFilter(e.target.value as InquiryPriority | "all")}
@@ -144,22 +177,21 @@ export function InquiryListTab({ propertyId: _propertyId }: { propertyId: number
             <ul className="divide-y divide-slate-100">
               {filtered.map((inq) => {
                 const isSelected = selected?.id === inq.id;
+                const channelKey = inq.channel as InquiryChannel;
+                const statusKey  = inq.status as InquiryStatus;
                 return (
                   <li key={inq.id}>
                     <button
                       onClick={() => setSelected(inq)}
                       className={`w-full text-left px-5 py-4 flex items-start gap-4 hover:bg-slate-50/80 transition-colors cursor-pointer ${isSelected ? "bg-blue-50/50" : ""}`}
                     >
-                      {/* チャネルアイコン */}
-                      <div className={`flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0 mt-0.5 ${CHANNEL_BG[inq.channel]}`}>
-                        {CHANNEL_ICONS[inq.channel]}
+                      <div className={`flex items-center justify-center w-9 h-9 rounded-xl flex-shrink-0 mt-0.5 ${CHANNEL_BG[channelKey] ?? "bg-slate-100 text-slate-600"}`}>
+                        {CHANNEL_ICONS[channelKey] ?? CHANNEL_ICON_FALLBACK}
                       </div>
 
-                      {/* メインコンテンツ */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-0.5">
-                          {/* ステータスドット */}
-                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_CONFIG[inq.status].dot}`} />
+                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${STATUS_CONFIG[statusKey]?.dot ?? "bg-slate-300"}`} />
                           <span className="text-sm font-semibold text-slate-800 truncate">{inq.subject}</span>
                           {inq.priority === "high" && (
                             <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-full flex-shrink-0">高</span>
@@ -168,8 +200,8 @@ export function InquiryListTab({ propertyId: _propertyId }: { propertyId: number
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs text-slate-500">{inq.customerName}</span>
                           <span className="text-slate-300 text-xs">·</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_CONFIG[inq.status].color}`}>
-                            {STATUS_CONFIG[inq.status].label}
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_CONFIG[statusKey]?.color ?? ""}`}>
+                            {STATUS_CONFIG[statusKey]?.label ?? inq.status}
                           </span>
                           {inq.assignee && (
                             <><span className="text-slate-300 text-xs">·</span>
@@ -177,7 +209,7 @@ export function InquiryListTab({ propertyId: _propertyId }: { propertyId: number
                           )}
                         </div>
                         <p className="text-xs text-slate-400 leading-relaxed line-clamp-1">{inq.content.split("\n")[0]}</p>
-                        {inq.tags && inq.tags.length > 0 && (
+                        {inq.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1.5">
                             {inq.tags.map((tag) => (
                               <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded-full">
@@ -188,11 +220,10 @@ export function InquiryListTab({ propertyId: _propertyId }: { propertyId: number
                         )}
                       </div>
 
-                      {/* 右側メタ */}
                       <div className="flex flex-col items-end gap-1 flex-shrink-0">
                         <span className="text-xs text-slate-400">{inq.date}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${CHANNEL_BG[inq.channel]}`}>
-                          {CHANNEL_CONFIG[inq.channel].label}
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${CHANNEL_BG[channelKey] ?? ""}`}>
+                          {CHANNEL_CONFIG[channelKey]?.label ?? inq.channel}
                         </span>
                       </div>
                     </button>
@@ -204,12 +235,13 @@ export function InquiryListTab({ propertyId: _propertyId }: { propertyId: number
         </div>
       </div>
 
-      {/* スライドパネル */}
       <InquirySlidePanel
         inquiry={selected}
         onClose={() => setSelected(null)}
         onStatusChange={handleStatusChange}
         onPriorityChange={handlePriorityChange}
+        onRespond={handleRespond}
+        propertyId={propertyId}
       />
     </>
   );
