@@ -7,7 +7,6 @@ export type TabId = "overview" | "daily" | "booking" | "pricing" | "competitor" 
 
 const MAIN_TABS: { id: TabId; label: string }[] = [
   { id: "overview",   label: "ホーム" },
-  { id: "daily",      label: "デイリー" },
   { id: "booking",    label: "ブッキング分析" },
   { id: "pricing",    label: "プライシング管理" },
   { id: "competitor", label: "競合分析" },

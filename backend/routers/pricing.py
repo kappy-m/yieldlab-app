@@ -30,7 +30,8 @@ class PricingCellOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-BAR_LEVELS = {"BAR1", "BAR2", "BAR3", "BAR4", "BAR5", "CLOSED"}
+# TL-Lincoln互換: 1-20の数値文字列 + CLOSED
+BAR_LEVELS = {str(i) for i in range(1, 21)} | {"CLOSED"}
 
 
 class PricingCellUpdate(BaseModel):
@@ -260,8 +261,10 @@ async def get_pricing_ai_summary(
     for g in grids:
         bar_counts[g.bar_level] = bar_counts.get(g.bar_level, 0) + 1
 
-    most_common_bar = max(bar_counts, key=bar_counts.get) if bar_counts else "C"
-    bar_a_pct = round(bar_counts.get("A", 0) / max(total_cells, 1) * 100)
+    most_common_bar = max(bar_counts, key=bar_counts.get) if bar_counts else "10"
+    # 上位ランク（1-5）が占める割合（高需要指標）
+    top_rank_count = sum(v for k, v in bar_counts.items() if k.isdigit() and int(k) <= 5)
+    bar_a_pct = round(top_rank_count / max(total_cells, 1) * 100)
 
     # 週末と平日の価格差
     weekend_grids = [g for g in grids if g.target_date.weekday() in (4, 5)]  # 金土
@@ -292,9 +295,11 @@ async def get_pricing_ai_summary(
     bullets: list[str] = []
 
     if bar_a_pct >= 20:
-        bullets.append(f"BARランクA（最高価格帯）が全日程の{bar_a_pct}%を占め、需要の高まりを反映しています")
-    elif bar_a_pct == 0 and most_common_bar in ("D", "E"):
-        bullets.append(f"BARランクが{most_common_bar}中心。需要回復に合わせた段階的な価格引き上げを検討してください")
+        bullets.append(f"上位ランク（1-5）が全日程の{bar_a_pct}%を占め、高需要を反映しています")
+    elif bar_a_pct == 0:
+        most_num = int(most_common_bar) if most_common_bar.isdigit() else 10
+        if most_num >= 14:
+            bullets.append(f"BARランクが{most_common_bar}中心（割引価格帯）。需要回復に合わせた段階的な価格引き上げを検討してください")
 
     if weekend_premium_pct > 10:
         bullets.append(f"週末価格が平日比+{weekend_premium_pct}%のプレミアム設定。引き続き需要に合わせた価格分散を推奨します")

@@ -21,27 +21,46 @@ ROOM_TYPES = [
     ("ロイヤルスイート",     "RYL_STE",  6, 9),
 ]
 
-BAR_PRICES: dict[str, dict[str, int]] = {
-    "スタンダードシングル": {"A": 15000, "B": 13000, "C": 11000, "D": 9000,  "E": 7000},
-    "スタンダードツイン":   {"A": 19000, "B": 16000, "C": 13000, "D": 11000, "E": 9000},
-    "デラックスツイン":     {"A": 22000, "B": 20000, "C": 17000, "D": 15000, "E": 12000},
-    "スーペリアダブル":     {"A": 28000, "B": 24000, "C": 20000, "D": 16000, "E": 13000},
-    "コーナーダブル":       {"A": 31000, "B": 27000, "C": 22000, "D": 19000, "E": 15000},
-    "ジュニアスイート":     {"A": 35000, "B": 30000, "C": 25000, "D": 22000, "E": 18000},
-    "エグゼクティブスイート":{"A": 40000, "B": 34000, "C": 28000, "D": 24000, "E": 20000},
-    "プレミアムスイート":   {"A": 45000, "B": 38000, "C": 30000, "D": 27000, "E": 22000},
-    "ペントハウススイート": {"A": 52000, "B": 43000, "C": 35000, "D": 30000, "E": 25000},
-    "ロイヤルスイート":     {"A": 60000, "B": 50000, "C": 42000, "D": 38000, "E": 30000},
+# TL-Lincoln互換 20レベル: level "1"=最高値, "20"=最安値
+# (max_rate, min_rate) のペアから20レベルを線形補間で生成
+_ROOM_RATE_RANGE: dict[str, tuple[int, int]] = {
+    "スタンダードシングル": (16000,  7000),
+    "スタンダードツイン":   (20000,  9000),
+    "デラックスツイン":     (24000, 12000),
+    "スーペリアダブル":     (30000, 13000),
+    "コーナーダブル":       (33000, 15000),
+    "ジュニアスイート":     (38000, 18000),
+    "エグゼクティブスイート":(42000, 20000),
+    "プレミアムスイート":   (48000, 22000),
+    "ペントハウススイート": (55000, 25000),
+    "ロイヤルスイート":     (65000, 30000),
 }
 
-INITIAL_LEVELS = ["C", "D", "C", "C", "C", "A", "A", "B", "C", "C", "C",
-                  "B", "C", "D", "C", "B", "A", "C", "D", "B", "C", "A",
-                  "C", "B", "C", "D", "C", "A", "B", "C", "D", "C", "B",
-                  "A", "C", "D", "B", "C", "A", "C", "D", "B", "C", "A",
-                  "C", "B", "D", "C", "A", "B", "C", "D", "B", "C", "A",
-                  "C", "B", "C", "D", "C", "A", "B", "C", "D", "B", "C",
-                  "A", "C", "B", "D", "C", "A", "B", "C", "D", "B", "C",
-                  "A", "C", "B", "D", "C", "A", "B", "C", "D", "B", "C"]
+
+def _build_bar_prices(max_rate: int, min_rate: int, levels: int = 20) -> dict[str, int]:
+    """1〜20のレートランクに対応した価格辞書を線形補間で生成（500円単位切り捨て）"""
+    result: dict[str, int] = {}
+    for n in range(1, levels + 1):
+        raw = max_rate - (max_rate - min_rate) * (n - 1) / (levels - 1)
+        result[str(n)] = int(raw / 500) * 500  # 500円単位
+    return result
+
+
+BAR_PRICES: dict[str, dict[str, int]] = {
+    name: _build_bar_prices(*rng) for name, rng in _ROOM_RATE_RANGE.items()
+}
+
+# 旧 A/B/C/D/E → 数値レベルへの対応マップ (A=3, B=7, C=10, D=15, E=18)
+_OLD_LEVEL_MAP = {"A": "3", "B": "7", "C": "10", "D": "15", "E": "18"}
+_OLD_INITIAL = ["C", "D", "C", "C", "C", "A", "A", "B", "C", "C", "C",
+                "B", "C", "D", "C", "B", "A", "C", "D", "B", "C", "A",
+                "C", "B", "C", "D", "C", "A", "B", "C", "D", "C", "B",
+                "A", "C", "D", "B", "C", "A", "C", "D", "B", "C", "A",
+                "C", "B", "D", "C", "A", "B", "C", "D", "B", "C", "A",
+                "C", "B", "C", "D", "C", "A", "B", "C", "D", "B", "C",
+                "A", "C", "B", "D", "C", "A", "B", "C", "D", "B", "C",
+                "A", "C", "B", "D", "C", "A", "B", "C", "D", "B", "C"]
+INITIAL_LEVELS = [_OLD_LEVEL_MAP[x] for x in _OLD_INITIAL]
 
 
 async def seed():
@@ -133,13 +152,24 @@ async def seed():
             await session.flush()
 
             prices = BAR_PRICES.get(room_name, {})
-            for level, price in prices.items():
+            for level_str, price in prices.items():
+                n = int(level_str)
+                if n <= 3:
+                    label = "プレミアム"
+                elif n <= 7:
+                    label = "ハイシーズン"
+                elif n <= 12:
+                    label = "スタンダード"
+                elif n <= 16:
+                    label = "ディスカウント"
+                else:
+                    label = "ローレート"
                 bl = BarLadder(
                     property_id=prop.id,
                     room_type_id=rt.id,
-                    level=level,
+                    level=level_str,
                     price=price,
-                    label={"A": "最高価格帯", "B": "高価格帯", "C": "標準価格帯", "D": "割引価格帯", "E": "大幅割引価格帯"}[level],
+                    label=label,
                 )
                 session.add(bl)
 

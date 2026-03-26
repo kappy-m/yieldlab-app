@@ -10,7 +10,8 @@ import {
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type BarLevel = "A" | "B" | "C" | "D" | "E";
+// TL-Lincoln互換: 1-20の数値文字列
+export type BarLevel = string; // "1"-"20" | "CLOSED"
 
 export interface EditTarget {
   roomType: string;
@@ -26,26 +27,32 @@ interface PriceEditModalProps {
   onSave: (updated: EditTarget) => void;
 }
 
-const BAR_OPTIONS: { value: BarLevel; label: string }[] = [
-  { value: "A", label: "A - 最高価格帯" },
-  { value: "B", label: "B - 高価格帯" },
-  { value: "C", label: "C - 標準価格帯" },
-  { value: "D", label: "D - 割引価格帯" },
-  { value: "E", label: "E - 大幅割引価格帯" },
-];
+// 1-20のレベルオプションを生成
+const BAR_OPTIONS = Array.from({ length: 20 }, (_, i) => {
+  const n = i + 1;
+  let category: string;
+  if (n <= 3) category = "プレミアム";
+  else if (n <= 7) category = "ハイシーズン";
+  else if (n <= 12) category = "スタンダード";
+  else if (n <= 16) category = "ディスカウント";
+  else category = "ローレート";
+  return { value: String(n), label: `${n} - ${category}` };
+});
 
-const barBadgeClass: Record<BarLevel, string> = {
-  A: "bar-badge-a",
-  B: "bar-badge-b",
-  C: "bar-badge-c",
-  D: "bar-badge-d",
-  E: "bar-badge-e",
-};
+export function getRankColor(level: string): string {
+  const n = parseInt(level);
+  if (isNaN(n)) return "bg-slate-100 text-slate-500";
+  if (n <= 3) return "bg-violet-100 text-violet-700 border border-violet-200";
+  if (n <= 7) return "bg-blue-100 text-blue-700 border border-blue-200";
+  if (n <= 12) return "bg-slate-100 text-slate-700 border border-slate-200";
+  if (n <= 16) return "bg-amber-100 text-amber-700 border border-amber-200";
+  return "bg-red-100 text-red-700 border border-red-200";
+}
 
 export function PriceEditModal({ target, onClose, onSave }: PriceEditModalProps) {
   const [price, setPrice] = useState(0);
   const [stock, setStock] = useState(0);
-  const [level, setLevel] = useState<BarLevel>("C");
+  const [level, setLevel] = useState<BarLevel>("10");
 
   useEffect(() => {
     if (target) {
@@ -60,6 +67,9 @@ export function PriceEditModal({ target, onClose, onSave }: PriceEditModalProps)
     onSave({ ...target, price, stock, level });
     onClose();
   };
+
+  const levelNum = parseInt(level);
+  const levelLabel = BAR_OPTIONS.find(o => o.value === level)?.label ?? level;
 
   return (
     <Dialog open={!!target} onOpenChange={(open) => !open && onClose()}>
@@ -103,7 +113,7 @@ export function PriceEditModal({ target, onClose, onSave }: PriceEditModalProps)
                   type="number"
                   value={price}
                   onChange={(e) => setPrice(Number(e.target.value))}
-                  step={1000}
+                  step={500}
                   min={0}
                   className="w-full text-sm text-gray-900 border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 transition-colors"
                 />
@@ -125,11 +135,32 @@ export function PriceEditModal({ target, onClose, onSave }: PriceEditModalProps)
           </div>
 
           <div>
-            <label className="text-xs font-medium text-gray-500 mb-1.5 block">レートランク</label>
+            <label className="text-xs font-medium text-gray-500 mb-1.5 block">
+              レートランク <span className="text-gray-300">（1=最高値 / 20=最安値）</span>
+            </label>
+
+            {/* スライダー */}
+            <div className="mb-3">
+              <input
+                type="range"
+                min={1}
+                max={20}
+                value={isNaN(levelNum) ? 10 : levelNum}
+                onChange={e => setLevel(e.target.value)}
+                className="w-full accent-[#1E3A8A] cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+                <span>1 最高値</span>
+                <span>10 標準</span>
+                <span>20 最安値</span>
+              </div>
+            </div>
+
+            {/* セレクト（精密選択用） */}
             <div className="relative">
               <select
                 value={level}
-                onChange={(e) => setLevel(e.target.value as BarLevel)}
+                onChange={(e) => setLevel(e.target.value)}
                 className="w-full text-sm text-gray-900 border border-gray-200 rounded-lg px-3 py-2.5 pr-8 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 transition-colors appearance-none bg-white cursor-pointer"
               >
                 {BAR_OPTIONS.map((opt) => (
@@ -145,8 +176,8 @@ export function PriceEditModal({ target, onClose, onSave }: PriceEditModalProps)
               </div>
             </div>
             <div className="mt-2">
-              <span className={cn(barBadgeClass[level], "text-xs")}>
-                {level} - {BAR_OPTIONS.find((o) => o.value === level)?.label.split(" - ")[1]}
+              <span className={cn("text-xs px-2 py-0.5 rounded font-medium", getRankColor(level))}>
+                Rank {levelLabel}
               </span>
             </div>
           </div>

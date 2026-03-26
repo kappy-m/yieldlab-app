@@ -11,8 +11,8 @@ class Recommendation(Base):
     room_type_id: Mapped[int] = mapped_column(Integer, ForeignKey("room_types.id"))
     target_date: Mapped[str] = mapped_column(Date)
 
-    current_bar_level: Mapped[str] = mapped_column(String(1))
-    recommended_bar_level: Mapped[str] = mapped_column(String(1))
+    current_bar_level: Mapped[str] = mapped_column(String(5))
+    recommended_bar_level: Mapped[str] = mapped_column(String(5))
     current_price: Mapped[int] = mapped_column(Integer)
     recommended_price: Mapped[int] = mapped_column(Integer)
     delta_levels: Mapped[int] = mapped_column(Integer)   # 正=UP / 負=DOWN

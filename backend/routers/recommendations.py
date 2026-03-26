@@ -122,8 +122,8 @@ async def generate_recommendations(
                 )
             )
             grid = grid_result.scalar_one_or_none()
-            current_level = grid.bar_level if grid else "C"
-            current_price = grid.price if grid else bar_ladders.get("C", 12000)
+            current_level = grid.bar_level if grid else "10"
+            current_price = grid.price if grid else bar_ladders.get("10", 12000)
             available = grid.available_rooms if grid else rt.total_rooms
 
             inp = RuleEngineInput(

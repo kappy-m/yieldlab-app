@@ -10,7 +10,7 @@ class PricingGrid(Base):
     property_id: Mapped[int] = mapped_column(Integer, ForeignKey("properties.id"))
     room_type_id: Mapped[int] = mapped_column(Integer, ForeignKey("room_types.id"))
     target_date: Mapped[str] = mapped_column(Date)
-    bar_level: Mapped[str] = mapped_column(String(1))    # A / B / C / D / E
+    bar_level: Mapped[str] = mapped_column(String(5))    # 1-20 の数値文字列
     price: Mapped[int] = mapped_column(Integer)
     available_rooms: Mapped[int] = mapped_column(Integer, default=0)
     updated_at: Mapped[str] = mapped_column(DateTime, default=func.now(), onupdate=func.now())

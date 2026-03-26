@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 // ============================================================
 // 共通定数
 // ============================================================
-type SettingsSubTab = "compset" | "barladder" | "approval" | "integrations" | "data" | "users";
+type SettingsSubTab = "compset" | "barladder" | "approval" | "integrations" | "data" | "users" | "pricing_policy";
 
 const SCRAPE_MODE_LABELS: Record<string, { label: string; color: string }> = {
   mock:    { label: "モック",       color: "text-yellow-600 bg-yellow-50 border-yellow-200" },
@@ -384,27 +384,49 @@ function CompSetPanel({ propertyId }: { propertyId: number }) {
 }
 
 // ============================================================
-// BARラダーパネル
+// BARラダーパネル（TL-Lincoln互換 1-20レベル）
 // ============================================================
-const BAR_LEVELS = ["A", "B", "C", "D", "E"] as const;
-type BarLevel = typeof BAR_LEVELS[number];
 
-const BAR_META: Record<BarLevel, { label: string; badge: string; accent: string }> = {
-  A: { label: "最高価格帯", badge: "bar-badge-a", accent: "bg-blue-50 text-blue-700 border-blue-200" },
-  B: { label: "高価格帯",   badge: "bar-badge-b", accent: "bg-blue-50 text-blue-700 border-blue-200" },
-  C: { label: "標準価格帯", badge: "bar-badge-c", accent: "bg-gray-50 text-gray-700 border-gray-200" },
-  D: { label: "割引価格帯", badge: "bar-badge-d", accent: "bg-amber-50 text-amber-700 border-amber-200" },
-  E: { label: "大幅割引",   badge: "bar-badge-e", accent: "bg-red-50 text-red-700 border-red-200" },
-};
+// 1-20のレベル配列
+const BAR_LEVELS_20 = Array.from({ length: 20 }, (_, i) => String(i + 1));
 
-type CellKey = `${number}-${BarLevel}`;
+function getBarLevelMeta(level: string): { label: string; headerClass: string; inputClass: string } {
+  const n = parseInt(level);
+  if (n <= 3) return {
+    label: "プレミアム",
+    headerClass: "bg-violet-50 text-violet-700",
+    inputClass: "border-violet-200 focus:ring-violet-300/40",
+  };
+  if (n <= 7) return {
+    label: "ハイシーズン",
+    headerClass: "bg-blue-50 text-blue-700",
+    inputClass: "border-blue-200 focus:ring-blue-300/40",
+  };
+  if (n <= 12) return {
+    label: "スタンダード",
+    headerClass: "bg-slate-50 text-slate-600",
+    inputClass: "border-slate-200 focus:ring-slate-300/40",
+  };
+  if (n <= 16) return {
+    label: "ディスカウント",
+    headerClass: "bg-amber-50 text-amber-700",
+    inputClass: "border-amber-200 focus:ring-amber-300/40",
+  };
+  return {
+    label: "ローレート",
+    headerClass: "bg-red-50 text-red-600",
+    inputClass: "border-red-200 focus:ring-red-300/40",
+  };
+}
+
+type CellKey = `${number}-${string}`;
 type EditMap = Map<CellKey, { id: number; price: number }>;
 
 function buildEditMap(bars: BarLadderOut[]): EditMap {
   const m = new Map<CellKey, { id: number; price: number }>();
   for (const b of bars) {
     if (b.room_type_id != null) {
-      m.set(`${b.room_type_id}-${b.level as BarLevel}`, { id: b.id, price: b.price });
+      m.set(`${b.room_type_id}-${b.level}`, { id: b.id, price: b.price });
     }
   }
   return m;
@@ -431,7 +453,7 @@ function BarLadderPanel({ propertyId }: { propertyId: number }) {
 
   useEffect(() => { load(); }, [load]);
 
-  const getDisplayPrice = (rtId: number, level: BarLevel): number | null => {
+  const getDisplayPrice = (rtId: number, level: string): number | null => {
     const key: CellKey = `${rtId}-${level}`;
     const editVal = edits.get(key);
     if (editVal !== undefined) {
@@ -441,7 +463,7 @@ function BarLadderPanel({ propertyId }: { propertyId: number }) {
     return editMap.get(key)?.price ?? null;
   };
 
-  const handleCellChange = (rtId: number, level: BarLevel, raw: string) => {
+  const handleCellChange = (rtId: number, level: string, raw: string) => {
     const key: CellKey = `${rtId}-${level}`;
     const newEdits = new Map(edits);
     newEdits.set(key, raw.replace(/[^0-9]/g, ""));
@@ -450,7 +472,8 @@ function BarLadderPanel({ propertyId }: { propertyId: number }) {
   };
 
   const validateRow = (rtId: number, currentEdits: Map<CellKey, string>) => {
-    const prices = BAR_LEVELS.map(l => {
+    // 1→20の順でprice[n] >= price[n+1] を確認（上位ランクのほうが高い）
+    const prices = BAR_LEVELS_20.map(l => {
       const key: CellKey = `${rtId}-${l}`;
       const editVal = currentEdits.get(key);
       if (editVal !== undefined) return parseInt(editVal, 10) || 0;
@@ -458,8 +481,8 @@ function BarLadderPanel({ propertyId }: { propertyId: number }) {
     });
     const errors = new Map(validationErrors);
     for (let i = 0; i < prices.length - 1; i++) {
-      if (prices[i] !== 0 && prices[i + 1] !== 0 && prices[i] <= prices[i + 1]) {
-        errors.set(rtId, `${BAR_LEVELS[i]}>${BAR_LEVELS[i + 1]} の順序で設定してください（A>B>C>D>E）`);
+      if (prices[i]! !== 0 && prices[i + 1]! !== 0 && prices[i]! < prices[i + 1]!) {
+        errors.set(rtId, `Rank ${i + 1} の価格は Rank ${i + 2} 以上にしてください（上位ランクほど高価格）`);
         setValidationErrors(errors);
         return;
       }
@@ -512,20 +535,13 @@ function BarLadderPanel({ propertyId }: { propertyId: number }) {
     setSaveMsg(null);
   };
 
-  const getRatioFromBase = (rtId: number, level: BarLevel): number => {
-    const base = getDisplayPrice(rtId, "A");
-    const current = getDisplayPrice(rtId, level);
-    if (!base || !current || base === 0) return 0;
-    return Math.round((current / base) * 100);
-  };
-
   return (
     <div>
       <div className="flex items-start justify-between mb-4">
         <div>
           <h2 className="text-sm font-semibold text-gray-900">BARラダー設定</h2>
           <p className="text-xs text-gray-400 mt-0.5">
-            セルをクリックして価格を編集できます。A（最高）→ E（最低）の順で設定してください
+            TL-Lincolnなどのレートランクをそのまま入力。Rank 1=最高値 / Rank 20=最安値
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -582,30 +598,39 @@ function BarLadderPanel({ propertyId }: { propertyId: number }) {
         </div>
       )}
 
-      <div className="flex items-center gap-3 mb-3">
-        {BAR_LEVELS.map(l => (
-          <div key={l} className="flex items-center gap-1.5 text-xs text-gray-500">
-            <span className={BAR_META[l].badge}>{l}</span>
-            <span>{BAR_META[l].label}</span>
-          </div>
+      {/* カラー凡例 */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        {[
+          { range: "1-3", label: "プレミアム", cls: "bg-violet-100 text-violet-700 border border-violet-200" },
+          { range: "4-7", label: "ハイシーズン", cls: "bg-blue-100 text-blue-700 border border-blue-200" },
+          { range: "8-12", label: "スタンダード", cls: "bg-slate-100 text-slate-700 border border-slate-200" },
+          { range: "13-16", label: "ディスカウント", cls: "bg-amber-100 text-amber-700 border border-amber-200" },
+          { range: "17-20", label: "ローレート", cls: "bg-red-100 text-red-700 border border-red-200" },
+        ].map(item => (
+          <span key={item.range} className={cn("text-[10px] px-2 py-0.5 rounded font-medium", item.cls)}>
+            {item.range}: {item.label}
+          </span>
         ))}
       </div>
 
       <div className="yl-card overflow-auto">
-        <table className="w-full text-xs">
+        <table className="w-full text-xs border-collapse">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="text-left px-5 py-3 text-gray-500 font-medium w-44">部屋タイプ</th>
-              {BAR_LEVELS.map(l => (
-                <th key={l} className="px-3 py-3 min-w-[140px]">
-                  <div className="flex flex-col items-center gap-0.5">
-                    <span className={BAR_META[l].badge}>{l}</span>
-                    <span className="text-[10px] text-gray-400">{BAR_META[l].label}</span>
-                  </div>
-                </th>
-              ))}
-              <th className="px-3 py-3 text-gray-500 font-medium text-center min-w-[120px]">
-                <span className="text-[10px]">E/A 比率</span>
+              <th className="text-left px-4 py-3 text-gray-500 font-medium sticky left-0 bg-gray-50 z-10 min-w-[160px]">
+                部屋タイプ
+              </th>
+              {BAR_LEVELS_20.map(l => {
+                const meta = getBarLevelMeta(l);
+                return (
+                  <th key={l} className={cn("px-2 py-2 min-w-[90px] text-center", meta.headerClass)}>
+                    <div className="font-bold text-xs">{l}</div>
+                    <div className="text-[9px] opacity-70">{meta.label}</div>
+                  </th>
+                );
+              })}
+              <th className="px-3 py-3 text-gray-400 font-medium text-center min-w-[100px]">
+                <span className="text-[10px]">20/1 割引率</span>
               </th>
             </tr>
           </thead>
@@ -617,20 +642,24 @@ function BarLadderPanel({ propertyId }: { propertyId: number }) {
                   key={rt.id}
                   className={cn(
                     "border-b border-gray-50 transition-colors",
-                    hasError ? "bg-red-50/40" : rowIdx % 2 === 0 ? "bg-white" : "bg-gray-50/30",
+                    hasError ? "bg-red-50/40" : rowIdx % 2 === 0 ? "bg-white" : "bg-gray-50/20",
                   )}
                 >
-                  <td className="px-5 py-2.5 font-medium text-gray-800 whitespace-nowrap">{rt.name}</td>
-                  {BAR_LEVELS.map(level => {
+                  <td className="px-4 py-2 font-medium text-gray-800 sticky left-0 bg-inherit z-10 whitespace-nowrap">
+                    {rt.name}
+                  </td>
+                  {BAR_LEVELS_20.map(level => {
                     const key: CellKey = `${rt.id}-${level}`;
                     const isEditing = edits.has(key);
                     const displayPrice = getDisplayPrice(rt.id, level);
                     const originalPrice = editMap.get(key)?.price ?? null;
                     const isChanged = isEditing && displayPrice !== originalPrice;
+                    const meta = getBarLevelMeta(level);
+
                     return (
-                      <td key={level} className="px-3 py-2">
+                      <td key={level} className="px-1.5 py-1.5">
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none">¥</span>
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-[10px] pointer-events-none">¥</span>
                           <input
                             type="text"
                             inputMode="numeric"
@@ -641,6 +670,7 @@ function BarLadderPanel({ propertyId }: { propertyId: number }) {
                                   ? displayPrice.toLocaleString()
                                   : ""
                             }
+                            placeholder="—"
                             onChange={e => handleCellChange(rt.id, level, e.target.value)}
                             onFocus={e => {
                               if (!edits.has(key) && displayPrice != null) {
@@ -656,20 +686,17 @@ function BarLadderPanel({ propertyId }: { propertyId: number }) {
                                 const newEdits = new Map(edits);
                                 newEdits.delete(key);
                                 setEdits(newEdits);
-                                const newErrors = new Map(validationErrors);
-                                newErrors.delete(rt.id);
-                                setValidationErrors(newErrors);
                               }
                             }}
                             className={cn(
-                              "w-full pl-6 pr-2 py-1.5 text-right text-xs rounded-lg border transition-all focus:outline-none",
+                              "w-full pl-5 pr-1 py-1 text-right text-[11px] rounded border transition-all focus:outline-none focus:ring-2",
                               isChanged
-                                ? "border-blue-400 bg-blue-50 text-blue-800 font-semibold focus:ring-2 focus:ring-blue-300/40"
-                                : "border-gray-200 bg-white text-gray-800 focus:border-blue-400 focus:ring-2 focus:ring-blue-300/20"
+                                ? "border-blue-400 bg-blue-50 text-blue-800 font-semibold focus:ring-blue-300/40"
+                                : `border-transparent bg-slate-50/80 text-gray-700 hover:border-slate-200 focus:border-${meta.inputClass.split("-")[1]}-400 ${meta.inputClass}`
                             )}
                           />
                           {isChanged && (
-                            <div className="absolute -top-1.5 -right-1.5 w-2 h-2 bg-blue-500 rounded-full" />
+                            <div className="absolute -top-1 -right-1 w-1.5 h-1.5 bg-blue-500 rounded-full" />
                           )}
                         </div>
                       </td>
@@ -677,20 +704,21 @@ function BarLadderPanel({ propertyId }: { propertyId: number }) {
                   })}
                   <td className="px-3 py-2">
                     {(() => {
-                      const ratioE = getRatioFromBase(rt.id, "E");
-                      const ratioA = getDisplayPrice(rt.id, "A");
-                      const priceE = getDisplayPrice(rt.id, "E");
-                      if (!ratioA || !priceE) return <span className="text-gray-300 text-center block">—</span>;
+                      const priceTop = getDisplayPrice(rt.id, "1");
+                      const priceBot = getDisplayPrice(rt.id, "20");
+                      if (!priceTop || !priceBot || priceTop === 0) return <span className="text-gray-300 text-center block text-[10px]">—</span>;
+                      const ratio = Math.round((priceBot / priceTop) * 100);
+                      const discount = 100 - ratio;
                       return (
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-[10px]">
-                            <span className="text-gray-400">割引幅</span>
-                            <span className="font-medium text-gray-700">{100 - ratioE}%</span>
+                            <span className="text-gray-400">▼{discount}%</span>
+                            <span className="font-medium text-gray-700">{ratio}%</span>
                           </div>
                           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-gradient-to-r from-blue-400 to-red-400 rounded-full transition-all"
-                              style={{ width: `${100 - ratioE}%` }}
+                              className="h-full bg-gradient-to-r from-violet-400 to-red-400 rounded-full transition-all"
+                              style={{ width: `${discount}%` }}
                             />
                           </div>
                         </div>
@@ -704,13 +732,13 @@ function BarLadderPanel({ propertyId }: { propertyId: number }) {
         </table>
       </div>
 
-      <div className="mt-3 flex items-start gap-4 text-[11px] text-gray-400">
+      <div className="mt-3 flex items-center gap-4 text-[11px] text-gray-400 flex-wrap">
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 bg-blue-500 rounded-full" />
           <span>変更済みセル</span>
         </div>
-        <span>・セルをクリックして数値を入力 → 「変更を保存」で確定</span>
-        <span>・「グリッドに反映」でプライシング画面の価格も更新されます</span>
+        <span>・セルをクリックして金額を入力 → 「変更を保存」で確定</span>
+        <span>・「グリッドに反映」でプライシングタブの価格が更新されます</span>
       </div>
     </div>
   );
@@ -1325,15 +1353,258 @@ function CsvImportPanel({ propertyId }: { propertyId: number }) {
 }
 
 // ============================================================
+// プライシングポリシーパネル
+// ============================================================
+interface PricingPolicy {
+  min_rate: string;
+  max_rate: string;
+  min_rate_gap: string;
+  enforce_room_order: boolean;
+  max_daily_change_pct: string;
+  mlos_enabled: boolean;
+  mlos_threshold_occ: string;
+  mlos_min_nights: string;
+}
+
+const POLICY_STORAGE_KEY = (propertyId: number) => `yl_pricing_policy_${propertyId}`;
+
+const DEFAULT_POLICY: PricingPolicy = {
+  min_rate: "8000",
+  max_rate: "120000",
+  min_rate_gap: "500",
+  enforce_room_order: true,
+  max_daily_change_pct: "30",
+  mlos_enabled: false,
+  mlos_threshold_occ: "85",
+  mlos_min_nights: "2",
+};
+
+function PricingPolicyPanel({ propertyId }: { propertyId: number }) {
+  const [form, setForm] = useState<PricingPolicy>(DEFAULT_POLICY);
+  const [saved, setSaved] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(POLICY_STORAGE_KEY(propertyId));
+      if (raw) setForm(JSON.parse(raw) as PricingPolicy);
+    } catch { /* ignore */ }
+  }, [propertyId]);
+
+  const update = <K extends keyof PricingPolicy>(key: K, value: PricingPolicy[K]) => {
+    setForm(prev => ({ ...prev, [key]: value }));
+    setDirty(true);
+  };
+
+  const handleSave = () => {
+    localStorage.setItem(POLICY_STORAGE_KEY(propertyId), JSON.stringify(form));
+    setSaved(true);
+    setDirty(false);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  const Section = ({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) => (
+    <div className="yl-card p-5 mb-4">
+      <div className="mb-4">
+        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
+        {desc && <p className="text-xs text-slate-400 mt-0.5">{desc}</p>}
+      </div>
+      {children}
+    </div>
+  );
+
+  const Field = ({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) => (
+    <div className="grid grid-cols-[1fr_auto] items-center gap-4 py-3 border-b border-slate-100 last:border-b-0">
+      <div>
+        <p className="text-xs font-medium text-slate-700">{label}</p>
+        {hint && <p className="text-[11px] text-slate-400 mt-0.5">{hint}</p>}
+      </div>
+      <div>{children}</div>
+    </div>
+  );
+
+  const NumberInput = ({
+    value, onChange, prefix, suffix, min, max,
+  }: {
+    value: string; onChange: (v: string) => void;
+    prefix?: string; suffix?: string; min?: number; max?: number;
+  }) => (
+    <div className="flex items-center gap-1.5">
+      {prefix && <span className="text-xs text-slate-400">{prefix}</span>}
+      <input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        onChange={e => onChange(e.target.value)}
+        className="w-28 text-sm border border-slate-200 rounded-lg px-3 py-1.5 text-right focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20"
+      />
+      {suffix && <span className="text-xs text-slate-400">{suffix}</span>}
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h2 className="text-sm font-semibold text-slate-900">プライシングポリシー</h2>
+          <p className="text-xs text-slate-400 mt-0.5">
+            ブランドとしての価格の幅・ルール・AI推奨の動作範囲を設定します
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {dirty && (
+            <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
+              未保存の変更があります
+            </span>
+          )}
+          <button
+            onClick={handleSave}
+            className={cn(
+              "flex items-center gap-1.5 text-xs px-4 py-1.5 rounded-lg font-medium transition-colors",
+              saved
+                ? "bg-green-500 text-white"
+                : "bg-slate-900 text-white hover:bg-slate-700"
+            )}
+          >
+            {saved ? (
+              <><CheckCircle2 className="w-3.5 h-3.5" />保存済み</>
+            ) : (
+              <><Check className="w-3.5 h-3.5" />保存</>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* 価格幅ルール */}
+      <Section
+        title="価格幅ルール"
+        desc="ブランドとして許容する最低価格・最高価格を設定します。AI推奨はこの範囲内で生成されます"
+      >
+        <Field label="ブランド最低価格（Min Rate）" hint="どのレートランクでも下回ってはならない底値">
+          <NumberInput value={form.min_rate} onChange={v => update("min_rate", v)} prefix="¥" suffix="/ 泊" min={0} />
+        </Field>
+        <Field label="ブランド最高価格（Max Rate）" hint="レートランク1の上限価格">
+          <NumberInput value={form.max_rate} onChange={v => update("max_rate", v)} prefix="¥" suffix="/ 泊" min={0} />
+        </Field>
+        <Field label="レートランク間の最小価格差" hint="隣り合うランクの差がこの金額を下回らないよう制約">
+          <NumberInput value={form.min_rate_gap} onChange={v => update("min_rate_gap", v)} prefix="¥" suffix="以上" min={0} />
+        </Field>
+      </Section>
+
+      {/* 部屋タイプ価格順序 */}
+      <Section
+        title="部屋タイプ価格順序ルール"
+        desc="部屋タイプ間の価格逆転（例: デラックス < スタンダード）を防ぐかどうかを設定します"
+      >
+        <Field label="部屋タイプ価格順序を強制する" hint="ONにすると、格上の部屋タイプが格下より安くなることを防止">
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              className="sr-only peer"
+              checked={form.enforce_room_order}
+              onChange={e => update("enforce_room_order", e.target.checked)}
+            />
+            <div className={cn(
+              "w-10 h-5 rounded-full transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5",
+              "after:bg-white after:rounded-full after:w-4 after:h-4 after:transition-all",
+              "peer-checked:after:translate-x-5",
+              form.enforce_room_order ? "bg-[#1E3A8A]" : "bg-slate-200"
+            )} />
+          </label>
+        </Field>
+        {form.enforce_room_order && (
+          <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700">
+            部屋タイプの価格順序はプライシンググリッドへの適用時に自動検証されます。逆転が検出された場合、警告が表示されます。
+          </div>
+        )}
+      </Section>
+
+      {/* 価格変動ルール */}
+      <Section
+        title="価格変動上限"
+        desc="前日比での価格変動を制限します。急激な価格変動を防ぎブランド価値を保護します"
+      >
+        <Field label="1日あたり最大変動幅" hint="AI推奨がこの変動幅を超える場合は承認必須になります">
+          <NumberInput
+            value={form.max_daily_change_pct}
+            onChange={v => update("max_daily_change_pct", v)}
+            suffix="% 以内"
+            min={1}
+            max={100}
+          />
+        </Field>
+      </Section>
+
+      {/* MinLOS自動設定 */}
+      <Section
+        title="最低宿泊日数 (MinLOS) ルール"
+        desc="高稼働期に自動でMinLOSを設定し、短泊による機会損失を防ぎます"
+      >
+        <Field label="MinLOS自動設定を有効にする" hint="繁忙期に自動でMinLOS制限を適用">
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              className="sr-only peer"
+              checked={form.mlos_enabled}
+              onChange={e => update("mlos_enabled", e.target.checked)}
+            />
+            <div className={cn(
+              "w-10 h-5 rounded-full transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5",
+              "after:bg-white after:rounded-full after:w-4 after:h-4 after:transition-all",
+              "peer-checked:after:translate-x-5",
+              form.mlos_enabled ? "bg-[#1E3A8A]" : "bg-slate-200"
+            )} />
+          </label>
+        </Field>
+        {form.mlos_enabled && (
+          <>
+            <Field label="MinLOS発動 稼働率閾値" hint="この稼働率を超えた日付に対してMinLOSを適用">
+              <NumberInput
+                value={form.mlos_threshold_occ}
+                onChange={v => update("mlos_threshold_occ", v)}
+                suffix="% 以上"
+                min={50}
+                max={100}
+              />
+            </Field>
+            <Field label="最低宿泊日数" hint="発動時に設定されるMinLOS値">
+              <NumberInput
+                value={form.mlos_min_nights}
+                onChange={v => update("mlos_min_nights", v)}
+                suffix="泊以上"
+                min={2}
+                max={7}
+              />
+            </Field>
+          </>
+        )}
+      </Section>
+
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-xs text-amber-800">
+        <div className="flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium mb-1">注意事項</p>
+            <p>現在のプライシングポリシーはブラウザに保存されています。複数デバイスでの共有や、システム全体への自動適用はフェーズ2で対応予定です。設定後は手動でプライシンググリッドの内容を確認してください。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // SettingsTab（エクスポート）
 // ============================================================
 const SUB_TABS: { id: SettingsSubTab; label: string }[] = [
-  { id: "compset",      label: "競合セット管理" },
-  { id: "barladder",    label: "BARラダー" },
-  { id: "approval",     label: "承認設定" },
-  { id: "data",         label: "データ管理" },
-  { id: "integrations", label: "外部システム連携" },
-  { id: "users",        label: "ユーザー管理" },
+  { id: "compset",        label: "競合セット管理" },
+  { id: "barladder",      label: "BARラダー" },
+  { id: "pricing_policy", label: "プライシングポリシー" },
+  { id: "approval",       label: "承認設定" },
+  { id: "data",           label: "データ管理" },
+  { id: "integrations",   label: "外部システム連携" },
+  { id: "users",          label: "ユーザー管理" },
 ];
 
 export function SettingsTab({ propertyId }: { propertyId: number }) {
@@ -1366,11 +1637,12 @@ export function SettingsTab({ propertyId }: { propertyId: number }) {
           <CompSetPanel      propertyId={propertyId} />
         </>
       )}
-      {activeSubTab === "barladder"    && <BarLadderPanel    propertyId={propertyId} />}
-      {activeSubTab === "approval"     && <ApprovalPanel     propertyId={propertyId} />}
-      {activeSubTab === "data"         && <CsvImportPanel    propertyId={propertyId} />}
-      {activeSubTab === "integrations" && <IntegrationsPanel />}
-      {activeSubTab === "users"        && <UserAccessPanel />}
+      {activeSubTab === "barladder"      && <BarLadderPanel      propertyId={propertyId} />}
+      {activeSubTab === "pricing_policy" && <PricingPolicyPanel  propertyId={propertyId} />}
+      {activeSubTab === "approval"       && <ApprovalPanel       propertyId={propertyId} />}
+      {activeSubTab === "data"           && <CsvImportPanel      propertyId={propertyId} />}
+      {activeSubTab === "integrations"   && <IntegrationsPanel />}
+      {activeSubTab === "users"          && <UserAccessPanel />}
     </div>
   );
 }
