@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
-import { ProductSidebar } from "@/components/layout/ProductSidebar";
 import { ReservationList } from "@/components/reservation/ReservationList";
 import { cn } from "@/lib/utils";
 
@@ -19,11 +18,8 @@ export default function ReservationPage() {
   const [propertyId, setPropertyId] = useState<number>(1);
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] flex">
-      <ProductSidebar />
-
-      <div className="flex-1 min-w-0">
-        <DashboardHeader
+    <div className="min-h-screen bg-[#F9FAFB] flex flex-col">
+      <DashboardHeader
           propertyId={propertyId}
           onPropertyChange={(id) => {
             setPropertyId(id);
@@ -82,7 +78,6 @@ export default function ReservationPage() {
             </div>
           )}
         </main>
-      </div>
     </div>
   );
 }
