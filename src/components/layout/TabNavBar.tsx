@@ -38,7 +38,7 @@ export function TabNavBar({ tabs, activeTab, onTabChange, equalWidth = false }: 
 
   return (
     <nav className="sticky top-14 z-30 bg-white border-b border-slate-200 shadow-sm overflow-x-auto">
-      <div className="flex items-center justify-between px-4 min-w-max">
+      <div className="flex items-center justify-between px-6 min-w-max">
         {/* 左側タブ群 */}
         <div className="flex items-center">
           {leftTabs.map((tab) => (
