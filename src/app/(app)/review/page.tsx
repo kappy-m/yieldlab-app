@@ -2,17 +2,17 @@
 
 import { useState } from "react";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
+import { TabNavBar } from "@/components/layout/TabNavBar";
 import { ReviewSummaryTab } from "@/components/review/ReviewSummaryTab";
 import { ReviewAnalyticsTab } from "@/components/review/ReviewAnalyticsTab";
 import { InboxTab } from "@/components/review/InboxTab";
-import { cn } from "@/lib/utils";
 
 type ReviewTabId = "summary" | "inbox" | "analytics";
 
-const TABS: { id: ReviewTabId; label: string }[] = [
-  { id: "summary",   label: "サマリー" },
-  { id: "inbox",     label: "口コミ・問い合わせ" },
-  { id: "analytics", label: "分析" },
+const TABS = [
+  { id: "summary"   as ReviewTabId, label: "サマリー" },
+  { id: "inbox"     as ReviewTabId, label: "口コミ・問い合わせ" },
+  { id: "analytics" as ReviewTabId, label: "分析" },
 ];
 
 export default function ReviewPage() {
@@ -30,31 +30,7 @@ export default function ReviewPage() {
         }}
       />
 
-      {/* タブナビゲーション */}
-      <nav className="sticky top-14 z-30 bg-white border-b border-slate-200 shadow-sm px-6">
-        <div className="flex items-center gap-0.5">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "relative px-4 py-3 text-sm font-medium transition-colors duration-150 cursor-pointer",
-                activeTab === tab.id
-                  ? "text-[#1E3A8A]"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-50/80 rounded-t-md"
-              )}
-            >
-              {tab.label}
-              <span
-                className={cn(
-                  "absolute bottom-0 left-0 right-0 h-0.5 bg-[#1E3A8A] rounded-t transition-transform duration-200 origin-bottom",
-                  activeTab === tab.id ? "scale-y-100" : "scale-y-0"
-                )}
-              />
-            </button>
-          ))}
-        </div>
-      </nav>
+      <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as ReviewTabId)} />
 
       {/* コンテンツ */}
       <main className="max-w-[1400px] mx-auto px-6 py-5">

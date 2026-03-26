@@ -2,17 +2,19 @@
 
 import { useState } from "react";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
+import { TabNavBar } from "@/components/layout/TabNavBar";
 import { SalesDashboard } from "@/components/sales/SalesDashboard";
-import { SalesPipeline } from "@/components/sales/SalesPipeline";
-import { SalesAccounts } from "@/components/sales/SalesAccounts";
-import { cn } from "@/lib/utils";
+import { SalesLeads } from "@/components/sales/SalesLeads";
+import { SalesDeals } from "@/components/sales/SalesDeals";
+import { SalesGroups } from "@/components/sales/SalesGroups";
 
-type SalesTabId = "dashboard" | "pipeline" | "accounts";
+type SalesTabId = "dashboard" | "leads" | "deals" | "groups";
 
-const TABS: { id: SalesTabId; label: string }[] = [
-  { id: "dashboard", label: "ダッシュボード" },
-  { id: "pipeline",  label: "パイプライン" },
-  { id: "accounts",  label: "アカウント管理" },
+const TABS = [
+  { id: "dashboard" as SalesTabId, label: "ダッシュボード" },
+  { id: "leads"     as SalesTabId, label: "リード" },
+  { id: "deals"     as SalesTabId, label: "商談" },
+  { id: "groups"    as SalesTabId, label: "グループ管理" },
 ];
 
 export default function SalesPage() {
@@ -28,38 +30,12 @@ export default function SalesPage() {
           setActiveTab("dashboard");
         }}
       />
-
-      {/* タブナビゲーション */}
-      <nav className="sticky top-14 z-30 bg-white border-b border-slate-200 shadow-sm px-6">
-        <div className="flex items-center gap-0.5">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "relative px-4 py-3 text-sm font-medium transition-colors duration-150 cursor-pointer",
-                activeTab === tab.id
-                  ? "text-[#1E3A8A]"
-                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-50/80 rounded-t-md"
-              )}
-            >
-              {tab.label}
-              <span
-                className={cn(
-                  "absolute bottom-0 left-0 right-0 h-0.5 bg-[#1E3A8A] rounded-t transition-transform duration-200 origin-bottom",
-                  activeTab === tab.id ? "scale-x-100" : "scale-x-0"
-                )}
-              />
-            </button>
-          ))}
-        </div>
-      </nav>
-
-      {/* コンテンツ */}
+      <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as SalesTabId)} />
       <main className="px-6 py-6 max-w-7xl mx-auto">
         {activeTab === "dashboard" && <SalesDashboard propertyId={propertyId} />}
-        {activeTab === "pipeline"  && <SalesPipeline  propertyId={propertyId} />}
-        {activeTab === "accounts"  && <SalesAccounts  propertyId={propertyId} />}
+        {activeTab === "leads"     && <SalesLeads     propertyId={propertyId} />}
+        {activeTab === "deals"     && <SalesDeals     propertyId={propertyId} />}
+        {activeTab === "groups"    && <SalesGroups    propertyId={propertyId} />}
       </main>
     </div>
   );

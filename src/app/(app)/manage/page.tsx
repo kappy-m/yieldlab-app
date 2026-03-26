@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
+import { TabNavBar } from "@/components/layout/TabNavBar";
 import { GuestStayList } from "@/components/front/GuestStayList";
-import { cn } from "@/lib/utils";
 
 type FrontTabId = "front-desk" | "housekeeping" | "settings";
 
-const TABS: { id: FrontTabId; label: string }[] = [
-  { id: "front-desk",   label: "フロントデスク" },
-  { id: "housekeeping", label: "ハウスキーピング" },
-  { id: "settings",     label: "設定" },
+const TABS = [
+  { id: "front-desk"   as FrontTabId, label: "フロントデスク" },
+  { id: "housekeeping" as FrontTabId, label: "ハウスキーピング" },
+  { id: "settings"     as FrontTabId, label: "設定" },
 ];
 
 export default function ManagePage() {
@@ -27,29 +27,7 @@ export default function ManagePage() {
           }}
         />
 
-        {/* タブナビ */}
-        <nav className="sticky top-14 z-30 bg-white border-b border-slate-200 shadow-sm overflow-x-auto">
-          <div className="flex items-center px-4 min-w-max">
-            {TABS.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "relative px-4 py-3 text-sm font-medium transition-colors duration-150 cursor-pointer whitespace-nowrap",
-                  activeTab === tab.id
-                    ? "text-[#1E3A8A]"
-                    : "text-slate-500 hover:text-slate-700 hover:bg-slate-50/80 rounded-t-md"
-                )}
-              >
-                {tab.label}
-                <span className={cn(
-                  "absolute bottom-0 left-0 right-0 h-0.5 bg-[#1E3A8A] rounded-t transition-transform duration-200 origin-bottom",
-                  activeTab === tab.id ? "scale-y-100" : "scale-y-0"
-                )} />
-              </button>
-            ))}
-          </div>
-        </nav>
+        <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as FrontTabId)} />
 
         <main className="max-w-[1200px] mx-auto px-6 py-5">
           {activeTab === "front-desk" && (
