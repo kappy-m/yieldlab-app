@@ -182,13 +182,13 @@ function OccupancyForecastCalendar({ monthly }: { monthly: MonthlyOnhandOut[] })
                   )}
                 </div>
                 {/* バー */}
-                <div className="w-full h-16 bg-slate-100 rounded-lg overflow-hidden flex items-end relative">
+                <div className="w-full h-16 bg-slate-100 rounded-lg overflow-hidden relative">
                   <div
-                    className={cn("w-full rounded-lg transition-all", color)}
+                    className={cn("absolute bottom-0 left-0 right-0 rounded-t-sm transition-all duration-300", color)}
                     style={{ height: `${Math.max(barPct, 8)}%` }}
                   />
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className={cn("text-xs font-bold", textColor)}>{occ}%</span>
+                    <span className={cn("text-xs font-bold relative z-10", textColor)}>{occ}%</span>
                   </div>
                 </div>
                 {/* 売上 */}
