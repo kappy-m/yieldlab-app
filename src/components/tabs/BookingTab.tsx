@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { AlertCircle, RefreshCw, TrendingUp, TrendingDown, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, RefreshCw, TrendingUp, TrendingDown, Eye, EyeOff, CalendarDays } from "lucide-react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine,
@@ -15,10 +15,8 @@ import {
 import { cn } from "@/lib/utils";
 
 // ----------------------------------------------------------------
-// 定数・ヘルパー
+// 定数
 // ----------------------------------------------------------------
-
-/** 日付ごとの折れ線色（最大30色） */
 const LINE_PALETTE = [
   "#1E3A8A", "#0891B2", "#059669", "#D97706", "#DC2626",
   "#7C3AED", "#DB2777", "#065F46", "#92400E", "#0F766E",
@@ -34,41 +32,18 @@ function fmt(n: number) {
   return `¥${n.toLocaleString()}`;
 }
 
-function changeBadge(pct: number | null | undefined) {
-  if (pct == null) return null;
-  const color = pct >= 0 ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50";
-  return (
-    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${color}`}>
-      {pct >= 0 ? "+" : ""}{pct}%
-    </span>
-  );
-}
-
 // ----------------------------------------------------------------
 // カスタムツールチップ
 // ----------------------------------------------------------------
-interface TooltipPayload {
-  name: string;
-  value: number;
-  color: string;
-}
-interface CustomTooltipProps {
-  active?: boolean;
-  payload?: TooltipPayload[];
-  label?: string;
-}
+interface TooltipPayload { name: string; value: number; color: string; }
+interface CustomTooltipProps { active?: boolean; payload?: TooltipPayload[]; label?: string; }
 
 function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
-  const sorted = [...payload]
-    .filter(p => p.value > 0)
-    .sort((a, b) => b.value - a.value);
-
+  const sorted = [...payload].filter(p => p.value > 0).sort((a, b) => b.value - a.value);
   return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-xl p-3 min-w-[180px]">
-      <p className="text-xs font-semibold text-slate-700 mb-2 border-b border-slate-100 pb-1.5">
-        {label}
-      </p>
+      <p className="text-xs font-semibold text-slate-700 mb-2 border-b border-slate-100 pb-1.5">{label}</p>
       {sorted.map((entry, i) => (
         <div key={i} className="flex items-center justify-between gap-3 py-0.5">
           <div className="flex items-center gap-1.5">
@@ -85,18 +60,10 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
 // ----------------------------------------------------------------
 // ピックアップサマリーテーブル
 // ----------------------------------------------------------------
-function PickupTable({
-  heatmap,
-  visibleDates,
-}: {
-  heatmap: BookingHeatmapOut;
-  visibleDates: Set<string>;
-}) {
-  // 直近リードタイム vs 1つ前のリードタイム の差分を「ピックアップ」として計算
+function PickupTable({ heatmap, visibleDates }: { heatmap: BookingHeatmapOut; visibleDates: Set<string> }) {
   const ltLen = heatmap.lead_times.length;
   if (ltLen < 2) return null;
-
-  const latestIdx = ltLen - 1; // 最も直近（0d前 or 当日に近い）
+  const latestIdx = ltLen - 1;
   const prevIdx = ltLen - 2;
 
   const rows = heatmap.dates
@@ -137,8 +104,7 @@ function PickupTable({
                   <div className="flex items-center justify-end gap-2">
                     <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                       <div
-                        className={cn(
-                          "h-full rounded-full",
+                        className={cn("h-full rounded-full",
                           row.latest >= 85 ? "bg-red-400" :
                           row.latest >= 70 ? "bg-orange-400" :
                           row.latest >= 50 ? "bg-green-400" : "bg-blue-400"
@@ -150,8 +116,7 @@ function PickupTable({
                   </div>
                 </td>
                 <td className="px-4 py-2.5 text-right">
-                  <span className={cn(
-                    "inline-flex items-center gap-0.5 font-semibold",
+                  <span className={cn("inline-flex items-center gap-0.5 font-semibold",
                     row.pickup > 0 ? "text-green-600" : row.pickup < 0 ? "text-red-500" : "text-slate-400"
                   )}>
                     {row.pickup > 0 ? <TrendingUp className="w-3 h-3" /> : row.pickup < 0 ? <TrendingDown className="w-3 h-3" /> : null}
@@ -159,8 +124,7 @@ function PickupTable({
                   </span>
                 </td>
                 <td className="px-4 py-2.5 text-right">
-                  <span className={cn(
-                    "text-xs font-medium",
+                  <span className={cn("text-xs font-medium",
                     row.diff > 5 ? "text-green-600" : row.diff < -5 ? "text-red-500" : "text-slate-500"
                   )}>
                     {row.diff > 0 ? "+" : ""}{Math.round(row.diff)}pt
@@ -176,9 +140,95 @@ function PickupTable({
 }
 
 // ----------------------------------------------------------------
+// 180日稼働見通しカレンダー（月別ヒートマップ）
+// ----------------------------------------------------------------
+function OccupancyForecastCalendar({ monthly }: { monthly: MonthlyOnhandOut[] }) {
+  // 6ヶ月分のデータを週別バーチャートで表示
+  const maxOcc = Math.max(...monthly.map(m => m.occupancy_pct), 1);
+
+  return (
+    <div className="yl-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <div className="flex items-center gap-2 mb-0.5">
+          <CalendarDays className="w-4 h-4 text-slate-600" />
+          <h3 className="text-sm font-semibold text-slate-900">180日 稼働見通しカレンダー</h3>
+        </div>
+        <p className="text-xs text-slate-400">月次の稼働率予測。赤が高稼働（要注意）、青が低稼働（価格調整余地あり）</p>
+      </div>
+      <div className="px-5 py-5">
+        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+          {monthly.map((m) => {
+            const occ = m.occupancy_pct;
+            const barPct = Math.round((occ / maxOcc) * 100);
+            const color =
+              occ >= 85 ? "bg-red-400" :
+              occ >= 70 ? "bg-orange-400" :
+              occ >= 55 ? "bg-green-400" :
+              occ >= 40 ? "bg-blue-400" : "bg-slate-200";
+            const textColor =
+              occ >= 85 ? "text-red-600" :
+              occ >= 70 ? "text-orange-600" :
+              occ >= 55 ? "text-green-600" :
+              occ >= 40 ? "text-blue-600" : "text-slate-400";
+
+            return (
+              <div key={`${m.year}-${m.month}`} className="flex flex-col items-center gap-2">
+                {/* 月ラベル */}
+                <div className="text-center">
+                  <p className="text-[10px] text-slate-400 leading-tight">{m.year}</p>
+                  <p className="text-xs font-semibold text-slate-700">{m.month}月</p>
+                  {m.is_actual && (
+                    <span className="text-[9px] text-slate-400 bg-slate-100 px-1 py-0.5 rounded">実績</span>
+                  )}
+                </div>
+                {/* バー */}
+                <div className="w-full h-16 bg-slate-100 rounded-lg overflow-hidden flex items-end relative">
+                  <div
+                    className={cn("w-full rounded-lg transition-all", color)}
+                    style={{ height: `${Math.max(barPct, 8)}%` }}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className={cn("text-xs font-bold", textColor)}>{occ}%</span>
+                  </div>
+                </div>
+                {/* 売上 */}
+                <p className="text-[10px] text-slate-500 text-center">
+                  {fmt(m.revenue)}
+                  {m.revenue_change_pct != null && (
+                    <span className={cn("ml-0.5", m.revenue_change_pct >= 0 ? "text-green-500" : "text-red-500")}>
+                      {m.revenue_change_pct >= 0 ? "↑" : "↓"}
+                    </span>
+                  )}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 凡例 */}
+        <div className="flex items-center gap-4 mt-4 pt-3 border-t border-slate-100 text-[10px] text-slate-400 flex-wrap">
+          {[
+            { color: "bg-red-400", label: "85%以上（高稼働）" },
+            { color: "bg-orange-400", label: "70-84%（良好）" },
+            { color: "bg-green-400", label: "55-69%（標準）" },
+            { color: "bg-blue-400", label: "40-54%（余裕あり）" },
+            { color: "bg-slate-200", label: "40%未満（要対応）" },
+          ].map(item => (
+            <div key={item.label} className="flex items-center gap-1">
+              <div className={cn("w-2 h-2 rounded-sm", item.color)} />
+              {item.label}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ----------------------------------------------------------------
 // メインコンポーネント
 // ----------------------------------------------------------------
-type DayRange = 7 | 14 | 30;
+type DayRange = 14 | 30;
 
 export function BookingTab({ propertyId }: { propertyId: number }) {
   const [monthly, setMonthly] = useState<MonthlyOnhandOut[]>([]);
@@ -194,7 +244,7 @@ export function BookingTab({ propertyId }: { propertyId: number }) {
     setError(null);
     try {
       const [m, h] = await Promise.all([
-        fetchMonthlyOnhand(propertyId, 3),
+        fetchMonthlyOnhand(propertyId, 6), // 180日 = 6ヶ月
         fetchBookingHeatmap(propertyId, dayRange),
       ]);
       setMonthly(m);
@@ -230,31 +280,23 @@ export function BookingTab({ propertyId }: { propertyId: number }) {
   const toggleDate = (date: string) => {
     setVisibleDates(prev => {
       const next = new Set(prev);
-      if (next.has(date)) {
-        if (next.size > 1) next.delete(date);
-      } else {
-        next.add(date);
-      }
+      if (next.has(date)) { if (next.size > 1) next.delete(date); }
+      else next.add(date);
       return next;
     });
   };
 
   const toggleAllDates = () => {
     if (!heatmap) return;
-    if (visibleDates.size === heatmap.dates.length) {
-      setVisibleDates(new Set([heatmap.dates[0] ?? ""]));
-    } else {
-      setVisibleDates(new Set(heatmap.dates));
-    }
+    if (visibleDates.size === heatmap.dates.length) setVisibleDates(new Set([heatmap.dates[0] ?? ""]));
+    else setVisibleDates(new Set(heatmap.dates));
   };
 
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="grid grid-cols-4 gap-4">
-          {[0, 1, 2, 3].map(i => <div key={i} className="yl-card h-28 bg-slate-100" />)}
-        </div>
         <div className="yl-card h-80 bg-slate-100" />
+        <div className="yl-card h-48 bg-slate-100" />
       </div>
     );
   }
@@ -264,7 +306,7 @@ export function BookingTab({ propertyId }: { propertyId: number }) {
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <AlertCircle className="w-10 h-10 text-red-400" />
         <p className="text-sm text-slate-600">{error}</p>
-        <button onClick={load} className="text-xs px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700">
+        <button onClick={load} className="text-xs px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 cursor-pointer">
           再試行
         </button>
       </div>
@@ -273,63 +315,29 @@ export function BookingTab({ propertyId }: { propertyId: number }) {
 
   return (
     <div className="space-y-5">
-      {/* 月次サマリーカード */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-slate-900">月次オンハンドサマリー</h2>
-          <button
-            onClick={load}
-            className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700"
-          >
-            <RefreshCw className="w-3 h-3" /> 更新
-          </button>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {monthly.map((m) => (
-            <div key={`${m.year}-${m.month}`} className="yl-card p-4">
-              <div className="flex items-start justify-between mb-2">
-                <p className="text-xs text-slate-500 whitespace-pre-line leading-relaxed">{m.label}</p>
-                <span className={`text-xs px-1.5 py-0.5 rounded-full ${m.is_actual ? "bg-slate-100 text-slate-600" : "bg-blue-50 text-blue-600"}`}>
-                  {m.is_actual ? "実績" : "予測"}
-                </span>
-              </div>
-              <div className="space-y-1.5">
-                <div>
-                  <p className="text-xs text-slate-400">売上</p>
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-base font-bold text-slate-900">{fmt(m.revenue)}</p>
-                    {changeBadge(m.revenue_change_pct)}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="text-slate-500">稼働率 <span className="font-semibold text-slate-900">{m.occupancy_pct}%</span></span>
-                  <span className="text-slate-500">
-                    室数 <span className="font-semibold text-slate-900">{m.rooms_sold.toLocaleString()}</span>
-                    {changeBadge(m.rooms_change_pct)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      {/* ================================================================
+          Section 1: 180日稼働見通しカレンダー（上部に移動）
+      ================================================================ */}
+      <OccupancyForecastCalendar monthly={monthly} />
 
-      {/* ブッキングカーブ 線グラフ */}
+      {/* ================================================================
+          Section 2: ブッキングカーブ（直近30日）
+      ================================================================ */}
       {heatmap && heatmap.dates.length > 0 && (
         <div className="yl-card overflow-hidden">
           {/* ヘッダー */}
           <div className="px-5 py-4 border-b border-slate-100">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-sm font-semibold text-slate-900">ブッキングカーブ</h3>
+                <h3 className="text-sm font-semibold text-slate-900">ブッキングカーブ（直近{dayRange}日）</h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  宿泊日ごとに、何日前時点での稼働率ペースを可視化。左が先行予約、右が直前
+                  宿泊日ごとに何日前から予約が積み上がっているか表示。価格戦略の精度向上に活用できます
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {/* 日数レンジ */}
                 <div className="flex gap-0.5 bg-slate-100 p-0.5 rounded-lg">
-                  {([7, 14, 30] as DayRange[]).map(d => (
+                  {([14, 30] as DayRange[]).map(d => (
                     <button
                       key={d}
                       onClick={() => setDayRange(d)}
@@ -357,6 +365,9 @@ export function BookingTab({ propertyId }: { propertyId: number }) {
                   {showPrevYear ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
                   前年比較
                 </button>
+                <button onClick={load} className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 cursor-pointer">
+                  <RefreshCw className="w-3 h-3" />
+                </button>
               </div>
             </div>
 
@@ -377,9 +388,7 @@ export function BookingTab({ propertyId }: { propertyId: number }) {
                     onClick={() => toggleDate(date)}
                     className={cn(
                       "flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border transition-all cursor-pointer",
-                      isVisible
-                        ? "text-white border-transparent"
-                        : "border-slate-200 text-slate-400 bg-white hover:border-slate-300"
+                      isVisible ? "text-white border-transparent" : "border-slate-200 text-slate-400 bg-white hover:border-slate-300"
                     )}
                     style={isVisible ? { backgroundColor: color, borderColor: color } : {}}
                   >
@@ -392,79 +401,41 @@ export function BookingTab({ propertyId }: { propertyId: number }) {
 
           {/* チャート本体 */}
           <div className="px-5 py-5">
-            <ResponsiveContainer width="100%" height={340}>
+            <ResponsiveContainer width="100%" height={300}>
               <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis
-                  dataKey="lt"
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
-                  axisLine={{ stroke: "#e2e8f0" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  domain={[0, 100]}
-                  tickFormatter={v => `${v}%`}
-                  tick={{ fontSize: 11, fill: "#94a3b8" }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={38}
-                />
+                <XAxis dataKey="lt" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={{ stroke: "#e2e8f0" }} tickLine={false} />
+                <YAxis domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={38} />
                 <Tooltip content={<CustomTooltip />} />
-                <ReferenceLine y={80} stroke="#fbbf24" strokeDasharray="4 4" strokeWidth={1.5} label={{ value: "80%", position: "insideTopRight", fontSize: 10, fill: "#d97706" }} />
+                <ReferenceLine y={80} stroke="#fbbf24" strokeDasharray="4 4" strokeWidth={1.5}
+                  label={{ value: "80%", position: "insideTopRight", fontSize: 10, fill: "#d97706" }} />
                 <ReferenceLine y={50} stroke="#cbd5e1" strokeDasharray="4 4" strokeWidth={1} />
-
                 {heatmap.dates.map((date, di) => {
                   if (!visibleDates.has(date)) return null;
                   const color = LINE_PALETTE[di % LINE_PALETTE.length];
                   return [
-                    <Line
-                      key={date}
-                      type="monotone"
-                      dataKey={date}
-                      stroke={color}
-                      strokeWidth={2}
-                      dot={{ r: 3, fill: color, strokeWidth: 0 }}
-                      activeDot={{ r: 5 }}
-                      name={date}
-                    />,
+                    <Line key={date} type="monotone" dataKey={date} stroke={color} strokeWidth={2}
+                      dot={{ r: 3, fill: color, strokeWidth: 0 }} activeDot={{ r: 5 }} name={date} />,
                     showPrevYear && (
-                      <Line
-                        key={`${date}_prev`}
-                        type="monotone"
-                        dataKey={`${date}★前年`}
-                        stroke={color}
-                        strokeWidth={1.5}
-                        strokeDasharray="4 4"
-                        dot={false}
-                        name={`${date}（前年）`}
-                        opacity={0.45}
-                      />
+                      <Line key={`${date}_prev`} type="monotone" dataKey={`${date}★前年`} stroke={color}
+                        strokeWidth={1.5} strokeDasharray="4 4" dot={false} name={`${date}（前年）`} opacity={0.45} />
                     ),
                   ];
                 })}
               </LineChart>
             </ResponsiveContainer>
             <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-400">
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-0.5 bg-slate-400" />
-                今年（実線）
-              </div>
-              {showPrevYear && (
-                <div className="flex items-center gap-1">
-                  <div className="w-4 h-0.5 bg-slate-400" style={{ borderTop: "2px dashed #94a3b8", background: "none" }} />
-                  前年（点線）
-                </div>
-              )}
-              <div className="flex items-center gap-1">
-                <div className="w-4 h-0.5 bg-amber-400" style={{ borderTop: "2px dashed #fbbf24", background: "none" }} />
-                80%ライン
-              </div>
+              <div className="flex items-center gap-1"><div className="w-4 h-0.5 bg-slate-400" />今年（実線）</div>
+              {showPrevYear && <div className="flex items-center gap-1"><div className="w-4 h-0.5" style={{ borderTop: "2px dashed #94a3b8" }} />前年（点線）</div>}
+              <div className="flex items-center gap-1"><div className="w-4 h-0.5" style={{ borderTop: "2px dashed #fbbf24" }} />80%ライン</div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ピックアップサマリー */}
+      {/* ================================================================
+          Section 3: ピックアップサマリー
+      ================================================================ */}
       {heatmap && heatmap.dates.length > 0 && (
         <PickupTable heatmap={heatmap} visibleDates={visibleDates} />
       )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Bot, CheckCircle2, RefreshCw, Download, ChevronDown } from "lucide-react";
+import { Bot, CheckCircle2, Download, ChevronDown, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { AiSummaryCard } from "@/components/shared/AiSummaryCard";
 import { PriceEditModal, type EditTarget, getRankColor } from "@/components/pricing/PriceEditModal";
 import { cn } from "@/lib/utils";
@@ -22,11 +22,7 @@ import {
 } from "@/lib/api";
 
 // ----------------------------------------------------------------
-// セル状態の定義
-//   ai      : AIが変更を提案中（未承認）
-//   user    : 現セッションでユーザーが手動変更した
-//   approved: AI提案を承認済み
-//   default : BARラダーから自動計算されたデフォルト値
+// セル状態
 // ----------------------------------------------------------------
 type CellState = "ai" | "user" | "approved" | "default";
 
@@ -63,29 +59,35 @@ const CELL_STATE_META: Record<CellState, {
 };
 
 // ----------------------------------------------------------------
-// 日付ラベル生成
+// 月ナビゲーション用ヘルパー
 // ----------------------------------------------------------------
-function getDateRange(days = 14): { from: string; to: string; labels: string[]; dates: string[] } {
-  const today = new Date();
-  const labels: string[] = [];
+type ViewMode = "2week" | "month" | "3month";
+
+function buildDateWindow(baseDate: Date, mode: ViewMode): { dates: string[]; labels: string[] } {
   const dates: string[] = [];
+  const labels: string[] = [];
+  const DOW = ["日", "月", "火", "水", "木", "金", "土"];
+
+  let days = 0;
+  if (mode === "2week") days = 14;
+  else if (mode === "month") days = 31;
+  else days = 90;
+
   for (let i = 0; i < days; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
+    const d = new Date(baseDate);
+    d.setDate(baseDate.getDate() + i);
     const mm = d.getMonth() + 1;
     const dd = d.getDate();
-    const dow = ["日", "月", "火", "水", "木", "金", "土"][d.getDay()] ?? "";
-    labels.push(`${mm}/${dd}${dow}`);
+    const dow = DOW[d.getDay()] ?? "";
     dates.push(d.toISOString().slice(0, 10));
+    labels.push(`${mm}/${dd}${dow}`);
   }
-  return { from: dates[0]!, to: dates[dates.length - 1]!, labels, dates };
+  return { dates, labels };
 }
 
-const RANGE_OPTIONS = [
-  { label: "14日", days: 14 },
-  { label: "30日", days: 30 },
-  { label: "90日", days: 90 },
-] as const;
+function formatMonthLabel(d: Date): string {
+  return `${d.getFullYear()}年${d.getMonth() + 1}月`;
+}
 
 // ----------------------------------------------------------------
 // メインコンポーネント
@@ -95,18 +97,26 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
   const [grid, setGrid] = useState<PricingCellOut[]>([]);
   const [recommendations, setRecommendations] = useState<RecommendationOut[]>([]);
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [editRec, setEditRec] = useState<RecommendationOut | null>(null);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
   const [aiSummary, setAiSummary] = useState<PricingAiSummaryOut | null>(null);
-  const [displayDays, setDisplayDays] = useState<14 | 30 | 90>(30);
   const [showRecPanel, setShowRecPanel] = useState(false);
 
-  // セル状態追跡: "rtId_date" → CellState
-  const [cellStates, setCellStates] = useState<Map<string, CellState>>(new Map());
-  // 承認済みセルのセット
-  const [approvedCells] = useState<Set<string>>(new Set());
+  // 月ナビゲーション
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [baseDate, setBaseDate] = useState(() => {
+    const d = new Date();
+    d.setDate(1); // 月初から開始
+    return d;
+  });
 
-  const { from, to, labels, dates } = getDateRange(displayDays);
+  // セル状態追跡
+  const [cellStates, setCellStates] = useState<Map<string, CellState>>(new Map());
+
+  const { dates, labels } = buildDateWindow(baseDate, viewMode);
+  const from = dates[0] ?? "";
+  const to = dates[dates.length - 1] ?? "";
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -121,10 +131,10 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
       setGrid(cells);
       setAiSummary(summary);
 
-      // pendingが0件のときは自動生成
+      // pending 0件のときだけ自動生成（日次バッチが動いていない場合の保険）
       if (recs.length === 0) {
         try {
-          const generated = await generateRecommendations(propertyId, displayDays);
+          const generated = await generateRecommendations(propertyId, 90);
           setRecommendations(generated.filter(r => r.status === "pending"));
         } catch {
           setRecommendations([]);
@@ -137,7 +147,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
     } finally {
       setLoading(false);
     }
-  }, [propertyId, from, to, displayDays]);
+  }, [propertyId, from, to]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -153,7 +163,6 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
     const key = `${roomTypeId}_${dateStr}`;
     const userState = cellStates.get(key);
     if (userState) return userState;
-    if (approvedCells.has(key)) return "approved";
     if (recMap.has(key)) return "ai";
     return "default";
   };
@@ -161,6 +170,8 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
   const openEdit = (rt: RoomTypeOut, dateStr: string, label: string) => {
     const cell = getCell(rt.id, dateStr);
     if (!cell) return;
+    const rec = recMap.get(`${rt.id}_${dateStr}`) ?? null;
+    setEditRec(rec);
     setEditTarget({
       roomType: rt.name,
       date: label,
@@ -191,9 +202,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
         next[idx] = updatedCell;
         return next;
       });
-      // ユーザー手動変更として記録
-      const key = `${rt.id}_${dateStr}`;
-      setCellStates(prev => new Map(prev).set(key, "user"));
+      setCellStates(prev => new Map(prev).set(`${rt.id}_${dateStr}`, "user"));
     } catch (e) {
       console.error("Failed to save pricing cell", e);
     }
@@ -203,9 +212,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
     try {
       await actOnRecommendation(propertyId, recId, { action: "approved" });
       setRecommendations(prev => prev.filter(r => r.id !== recId));
-      // 承認済みとしてセル状態を更新
-      const key = `${rec.room_type_id}_${rec.target_date}`;
-      setCellStates(prev => new Map(prev).set(key, "approved"));
+      setCellStates(prev => new Map(prev).set(`${rec.room_type_id}_${rec.target_date}`, "approved"));
       await loadData();
     } catch (e) {
       console.error("Failed to approve", e);
@@ -248,16 +255,33 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
     document.body.removeChild(a);
   };
 
-  const handleRefreshRecs = async () => {
-    try {
-      const generated = await generateRecommendations(propertyId, displayDays);
-      setRecommendations(generated.filter(r => r.status === "pending"));
-    } catch (e) {
-      console.error("Failed to refresh recommendations", e);
-    }
+  // 月ナビゲーション
+  const goToPrev = () => {
+    const d = new Date(baseDate);
+    if (viewMode === "month") d.setMonth(d.getMonth() - 1);
+    else if (viewMode === "3month") d.setMonth(d.getMonth() - 3);
+    else d.setDate(d.getDate() - 14);
+    setBaseDate(d);
+  };
+
+  const goToNext = () => {
+    const d = new Date(baseDate);
+    if (viewMode === "month") d.setMonth(d.getMonth() + 1);
+    else if (viewMode === "3month") d.setMonth(d.getMonth() + 3);
+    else d.setDate(d.getDate() + 14);
+    setBaseDate(d);
+  };
+
+  const goToToday = () => {
+    const d = new Date();
+    if (viewMode === "month") d.setDate(1);
+    setBaseDate(d);
   };
 
   const pendingCount = recommendations.length;
+
+  // 3monthモード: セルをより小さく表示
+  const isCompact = viewMode === "3month";
 
   return (
     <div>
@@ -271,24 +295,49 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
       ================================================================ */}
       <div className="yl-card overflow-hidden mb-5">
         {/* ヘッダー */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900">
-              価格・在庫管理（{displayDays}日間）
-            </h3>
-            <p className="text-xs text-gray-400">
-              セルをクリックして編集。セルの状態は右上のドットで確認できます
-            </p>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 gap-3">
+          <div className="flex items-center gap-3">
+            {/* 月ナビゲーション */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={goToPrev}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 cursor-pointer"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-sm font-semibold text-gray-900 min-w-[120px] text-center">
+                {viewMode === "2week"
+                  ? `${labels[0]} 〜 ${labels[labels.length - 1]}`
+                  : formatMonthLabel(baseDate)}
+              </span>
+              <button
+                onClick={goToNext}
+                className="w-7 h-7 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 cursor-pointer"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <button
+              onClick={goToToday}
+              className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 cursor-pointer flex items-center gap-1"
+            >
+              <CalendarDays className="w-3 h-3" />今月
+            </button>
           </div>
+
           <div className="flex items-center gap-2">
-            {/* 期間セレクター */}
+            {/* 表示モード */}
             <div className="flex gap-0.5 bg-gray-100 p-0.5 rounded-lg">
-              {RANGE_OPTIONS.map(opt => (
+              {([
+                { mode: "2week" as ViewMode, label: "2週" },
+                { mode: "month" as ViewMode, label: "1ヶ月" },
+                { mode: "3month" as ViewMode, label: "3ヶ月" },
+              ]).map(opt => (
                 <button
-                  key={opt.days}
-                  onClick={() => setDisplayDays(opt.days)}
+                  key={opt.mode}
+                  onClick={() => setViewMode(opt.mode)}
                   className={`text-xs px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                    displayDays === opt.days
+                    viewMode === opt.mode
                       ? "bg-white text-gray-800 font-semibold shadow-sm"
                       : "text-gray-500 hover:text-gray-700"
                   }`}
@@ -297,19 +346,13 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
                 </button>
               ))}
             </div>
-            <button onClick={handleExport} className="flex items-center gap-1 text-xs border border-gray-200 rounded px-2.5 py-1 text-gray-600 hover:bg-gray-50">
+            <button onClick={handleExport} className="flex items-center gap-1 text-xs border border-gray-200 rounded px-2.5 py-1 text-gray-600 hover:bg-gray-50 cursor-pointer">
               <Download className="w-3 h-3" /> CSV
-            </button>
-            <button
-              onClick={handleRefreshRecs}
-              className="flex items-center gap-1.5 text-xs bg-violet-600 text-white rounded px-3 py-1 font-medium hover:bg-violet-700"
-            >
-              <Bot className="w-3 h-3" /> AI推奨を更新
             </button>
             <button
               onClick={handleApply}
               disabled={applying}
-              className="text-xs bg-[#1E3A8A] text-white rounded px-3 py-1 font-medium hover:bg-[#1e3070] disabled:opacity-50"
+              className="text-xs bg-[#1E3A8A] text-white rounded px-3 py-1 font-medium hover:bg-[#1e3070] disabled:opacity-50 cursor-pointer"
             >
               {applying ? "適用中..." : "Apply"}
             </button>
@@ -333,8 +376,8 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
             <div className="w-2 h-2 rounded-full bg-slate-200" />
             <span className="text-[10px] text-slate-400">デフォルト</span>
           </div>
-          <span className="ml-2 text-[10px] text-slate-400">
-            ランク：1=最高値 / 20=最安値（TL-Lincoln互換）
+          <span className="ml-auto text-[10px] text-slate-400">
+            ランク 1=最高値 / 20=最安値（TL-Lincoln互換）
           </span>
         </div>
 
@@ -346,19 +389,22 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-4 py-2 text-gray-500 font-medium sticky left-0 bg-gray-50 min-w-[160px] z-10">
+                  <th className="text-left px-4 py-2 text-gray-500 font-medium sticky left-0 bg-gray-50 min-w-[140px] z-10">
                     部屋タイプ
                   </th>
                   {labels.map((d, i) => {
                     const isWeekend = d.endsWith("土") || d.endsWith("日");
+                    const isToday = dates[i] === new Date().toISOString().slice(0, 10);
                     const hasRec = recommendations.some(r => r.target_date === dates[i]);
                     return (
                       <th key={d} className={cn(
-                        "px-1.5 py-2 text-center text-gray-500 font-medium min-w-[72px]",
-                        isWeekend && "text-red-500",
+                        "py-2 text-center text-gray-500 font-medium",
+                        isCompact ? "px-0.5 min-w-[52px]" : "px-1.5 min-w-[68px]",
+                        isWeekend && "text-red-400",
+                        isToday && "bg-blue-50",
                       )}>
                         <div className="flex flex-col items-center gap-0.5">
-                          <span>{d}</span>
+                          <span className={cn("text-[10px]", isToday && "font-bold text-blue-600")}>{d}</span>
                           {hasRec && (
                             <div className="w-1 h-1 rounded-full bg-violet-400" title="AI提案あり" />
                           )}
@@ -371,9 +417,9 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
               <tbody>
                 {roomTypes.map((rt) => (
                   <tr key={rt.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                    <td className="px-4 py-2 text-gray-700 font-medium sticky left-0 bg-white z-10">
-                      <div>{rt.name}</div>
-                      <div className="text-gray-400">総室数: {rt.total_rooms}</div>
+                    <td className="px-4 py-1.5 text-gray-700 font-medium sticky left-0 bg-white z-10">
+                      <div className="text-xs">{rt.name}</div>
+                      {!isCompact && <div className="text-[10px] text-gray-400">計{rt.total_rooms}室</div>}
                     </td>
                     {dates.map((dateStr, i) => {
                       const cell = getCell(rt.id, dateStr);
@@ -383,50 +429,56 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
                       const state = getCellState(rt.id, dateStr);
                       const rec = recMap.get(`${rt.id}_${dateStr}`);
                       const meta = CELL_STATE_META[state];
+                      const isToday = dates[i] === new Date().toISOString().slice(0, 10);
 
                       return (
                         <td
                           key={dateStr}
                           onClick={() => openEdit(rt, dateStr, labels[i]!)}
                           className={cn(
-                            "px-1.5 py-1.5 text-center cursor-pointer hover:ring-2 hover:ring-inset hover:ring-blue-200 transition-all relative",
+                            "py-1 text-center cursor-pointer hover:ring-2 hover:ring-inset hover:ring-blue-200 transition-all relative",
+                            isCompact ? "px-0.5" : "px-1",
                             meta.bgClass,
+                            isToday && "ring-1 ring-inset ring-blue-200",
                           )}
                         >
-                          {/* 状態ドット（右上角） */}
+                          {/* 状態ドット */}
                           {state !== "default" && (
                             <div
-                              className={cn(
-                                "absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full",
-                                meta.dotColor,
-                              )}
+                              className={cn("absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full", meta.dotColor)}
                               title={meta.badgeLabel}
                             />
                           )}
 
                           <div className="flex flex-col items-center gap-0.5">
-                            {/* ランク番号バッジ */}
+                            {/* ランク番号 */}
                             <span className={cn(
-                              "text-[10px] px-1.5 py-0.5 rounded font-bold leading-none",
+                              "rounded font-bold leading-none",
+                              isCompact ? "text-[9px] px-1 py-0.5" : "text-[10px] px-1.5 py-0.5",
                               getRankColor(level),
                             )}>
                               {level}
                             </span>
                             {/* 価格 */}
-                            <span className="text-gray-800 font-medium text-[11px]">
+                            <span className={cn(
+                              "text-gray-800 font-medium",
+                              isCompact ? "text-[9px]" : "text-[11px]"
+                            )}>
                               ¥{Math.floor(price / 1000)}K
                             </span>
-                            {/* 在庫 */}
-                            <span className={cn(
-                              "text-[10px]",
-                              stock <= 3 ? "text-red-500 font-semibold" :
-                              stock <= 5 ? "text-orange-500 font-medium" :
-                              "text-gray-400"
-                            )}>
-                              残{stock}
-                            </span>
-                            {/* AI提案の場合：推奨値を小さく表示 */}
-                            {rec && state === "ai" && (
+                            {/* 在庫（compactは非表示） */}
+                            {!isCompact && (
+                              <span className={cn(
+                                "text-[10px]",
+                                stock <= 3 ? "text-red-500 font-semibold" :
+                                stock <= 5 ? "text-orange-500 font-medium" :
+                                "text-gray-400"
+                              )}>
+                                残{stock}
+                              </span>
+                            )}
+                            {/* AI提案の推奨値 */}
+                            {rec && state === "ai" && !isCompact && (
                               <span className="text-[9px] text-violet-600 leading-none">
                                 → {rec.recommended_bar_level}
                               </span>
@@ -444,7 +496,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
 
         <div className="px-5 py-2 border-t border-gray-100 flex items-center justify-between">
           <p className="text-xs text-gray-400">
-            ※ セルをクリックすると価格・在庫・ランクを編集できます。変更後は「Apply」で一斉反映。
+            セルをクリックして編集 → AI推奨がある場合は理由も確認できます。確定後「Apply」で反映。
           </p>
           {pendingCount > 0 && (
             <span className="text-xs text-violet-600 font-medium">
@@ -461,7 +513,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
       <div className="yl-card overflow-hidden">
         <button
           onClick={() => setShowRecPanel(v => !v)}
-          className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50/50 transition-colors"
+          className="w-full flex items-center justify-between px-5 py-3 hover:bg-slate-50/50 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-2">
             <Bot className="w-4 h-4 text-violet-600" />
@@ -476,7 +528,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
             {showRecPanel && pendingCount > 0 && (
               <button
                 onClick={(e) => { e.stopPropagation(); handleApproveAll(); }}
-                className="text-xs bg-gray-900 text-white rounded px-3 py-1.5 hover:bg-gray-700 font-medium"
+                className="text-xs bg-gray-900 text-white rounded px-3 py-1.5 hover:bg-gray-700 font-medium cursor-pointer"
               >
                 一括承認
               </button>
@@ -491,9 +543,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
               <div className="text-center py-8 text-sm text-gray-400">
                 <Bot className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                 <p>承認待ちの提案はありません</p>
-                <button onClick={handleRefreshRecs} className="mt-2 text-xs text-violet-600 hover:underline flex items-center gap-1 mx-auto">
-                  <RefreshCw className="w-3 h-3" />AI推奨を再生成
-                </button>
+                <p className="text-xs mt-1 text-gray-300">AI推奨は毎日自動生成されます</p>
               </div>
             ) : (
               <div className="space-y-2.5">
@@ -537,13 +587,13 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <button
                           onClick={() => handleReject(rec.id)}
-                          className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 border border-transparent hover:border-gray-200 rounded transition-colors"
+                          className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 border border-transparent hover:border-gray-200 rounded transition-colors cursor-pointer"
                         >
                           却下
                         </button>
                         <button
                           onClick={() => handleApprove(rec.id, rec)}
-                          className="flex items-center gap-1 text-xs bg-violet-600 text-white rounded px-2.5 py-1.5 hover:bg-violet-700 font-medium"
+                          className="flex items-center gap-1 text-xs bg-violet-600 text-white rounded px-2.5 py-1.5 hover:bg-violet-700 font-medium cursor-pointer"
                         >
                           <CheckCircle2 className="w-3 h-3" />承認
                         </button>
@@ -559,8 +609,9 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
 
       <PriceEditModal
         target={editTarget}
-        onClose={() => setEditTarget(null)}
+        onClose={() => { setEditTarget(null); setEditRec(null); }}
         onSave={handleSave}
+        recommendation={editRec}
       />
     </div>
   );
