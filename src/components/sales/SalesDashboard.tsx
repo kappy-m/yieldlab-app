@@ -108,7 +108,7 @@ export function SalesDashboard({ propertyId: _propertyId }: { propertyId: number
               <XAxis dataKey="stage" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} unit="万" />
               <Tooltip
-                formatter={(v: number) => [`¥${v}万`, "金額"]}
+                formatter={(v: number | undefined) => [`¥${v ?? 0}万`, "金額"]}
                 contentStyle={{ borderRadius: "8px", border: "1px solid #e2e8f0", fontSize: "12px" }}
               />
               <Bar dataKey="amount" fill="#1E3A8A" radius={[4, 4, 0, 0]} />

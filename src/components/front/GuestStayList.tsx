@@ -252,9 +252,9 @@ export function GuestStayList({ propertyId }: GuestStayListProps) {
     } finally {
       setLoading(false);
     }
-  }, [propertyId, view, search, refreshKey]);
+  }, [propertyId, view, search]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData, refreshKey]);
 
   const handleStatusChange = async (stayId: number, newStatus: string) => {
     try {
