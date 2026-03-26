@@ -68,6 +68,9 @@ function buildDateWindow(baseDate: Date, mode: ViewMode): { dates: string[]; lab
   const labels: string[] = [];
   const DOW = ["日", "月", "火", "水", "木", "金", "土"];
 
+  // 今日の日付文字列（比較用）
+  const todayStr = new Date().toISOString().slice(0, 10);
+
   let days = 0;
   if (mode === "2week") days = 14;
   else if (mode === "month") days = 31;
@@ -76,10 +79,13 @@ function buildDateWindow(baseDate: Date, mode: ViewMode): { dates: string[]; lab
   for (let i = 0; i < days; i++) {
     const d = new Date(baseDate);
     d.setDate(baseDate.getDate() + i);
+    const dateStr = d.toISOString().slice(0, 10);
+    // 過去日は非表示
+    if (dateStr < todayStr) continue;
     const mm = d.getMonth() + 1;
     const dd = d.getDate();
     const dow = DOW[d.getDay()] ?? "";
-    dates.push(d.toISOString().slice(0, 10));
+    dates.push(dateStr);
     labels.push(`${mm}/${dd}${dow}`);
   }
   return { dates, labels };
