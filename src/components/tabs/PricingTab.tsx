@@ -392,10 +392,17 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
           <div className="flex items-center justify-center h-32 text-sm text-gray-400">読み込み中...</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            {/* w-auto + 固定列幅: 日付数に関わらずセル幅を一定に保つ */}
+            <table className="text-xs border-collapse" style={{ tableLayout: "fixed", width: "auto" }}>
+              <colgroup>
+                <col style={{ width: "152px" }} />
+                {dates.map(d => (
+                  <col key={d} style={{ width: isCompact ? "60px" : "76px" }} />
+                ))}
+              </colgroup>
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-4 py-2 text-gray-500 font-medium sticky left-0 bg-gray-50 min-w-[140px] z-10">
+                  <th className="text-left px-4 py-2 text-gray-500 font-medium sticky left-0 bg-gray-50 z-10">
                     部屋タイプ
                   </th>
                   {labels.map((d, i) => {
@@ -405,7 +412,6 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
                     return (
                       <th key={d} className={cn(
                         "py-2 text-center text-gray-500 font-medium",
-                        isCompact ? "px-0.5 min-w-[52px]" : "px-1.5 min-w-[68px]",
                         isWeekend && "text-red-400",
                         isToday && "bg-blue-50",
                       )}>
@@ -423,8 +429,8 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
               <tbody>
                 {roomTypes.map((rt) => (
                   <tr key={rt.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                    <td className="px-4 py-1.5 text-gray-700 font-medium sticky left-0 bg-white z-10">
-                      <div className="text-xs">{rt.name}</div>
+                    <td className="px-4 py-1.5 text-gray-700 font-medium sticky left-0 bg-white z-10 truncate">
+                      <div className="text-xs truncate">{rt.name}</div>
                       {!isCompact && <div className="text-[10px] text-gray-400">計{rt.total_rooms}室</div>}
                     </td>
                     {dates.map((dateStr, i) => {
