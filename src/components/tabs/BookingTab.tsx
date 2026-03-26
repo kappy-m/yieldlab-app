@@ -143,8 +143,6 @@ function PickupTable({ heatmap, visibleDates }: { heatmap: BookingHeatmapOut; vi
 // 180日稼働見通しカレンダー（月別ヒートマップ）
 // ----------------------------------------------------------------
 function OccupancyForecastCalendar({ monthly }: { monthly: MonthlyOnhandOut[] }) {
-  // 6ヶ月分のデータを週別バーチャートで表示
-  const maxOcc = Math.max(...monthly.map(m => m.occupancy_pct), 1);
 
   return (
     <div className="yl-card overflow-hidden">
@@ -159,7 +157,6 @@ function OccupancyForecastCalendar({ monthly }: { monthly: MonthlyOnhandOut[] })
         <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
           {monthly.map((m) => {
             const occ = m.occupancy_pct;
-            const barPct = Math.round((occ / maxOcc) * 100);
             const color =
               occ >= 85 ? "bg-red-400" :
               occ >= 70 ? "bg-orange-400" :
@@ -171,21 +168,25 @@ function OccupancyForecastCalendar({ monthly }: { monthly: MonthlyOnhandOut[] })
               occ >= 55 ? "text-green-600" :
               occ >= 40 ? "text-blue-600" : "text-slate-400";
 
+            // 表示用: 0-100%にクランプ（256%超など異常値対応）
+            const displayBarPct = Math.min(occ, 100);
+
             return (
-              <div key={`${m.year}-${m.month}`} className="flex flex-col items-center gap-2">
-                {/* 月ラベル */}
-                <div className="text-center">
+              <div key={`${m.year}-${m.month}`} className="flex flex-col gap-2">
+                {/* 月ラベル（固定高さでカラム揃え） */}
+                <div className="h-10 flex flex-col justify-end items-center">
                   <p className="text-[10px] text-slate-400 leading-tight">{m.year}</p>
                   <p className="text-xs font-semibold text-slate-700">{m.month}月</p>
-                  {m.is_actual && (
-                    <span className="text-[9px] text-slate-400 bg-slate-100 px-1 py-0.5 rounded">実績</span>
-                  )}
+                  {m.is_actual
+                    ? <span className="text-[9px] text-slate-400 bg-slate-100 px-1 py-0.5 rounded mt-0.5">実績</span>
+                    : <span className="text-[9px] text-transparent px-1 py-0.5 mt-0.5 select-none">-</span>
+                  }
                 </div>
-                {/* バー */}
+                {/* バー（absolute bottom-0 で底揃え） */}
                 <div className="w-full h-16 bg-slate-100 rounded-lg overflow-hidden relative">
                   <div
                     className={cn("absolute bottom-0 left-0 right-0 rounded-t-sm transition-all duration-300", color)}
-                    style={{ height: `${Math.max(barPct, 8)}%` }}
+                    style={{ height: `${Math.max(displayBarPct, 6)}%` }}
                   />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className={cn("text-xs font-bold relative z-10", textColor)}>{occ}%</span>

@@ -257,11 +257,11 @@ async def _auto_seed_users_if_empty():
     from .models.organization import Organization
     from sqlalchemy import select
 
-    # ユーザーが既存でもproduct_rolesが空なら補完する
+        # ユーザーが既存でもproduct_rolesが空なら補完する
     if user_count > 0 and role_count == 0 and org_count > 0:
         async with AsyncSessionLocal() as db:
             users = (await db.execute(select(User).order_by(User.id))).scalars().all()
-            all_products = ["yield", "manage", "review", "reservation"]
+            all_products = ["yield", "manage", "review", "reservation", "sales"]
 
             for user in users:
                 if user.role == "admin":
@@ -270,6 +270,7 @@ async def _auto_seed_users_if_empty():
                 elif user.role == "revenue_manager":
                     db.add(UserProductRole(user_id=user.id, product_code="yield",  role="editor"))
                     db.add(UserProductRole(user_id=user.id, product_code="review", role="viewer"))
+                    db.add(UserProductRole(user_id=user.id, product_code="sales",  role="editor"))
                 else:
                     db.add(UserProductRole(user_id=user.id, product_code="yield", role="viewer"))
 
@@ -303,13 +304,14 @@ async def _auto_seed_users_if_empty():
         await db.flush()
 
         # 管理者: 全プロダクトに admin 権限
-        all_products = ["yield", "manage", "review", "reservation"]
+        all_products = ["yield", "manage", "review", "reservation", "sales"]
         for product_code in all_products:
             db.add(UserProductRole(user_id=demo_users[0].id, product_code=product_code, role="admin"))
 
-        # レベニューマネージャー: yield (editor) + review (viewer)
+        # レベニューマネージャー: yield + review + sales
         db.add(UserProductRole(user_id=demo_users[1].id, product_code="yield",  role="editor"))
         db.add(UserProductRole(user_id=demo_users[1].id, product_code="review", role="viewer"))
+        db.add(UserProductRole(user_id=demo_users[1].id, product_code="sales",  role="editor"))
 
         # 閲覧ユーザー: yield のみ viewer
         db.add(UserProductRole(user_id=demo_users[2].id, product_code="yield", role="viewer"))
@@ -692,6 +694,36 @@ async def reseed_users(_: None = Depends(_verify_admin)):
     async with engine.connect() as conn:
         count = (await conn.execute(sa_text("SELECT COUNT(*) FROM users"))).scalar()
     return {"status": "ok", "users": count}
+
+
+@app.post("/admin/add-sales-role")
+async def add_sales_role(_: None = Depends(_verify_admin)):
+    """既存ユーザーに sales product_role を付与する（Sales プロダクト追加時の移行用）"""
+    from sqlalchemy import select
+    from .database import AsyncSessionLocal
+    from .models.user import User
+    from .models.user_product_role import UserProductRole
+
+    async with AsyncSessionLocal() as db:
+        users = (await db.execute(select(User).order_by(User.id))).scalars().all()
+        added = 0
+        for user in users:
+            existing = (await db.execute(
+                select(UserProductRole).where(
+                    UserProductRole.user_id == user.id,
+                    UserProductRole.product_code == "sales"
+                )
+            )).scalar_one_or_none()
+            if existing:
+                continue
+            if user.role == "admin":
+                db.add(UserProductRole(user_id=user.id, product_code="sales", role="admin"))
+                added += 1
+            elif user.role == "revenue_manager":
+                db.add(UserProductRole(user_id=user.id, product_code="sales", role="editor"))
+                added += 1
+        await db.commit()
+    return {"status": "ok", "added": added}
 
 
 @app.post("/admin/seed-new-tables")

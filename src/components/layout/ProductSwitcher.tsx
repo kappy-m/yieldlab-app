@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { TrendingUp, Building2, Star, Calendar } from "lucide-react";
+import { TrendingUp, Building2, Star, Calendar, Briefcase } from "lucide-react";
 
 const PRODUCTS = [
   {
@@ -33,6 +33,13 @@ const PRODUCTS = [
     icon: Calendar,
     href: "/reservation",
     description: "予約管理",
+  },
+  {
+    code: "sales",
+    label: "Sales",
+    icon: Briefcase,
+    href: "/sales",
+    description: "法人営業・グループ管理",
   },
 ] as const;
 

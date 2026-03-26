@@ -423,6 +423,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
                     </td>
                     {dates.map((dateStr, i) => {
                       const cell = getCell(rt.id, dateStr);
+                      const isNotOnSale = !cell; // DBにセルが存在しない = 販売開始前
                       const level = cell?.bar_level ?? "10";
                       const price = cell?.price ?? 0;
                       const stock = cell?.available_rooms ?? 0;
@@ -430,6 +431,35 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
                       const rec = recMap.get(`${rt.id}_${dateStr}`);
                       const meta = CELL_STATE_META[state];
                       const isToday = dates[i] === new Date().toISOString().slice(0, 10);
+
+                      // 販売開始前セル
+                      if (isNotOnSale) {
+                        return (
+                          <td
+                            key={dateStr}
+                            className={cn(
+                              "py-1 text-center relative",
+                              isCompact ? "px-0.5" : "px-1",
+                              isToday && "ring-1 ring-inset ring-blue-100",
+                            )}
+                          >
+                            <div className="flex flex-col items-center justify-center h-full gap-0.5 py-1">
+                              <div className={cn(
+                                "text-slate-300 font-medium leading-tight text-center",
+                                isCompact ? "text-[8px]" : "text-[9px]"
+                              )}>
+                                販売
+                              </div>
+                              <div className={cn(
+                                "text-slate-300 font-medium leading-tight text-center",
+                                isCompact ? "text-[8px]" : "text-[9px]"
+                              )}>
+                                開始前
+                              </div>
+                            </div>
+                          </td>
+                        );
+                      }
 
                       return (
                         <td

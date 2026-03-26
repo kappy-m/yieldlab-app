@@ -11,6 +11,7 @@ const PRODUCT_LABELS: Record<string, string> = {
   manage: "front",
   review: "review",
   reservation: "reservation",
+  sales: "sales",
 };
 
 interface Property {
