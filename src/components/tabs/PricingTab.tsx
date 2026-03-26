@@ -392,8 +392,14 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
           <div className="flex items-center justify-center h-32 text-sm text-gray-400">読み込み中...</div>
         ) : (
           <div className="overflow-x-auto">
-            {/* w-auto + 固定列幅: 日付数に関わらずセル幅を一定に保つ */}
-            <table className="text-xs border-collapse" style={{ tableLayout: "fixed", width: "auto" }}>
+            {/* 日付列数 × 固定幅 + 部屋タイプ列幅 = 合計幅を明示。overflow-x-auto でスクロール */}
+            <table
+              className="text-xs border-collapse"
+              style={{
+                tableLayout: "fixed",
+                width: `${152 + dates.length * (isCompact ? 60 : 76)}px`,
+              }}
+            >
               <colgroup>
                 <col style={{ width: "152px" }} />
                 {dates.map(d => (
