@@ -27,7 +27,7 @@ export default function ReservationPage() {
           }}
         />
 
-        <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as ResTabId)} />
+        <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as ResTabId)} equalWidth />
 
         <main className="max-w-[1200px] mx-auto px-6 py-5">
           {activeTab === "reservations" && (

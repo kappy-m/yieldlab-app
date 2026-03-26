@@ -30,7 +30,7 @@ export default function ReviewPage() {
         }}
       />
 
-      <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as ReviewTabId)} />
+      <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as ReviewTabId)} equalWidth />
 
       {/* コンテンツ */}
       <main className="max-w-[1400px] mx-auto px-6 py-5">

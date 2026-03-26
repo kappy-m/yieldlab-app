@@ -30,7 +30,7 @@ export default function SalesPage() {
           setActiveTab("dashboard");
         }}
       />
-      <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as SalesTabId)} />
+      <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as SalesTabId)} equalWidth />
       <main className="px-6 py-6 max-w-7xl mx-auto">
         {activeTab === "dashboard" && <SalesDashboard propertyId={propertyId} />}
         {activeTab === "leads"     && <SalesLeads     propertyId={propertyId} />}

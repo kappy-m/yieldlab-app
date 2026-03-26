@@ -27,7 +27,7 @@ export default function ManagePage() {
           }}
         />
 
-        <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as FrontTabId)} />
+        <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as FrontTabId)} equalWidth />
 
         <main className="max-w-[1200px] mx-auto px-6 py-5">
           {activeTab === "front-desk" && (

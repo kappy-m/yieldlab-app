@@ -15,6 +15,11 @@ interface TabNavBarProps {
   tabs: TabItem[];
   activeTab: string;
   onTabChange: (id: string) => void;
+  /**
+   * true: タブ数が少ない（2〜4個）場合の等幅モード（セグメントコントロール風）
+   * false（デフォルト）: 自然幅＋最小幅モード（タブ数が多い場合向け）
+   */
+  equalWidth?: boolean;
 }
 
 /**
@@ -27,7 +32,7 @@ interface TabNavBarProps {
  *   - インジケーター: h-0.5 scale-y transition
  *   - nav左余白: px-4
  */
-export function TabNavBar({ tabs, activeTab, onTabChange }: TabNavBarProps) {
+export function TabNavBar({ tabs, activeTab, onTabChange, equalWidth = false }: TabNavBarProps) {
   const leftTabs = tabs.filter((t) => !t.alignRight);
   const rightTabs = tabs.filter((t) => t.alignRight);
 
@@ -37,7 +42,13 @@ export function TabNavBar({ tabs, activeTab, onTabChange }: TabNavBarProps) {
         {/* 左側タブ群 */}
         <div className="flex items-center">
           {leftTabs.map((tab) => (
-            <TabButton key={tab.id} tab={tab} isActive={activeTab === tab.id} onClick={onTabChange} />
+            <TabButton
+              key={tab.id}
+              tab={tab}
+              isActive={activeTab === tab.id}
+              onClick={onTabChange}
+              equalWidth={equalWidth}
+            />
           ))}
         </div>
 
@@ -45,7 +56,13 @@ export function TabNavBar({ tabs, activeTab, onTabChange }: TabNavBarProps) {
         {rightTabs.length > 0 && (
           <div className="flex items-center ml-2">
             {rightTabs.map((tab) => (
-              <TabButton key={tab.id} tab={tab} isActive={activeTab === tab.id} onClick={onTabChange} />
+              <TabButton
+                key={tab.id}
+                tab={tab}
+                isActive={activeTab === tab.id}
+                onClick={onTabChange}
+                equalWidth={false}
+              />
             ))}
           </div>
         )}
@@ -58,22 +75,22 @@ interface TabButtonProps {
   tab: TabItem;
   isActive: boolean;
   onClick: (id: string) => void;
+  equalWidth: boolean;
 }
 
-function TabButton({ tab, isActive, onClick }: TabButtonProps) {
+function TabButton({ tab, isActive, onClick, equalWidth }: TabButtonProps) {
   const Icon = tab.icon;
   return (
     <button
       onClick={() => onClick(tab.id)}
       className={cn(
-        // ── 固定幅・中央揃え ──────────────────────────────────────────
         "relative flex items-center justify-center gap-1.5",
-        "min-w-[110px] px-4 py-3",
-        // ── テキスト ──────────────────────────────────────────────────
+        "py-3 px-4",
+        // equalWidth: 等幅モード（タブ数が少ない場合）
+        // 通常: 自然幅＋最小幅（タブ数が多い場合）
+        equalWidth ? "w-[140px]" : "min-w-[110px]",
         "text-sm font-medium whitespace-nowrap text-center",
-        // ── トランジション ────────────────────────────────────────────
         "transition-colors duration-150 cursor-pointer",
-        // ── アクティブ / 非アクティブ ──────────────────────────────────
         isActive
           ? "text-[#1E3A8A]"
           : "text-slate-500 hover:text-slate-700 hover:bg-slate-50/80 rounded-t"
