@@ -672,6 +672,9 @@ async def reset_seed(_: None = Depends(_verify_admin)):
             await conn.run_sync(models.Base.metadata.create_all)
         from .seed_runner import run_seed
         await run_seed()
+        # ユーザー・ロール・イベントエリアも再作成
+        await _auto_seed_users_if_empty()
+        await _auto_seed_canvas_event_area()
         _logger.info("[Admin] reset-seed completed")
         return {"status": "reset_complete"}
     except Exception as e:
@@ -679,6 +682,16 @@ async def reset_seed(_: None = Depends(_verify_admin)):
         _logger.error(f"[Admin] reset-seed FAILED: {err}")
         from fastapi import HTTPException
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/admin/reseed-users")
+async def reseed_users(_: None = Depends(_verify_admin)):
+    """ユーザーが0件の場合にデモユーザーを再投入する（reset-seed後の復旧用）"""
+    from sqlalchemy import text as sa_text
+    await _auto_seed_users_if_empty()
+    async with engine.connect() as conn:
+        count = (await conn.execute(sa_text("SELECT COUNT(*) FROM users"))).scalar()
+    return {"status": "ok", "users": count}
 
 
 @app.post("/admin/seed-new-tables")
