@@ -26,11 +26,11 @@ interface TabNavBarProps {
  * 全プロダクト共通のタブナビゲーション。
  * 統一規格:
  *   - ボタン幅: min-w-[110px] + text-center（短ラベルも最小幅を確保）
- *   - パディング: px-4 py-3
+ *   - ボタンパディング: px-4 py-3
  *   - フォント: text-sm font-medium
  *   - アクティブ色: #1E3A8A（Yieldlab Navy）
  *   - インジケーター: h-0.5 scale-y transition
- *   - nav左余白: px-4
+ *   - nav左余白: px-6（DashboardHeader の px-6 と揃える）
  */
 export function TabNavBar({ tabs, activeTab, onTabChange, equalWidth = false }: TabNavBarProps) {
   const leftTabs = tabs.filter((t) => !t.alignRight);

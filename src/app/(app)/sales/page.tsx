@@ -31,7 +31,7 @@ export default function SalesPage() {
         }}
       />
       <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as SalesTabId)} equalWidth />
-      <main className="px-6 py-6 max-w-7xl mx-auto">
+      <main className="max-w-[1400px] mx-auto px-6 py-5">
         {activeTab === "dashboard" && <SalesDashboard propertyId={propertyId} />}
         {activeTab === "leads"     && <SalesLeads     propertyId={propertyId} />}
         {activeTab === "deals"     && <SalesDeals     propertyId={propertyId} />}
