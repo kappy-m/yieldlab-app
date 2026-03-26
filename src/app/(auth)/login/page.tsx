@@ -32,7 +32,7 @@ export default function LoginPage() {
         product_roles: res.product_roles,
       }));
       // アクセス可能な最初のプロダクトにリダイレクト
-      const productOrder = ["yield", "manage", "review", "reservation"] as const;
+      const productOrder = ["yield", "manage", "review", "reservation", "sales"] as const;
       const first = productOrder.find((p) => res.product_roles?.[p]) ?? "yield";
       router.replace(`/${first}`);
     } catch (err) {

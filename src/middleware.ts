@@ -6,6 +6,7 @@ const PRODUCT_PATHS: Record<string, string> = {
   manage: "/manage",
   review: "/review",
   reservation: "/reservation",
+  sales: "/sales",
 };
 
 // 認証不要なパス

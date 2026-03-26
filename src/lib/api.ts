@@ -36,7 +36,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 // ---- Auth ----
 
-export type ProductCode = "yield" | "manage" | "review" | "reservation";
+export type ProductCode = "yield" | "manage" | "review" | "reservation" | "sales";
 export type ProductRole = "admin" | "editor" | "viewer";
 
 export interface LoginResponse {
