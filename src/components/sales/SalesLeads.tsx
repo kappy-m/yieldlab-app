@@ -3,9 +3,50 @@
 import { useState } from "react";
 import {
   Plus, Search, Filter, Building2, Users, Mail, Phone,
-  ChevronRight, Calendar, MessageSquare, X, Send,
+  ChevronRight, Calendar, MessageSquare, X, Send, BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCurrentUser, getInitials } from "@/hooks/useCurrentUser";
+import type { SalesRole } from "@/lib/api";
+
+// ────────────────────────────────────────────────────────────────────────────
+// SalesRoleBadge — ロール表示バッジ
+// ────────────────────────────────────────────────────────────────────────────
+
+const SALES_ROLE_META: Record<SalesRole, { label: string; bg: string; text: string; border: string }> = {
+  sales_manager:    { label: "営業",    bg: "bg-amber-50",  text: "text-amber-700",  border: "border-amber-200" },
+  booking_staff:    { label: "予約担当", bg: "bg-blue-50",   text: "text-blue-700",   border: "border-blue-200" },
+  revenue_manager:  { label: "Revenue", bg: "bg-[#1E3A8A]/10", text: "text-[#1E3A8A]", border: "border-[#1E3A8A]/20" },
+};
+
+function SalesRoleBadge({ role }: { role: SalesRole }) {
+  const meta = SALES_ROLE_META[role];
+  return (
+    <span className={cn(
+      "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border",
+      meta.bg, meta.text, meta.border
+    )}>
+      {meta.label}
+    </span>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// AssigneeBadge — 担当者アバター
+// ────────────────────────────────────────────────────────────────────────────
+
+function LeadAssigneeBadge({ name }: { name: string }) {
+  const isUnassigned = !name || name === "未割当";
+  if (isUnassigned) return <span className="text-xs text-slate-400">— 未割当</span>;
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="w-5 h-5 rounded-full bg-[#1E3A8A] text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0">
+        {getInitials(name)}
+      </span>
+      <span className="text-xs text-slate-600">{name}</span>
+    </span>
+  );
+}
 
 type ClientType = "agency" | "direct";
 type LeadStatus = "new" | "responding" | "proposed" | "closed_won" | "closed_lost";
@@ -135,6 +176,15 @@ export function SalesLeads({ propertyId: _propertyId }: { propertyId: number }) 
   const [filterStatus, setFilterStatus] = useState<LeadStatus | "all">("all");
   const [filterType, setFilterType] = useState<ClientType | "all">("all");
   const [replyTarget, setReplyTarget] = useState<Lead | null>(null);
+  const { salesRole, user } = useCurrentUser();
+
+  /**
+   * ロールベースのアクション可否。
+   * salesRole が null（未設定 or 汎用ロール）の場合は全機能を表示して後方互換を維持。
+   */
+  const canCreateLead   = !salesRole || salesRole === "sales_manager";
+  const canConfirmBooking = !salesRole || salesRole === "booking_staff";
+  const canViewRevenue  = !salesRole || salesRole === "revenue_manager";
 
   const filtered = LEADS.filter((l) => {
     if (filterStatus !== "all" && l.status !== filterStatus) return false;
@@ -190,9 +240,31 @@ export function SalesLeads({ propertyId: _propertyId }: { propertyId: number }) 
               <option value="direct">直販</option>
             </select>
           </div>
-          <button className="flex items-center gap-1.5 bg-[#1E3A8A] text-white text-sm px-4 py-2 rounded-lg font-medium hover:bg-[#1e3070] cursor-pointer">
-            <Plus className="w-4 h-4" /> 新規リード
-          </button>
+
+          {/* ロールベースのアクションボタン */}
+          {canCreateLead && (
+            <button className="flex items-center gap-1.5 bg-[#1E3A8A] text-white text-sm px-4 py-2 rounded-lg font-medium hover:bg-[#1e3070] cursor-pointer">
+              <Plus className="w-4 h-4" /> 新規リード
+            </button>
+          )}
+          {canConfirmBooking && (
+            <button className="flex items-center gap-1.5 bg-blue-600 text-white text-sm px-4 py-2 rounded-lg font-medium hover:bg-blue-700 cursor-pointer">
+              <BookOpen className="w-4 h-4" /> 予約確定
+            </button>
+          )}
+          {canViewRevenue && (
+            <button className="flex items-center gap-1.5 bg-white border border-[#1E3A8A]/30 text-[#1E3A8A] text-sm px-4 py-2 rounded-lg font-medium hover:bg-[#1E3A8A]/5 cursor-pointer">
+              <span className="text-xs font-bold">¥</span> レート確認
+            </button>
+          )}
+
+          {/* 現在のロール表示 */}
+          {salesRole && user && (
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-xs text-slate-400">{user.name}</span>
+              <SalesRoleBadge role={salesRole} />
+            </div>
+          )}
         </div>
       </div>
 
@@ -243,7 +315,7 @@ export function SalesLeads({ propertyId: _propertyId }: { propertyId: number }) 
                   <td className="px-4 py-3">
                     <span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded">{lead.purpose}</span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-500">{lead.assignee}</td>
+                  <td className="px-4 py-3"><LeadAssigneeBadge name={lead.assignee} /></td>
                   <td className="px-4 py-3">
                     <span className={cn("text-xs px-2 py-1 rounded-full font-medium", statusMeta.color, statusMeta.bg)}>
                       {statusMeta.label}

@@ -82,6 +82,12 @@ export function InquiryListTab({ propertyId }: { propertyId: number }) {
     } catch { /* no-op */ }
   };
 
+  /** 担当者変更（ローカルstateのみ更新。将来は API PATCH /inquiries/{id}/assignee に変更） */
+  const handleAssigneeChange = (id: number, assignee: string) => {
+    setInquiries((prev) => prev.map((i) => i.id === id ? { ...i, assignee } : i));
+    setSelected((prev) => prev?.id === id ? { ...prev, assignee } : prev);
+  };
+
   const counts = useMemo(() => ({
     new:         inquiries.filter((i) => i.status === "new").length,
     in_progress: inquiries.filter((i) => i.status === "in_progress").length,
@@ -241,6 +247,7 @@ export function InquiryListTab({ propertyId }: { propertyId: number }) {
         onStatusChange={handleStatusChange}
         onPriorityChange={handlePriorityChange}
         onRespond={handleRespond}
+        onAssigneeChange={handleAssigneeChange}
         propertyId={propertyId}
       />
     </>

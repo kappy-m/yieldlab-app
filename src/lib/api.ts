@@ -39,6 +39,12 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 export type ProductCode = "yield" | "manage" | "review" | "reservation" | "sales";
 export type ProductRole = "admin" | "editor" | "viewer";
 
+/** Sales プロダクト専用の機能別ロール。汎用 ProductRole とは独立して定義する。 */
+export type SalesRole = "sales_manager" | "booking_staff" | "revenue_manager";
+
+/** 汎用ロールと Sales 専用ロールのユニオン。product_roles の値型として使用。 */
+export type AnyProductRole = ProductRole | SalesRole;
+
 export interface LoginResponse {
   access_token: string;
   token_type: string;
@@ -46,7 +52,7 @@ export interface LoginResponse {
   name: string;
   role: string;
   org_id: number;
-  product_roles: Record<ProductCode, ProductRole>;
+  product_roles: Partial<Record<ProductCode, AnyProductRole>>;
 }
 
 export interface UserOut {
@@ -55,7 +61,7 @@ export interface UserOut {
   email: string;
   role: string;
   org_id: number;
-  product_roles: Record<ProductCode, ProductRole>;
+  product_roles: Partial<Record<ProductCode, AnyProductRole>>;
 }
 
 export async function login(
@@ -714,7 +720,7 @@ export interface UserManageOut {
   name: string;
   role: string;
   is_active: boolean;
-  product_roles: Partial<Record<ProductCode, ProductRole>>;
+  product_roles: Partial<Record<ProductCode, AnyProductRole>>;
 }
 
 export function fetchUsers(): Promise<UserManageOut[]> {
@@ -726,7 +732,7 @@ export function createUser(data: {
   name: string;
   password: string;
   role?: string;
-  product_roles?: Partial<Record<ProductCode, ProductRole>>;
+  product_roles?: Partial<Record<ProductCode, AnyProductRole>>;
 }): Promise<UserManageOut> {
   return apiFetch<UserManageOut>("/users/", {
     method: "POST",
@@ -750,7 +756,7 @@ export function deleteUser(userId: number): Promise<void> {
 
 export function setUserProductRoles(
   userId: number,
-  roles: Array<{ product_code: ProductCode; role: ProductRole }>
+  roles: Array<{ product_code: ProductCode; role: AnyProductRole }>
 ): Promise<UserManageOut> {
   return apiFetch<UserManageOut>(`/users/${userId}/product-roles`, {
     method: "PUT",

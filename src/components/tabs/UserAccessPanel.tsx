@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   fetchUsers, createUser, deleteUser, setUserProductRoles,
-  type UserManageOut, type ProductCode, type ProductRole,
+  type UserManageOut, type ProductCode, type ProductRole, type AnyProductRole,
 } from "@/lib/api";
 import { UserPlus, Trash2, Shield, ChevronDown, ChevronUp, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,7 +29,7 @@ function ProductRoleEditor({
   user: UserManageOut;
   onSaved: () => void;
 }) {
-  const [roles, setRoles] = useState<Partial<Record<ProductCode, ProductRole>>>(user.product_roles ?? {});
+  const [roles, setRoles] = useState<Partial<Record<ProductCode, AnyProductRole>>>(user.product_roles ?? {});
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -38,7 +38,7 @@ function ProductRoleEditor({
     try {
       const roleList = Object.entries(roles)
         .filter(([, r]) => r)
-        .map(([code, role]) => ({ product_code: code as ProductCode, role: role as ProductRole }));
+        .map(([code, role]) => ({ product_code: code as ProductCode, role: role as AnyProductRole }));
       await setUserProductRoles(user.id, roleList);
       setSaved(true);
       onSaved();

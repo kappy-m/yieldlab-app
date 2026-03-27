@@ -3,9 +3,10 @@
 import { useState } from "react";
 import {
   Gift, BedDouble, TrendingUp, CheckCircle2, Clock,
-  ChevronDown, ChevronUp, Send, X,
+  ChevronDown, ChevronUp, Send, X, UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCurrentUser, getInitials } from "@/hooks/useCurrentUser";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Types & Mock data
@@ -26,9 +27,38 @@ interface UpsellGuest {
   nights: number;
   status: UpsellStatus;
   notes: string;
+  /** 担当スタッフ名（未割当の場合は undefined） */
+  assignedTo?: string;
 }
 
-const UPSELL_GUESTS: UpsellGuest[] = [
+// ────────────────────────────────────────────────────────────────────────────
+// AssigneeBadge コンポーネント
+// ────────────────────────────────────────────────────────────────────────────
+
+interface AssigneeBadgeProps {
+  name: string;
+  size?: "sm" | "md";
+}
+
+function AssigneeBadge({ name, size = "sm" }: AssigneeBadgeProps) {
+  const initials = getInitials(name);
+  const avatarSize = size === "sm" ? "w-5 h-5 text-[9px]" : "w-7 h-7 text-xs";
+  return (
+    <span className="flex items-center gap-1.5">
+      <span
+        className={cn(
+          "rounded-full bg-[#1E3A8A] text-white font-bold flex items-center justify-center flex-shrink-0",
+          avatarSize
+        )}
+      >
+        {initials}
+      </span>
+      <span className="text-xs text-slate-600 whitespace-nowrap">{name}</span>
+    </span>
+  );
+}
+
+const INITIAL_UPSELL_GUESTS: UpsellGuest[] = [
   {
     id: "u1",
     room: "302",
@@ -42,6 +72,7 @@ const UPSELL_GUESTS: UpsellGuest[] = [
     nights: 2,
     status: "pending",
     notes: "予約備考に「記念日」の記載あり",
+    assignedTo: undefined,
   },
   {
     id: "u2",
@@ -56,6 +87,7 @@ const UPSELL_GUESTS: UpsellGuest[] = [
     nights: 1,
     status: "offered",
     notes: "楽天予約備考「誕生日旅行」より検知",
+    assignedTo: "佐藤 花子",
   },
   {
     id: "u3",
@@ -70,6 +102,7 @@ const UPSELL_GUESTS: UpsellGuest[] = [
     nights: 3,
     status: "accepted",
     notes: "Booking.com備考「Honeymoon trip」より検知",
+    assignedTo: "田村 誠",
   },
   {
     id: "u4",
@@ -84,6 +117,7 @@ const UPSELL_GUESTS: UpsellGuest[] = [
     nights: 2,
     status: "pending",
     notes: "メモ欄「妻の誕生日プレゼント」より検知",
+    assignedTo: undefined,
   },
 ];
 
@@ -105,7 +139,14 @@ const STATUS_CONFIG: Record<UpsellStatus, { label: string; bg: string; text: str
 // Offer Modal (simple inline expand)
 // ────────────────────────────────────────────────────────────────────────────
 
-function GuestRow({ guest }: { guest: UpsellGuest }) {
+interface GuestRowProps {
+  guest: UpsellGuest;
+  onClaim: (id: string, assigneeName: string) => void;
+  currentUserName: string | null;
+  canAssign: boolean;
+}
+
+function GuestRow({ guest, onClaim, currentUserName, canAssign }: GuestRowProps) {
   const [expanded, setExpanded] = useState(false);
   const [status, setStatus] = useState<UpsellStatus>(guest.status);
 
@@ -137,6 +178,25 @@ function GuestRow({ guest }: { guest: UpsellGuest }) {
             <span className="text-xs text-slate-500">{guest.currentType} → {guest.upgradeType}</span>
             <span className={cn("text-xs font-medium", guest.roomAvailable ? "text-green-600" : "text-red-500")}>
               {guest.roomAvailable ? "空室あり" : "空室なし"}
+            </span>
+            {/* 担当者表示エリア */}
+            <span
+              className="ml-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {guest.assignedTo ? (
+                <AssigneeBadge name={guest.assignedTo} size="sm" />
+              ) : canAssign && currentUserName ? (
+                <button
+                  onClick={() => onClaim(guest.id, currentUserName)}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-md border border-amber-300 text-amber-700 bg-amber-50 text-[10px] font-medium hover:bg-amber-100 transition-colors cursor-pointer"
+                >
+                  <UserPlus className="w-3 h-3" />
+                  自分に割当て
+                </button>
+              ) : (
+                <span className="text-[10px] text-slate-400">— 未担当</span>
+              )}
             </span>
           </div>
         </div>
@@ -259,22 +319,33 @@ const FILTER_TABS: { id: FilterTab; label: string }[] = [
 
 export function UpsellPanel() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>("pending");
+  const [guests, setGuests] = useState<UpsellGuest[]>(INITIAL_UPSELL_GUESTS);
+  const { user, canAssign } = useCurrentUser();
 
-  const counts: Record<FilterTab, number> = {
-    all:      UPSELL_GUESTS.length,
-    pending:  UPSELL_GUESTS.filter((g) => g.status === "pending").length,
-    offered:  UPSELL_GUESTS.filter((g) => g.status === "offered").length,
-    accepted: UPSELL_GUESTS.filter((g) => g.status === "accepted").length,
-    declined: UPSELL_GUESTS.filter((g) => g.status === "declined").length,
+  /** 自分にアサインする（将来的には API PATCH /upsell/{id}/assign に変更） */
+  const handleClaim = (id: string, assigneeName: string) => {
+    setGuests((prev) =>
+      prev.map((g) => g.id === id ? { ...g, assignedTo: assigneeName } : g)
+    );
   };
 
-  const totalRevenue = UPSELL_GUESTS
+  const counts: Record<FilterTab, number> = {
+    all:      guests.length,
+    pending:  guests.filter((g) => g.status === "pending").length,
+    offered:  guests.filter((g) => g.status === "offered").length,
+    accepted: guests.filter((g) => g.status === "accepted").length,
+    declined: guests.filter((g) => g.status === "declined").length,
+  };
+
+  const totalRevenue = guests
     .filter((g) => g.status === "accepted")
     .reduce((sum, g) => sum + g.addedCost * g.nights, 0);
 
   const filtered = activeFilter === "all"
-    ? UPSELL_GUESTS
-    : UPSELL_GUESTS.filter((g) => g.status === activeFilter);
+    ? guests
+    : guests.filter((g) => g.status === activeFilter);
+
+  const userCanAssign = canAssign("manage");
 
   return (
     <div className="space-y-5">
@@ -287,7 +358,7 @@ export function UpsellPanel() {
       {/* サマリーカード */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: "対象ゲスト",    value: `${UPSELL_GUESTS.length}名`, icon: Gift,         color: "bg-rose-50 text-rose-600" },
+          { label: "対象ゲスト",    value: `${guests.length}名`, icon: Gift,         color: "bg-rose-50 text-rose-600" },
           { label: "未提案",        value: `${counts.pending}名`,       icon: Clock,         color: "bg-slate-50 text-slate-500" },
           { label: "提案中",        value: `${counts.offered}名`,       icon: TrendingUp,    color: "bg-blue-50 text-blue-600" },
           { label: "承諾・追加収益", value: `¥${totalRevenue.toLocaleString()}`, icon: CheckCircle2, color: "bg-green-50 text-green-600" },
@@ -358,7 +429,13 @@ export function UpsellPanel() {
           </div>
         ) : (
           filtered.map((guest) => (
-            <GuestRow key={guest.id} guest={guest} />
+            <GuestRow
+              key={guest.id}
+              guest={guest}
+              onClaim={handleClaim}
+              currentUserName={user?.name ?? null}
+              canAssign={userCanAssign}
+            />
           ))
         )}
       </div>

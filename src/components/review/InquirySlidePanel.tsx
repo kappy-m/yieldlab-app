@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { X, Mail, PhoneCall, FileText, Sparkles, Check, ChevronDown, Send } from "lucide-react";
+import { X, Mail, PhoneCall, FileText, Sparkles, Check, ChevronDown, Send, UserPlus, User } from "lucide-react";
 import {
   type InquiryChannel, type InquiryStatus, type InquiryPriority,
   STATUS_CONFIG, PRIORITY_CONFIG, CHANNEL_CONFIG,
 } from "./inquiryData";
 import type { InquiryOut } from "@/lib/api";
 import { generateAiReply, sendMail } from "@/lib/api";
+import { useCurrentUser, getInitials } from "@/hooks/useCurrentUser";
 
 const CHANNEL_ICONS: Record<InquiryChannel, React.ReactNode> = {
   email: <Mail className="w-4 h-4" />,
@@ -22,16 +23,112 @@ const LANG_REPLY_TEMPLATES: Record<string, string> = {
   ko: "문의해 주셔서 감사합니다.\n\n문의하신 내용에 대해 아래와 같이 답변 드립니다.\n\n[구체적인 답변 내용을 여기에 입력해 주세요]\n\n추가적인 질문이 있으시면 언제든지 연락 주시기 바랍니다.",
 };
 
+/** モックのユーザーリスト（将来は /api/users から取得） */
+const MOCK_STAFF = [
+  { id: 1, name: "佐藤 花子" },
+  { id: 2, name: "田村 誠" },
+  { id: 3, name: "中村 浩二" },
+  { id: 4, name: "山田 太郎" },
+];
+
+interface AssigneeDropdownProps {
+  currentAssignee?: string;
+  onAssign: (name: string) => void;
+  currentUserName: string | null;
+  canAssign: boolean;
+}
+
+function AssigneeDropdown({ currentAssignee, onAssign, currentUserName, canAssign }: AssigneeDropdownProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  if (!canAssign) {
+    return currentAssignee ? (
+      <span className="flex items-center gap-1.5 text-xs text-slate-500 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">
+        <span className="w-5 h-5 rounded-full bg-[#1E3A8A] text-white text-[9px] font-bold flex items-center justify-center">
+          {getInitials(currentAssignee)}
+        </span>
+        担当: {currentAssignee}
+      </span>
+    ) : (
+      <span className="text-xs text-slate-400">— 未担当</span>
+    );
+  }
+
+  return (
+    <div ref={ref} className="relative ml-auto">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 px-2.5 py-1 rounded-lg hover:border-[#1E3A8A]/40 transition-colors cursor-pointer"
+      >
+        {currentAssignee ? (
+          <>
+            <span className="w-5 h-5 rounded-full bg-[#1E3A8A] text-white text-[9px] font-bold flex items-center justify-center">
+              {getInitials(currentAssignee)}
+            </span>
+            <span className="text-slate-600">{currentAssignee}</span>
+          </>
+        ) : (
+          <>
+            <User className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-slate-400">担当者を割当て</span>
+          </>
+        )}
+        <ChevronDown className="w-3 h-3 text-slate-400" />
+      </button>
+
+      {open && (
+        <div className="absolute top-full right-0 mt-1 bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden z-20 min-w-[160px]">
+          {/* 自分に割当てショートカット */}
+          {currentUserName && (
+            <button
+              onClick={() => { onAssign(currentUserName); setOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-amber-700 bg-amber-50 hover:bg-amber-100 cursor-pointer transition-colors border-b border-amber-100"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              自分に割当て（{currentUserName}）
+            </button>
+          )}
+          {MOCK_STAFF.map((staff) => (
+            <button
+              key={staff.id}
+              onClick={() => { onAssign(staff.name); setOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-700 hover:bg-slate-50 cursor-pointer transition-colors"
+            >
+              <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-600 text-[9px] font-bold flex items-center justify-center">
+                {getInitials(staff.name)}
+              </span>
+              {staff.name}
+              {currentAssignee === staff.name && (
+                <Check className="w-3 h-3 text-[#1E3A8A] ml-auto" />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface Props {
   inquiry: InquiryOut | null;
   onClose: () => void;
   onStatusChange: (id: number, status: InquiryStatus) => void;
   onPriorityChange: (id: number, priority: InquiryPriority) => void;
   onRespond?: (id: number, responseText: string) => void;
+  onAssigneeChange?: (id: number, assignee: string) => void;
   propertyId?: number;
 }
 
-export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriorityChange, onRespond }: Props) {
+export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriorityChange, onRespond, onAssigneeChange }: Props) {
   const [aiDraftOpen, setAiDraftOpen] = useState(false);
   const [aiDraftText, setAiDraftText] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -39,6 +136,7 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
   const [copied, setCopied] = useState(false);
   const [sent, setSent] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const { user, canAssign } = useCurrentUser();
 
   // パネルを開くたびに状態リセット
   useEffect(() => {
@@ -192,11 +290,12 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
                   </div>
                 </div>
 
-                {inquiry.assignee && (
-                  <span className="ml-auto text-xs text-slate-500 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">
-                    担当: {inquiry.assignee}
-                  </span>
-                )}
+                <AssigneeDropdown
+                  currentAssignee={inquiry.assignee}
+                  onAssign={(name) => onAssigneeChange?.(inquiry.id, name)}
+                  currentUserName={user?.name ?? null}
+                  canAssign={canAssign("review")}
+                />
               </div>
 
               {/* 連絡先情報 */}
