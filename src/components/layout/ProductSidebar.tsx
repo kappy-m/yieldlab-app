@@ -10,9 +10,10 @@ import {
   Calendar,
   Briefcase,
   MapPin,
-  ChevronRight,
   User,
   LogOut,
+  Search,
+  X,
 } from "lucide-react";
 import { fetchProperties, logout } from "@/lib/api";
 import { useProperty } from "@/hooks/useProperty";
@@ -73,6 +74,7 @@ export function ProductSidebar() {
   const [userName, setUserName] = useState<string>("");
   const [propOpen, setPropOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
+  const [propSearch, setPropSearch] = useState("");
   const propRef = useRef<HTMLDivElement>(null);
   const userRef = useRef<HTMLDivElement>(null);
 
@@ -96,7 +98,7 @@ export function ProductSidebar() {
   // 外側クリックで閉じる
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (propRef.current && !propRef.current.contains(e.target as Node)) setPropOpen(false);
+      if (propRef.current && !propRef.current.contains(e.target as Node)) { setPropOpen(false); setPropSearch(""); }
       if (userRef.current && !userRef.current.contains(e.target as Node)) setUserOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
@@ -109,6 +111,15 @@ export function ProductSidebar() {
   if (accessibleProducts.length <= 1) return null;
 
   const currentProperty = properties.find((p) => p.id === propertyId) ?? properties[0];
+
+  const filteredProperties = propSearch.trim()
+    ? properties.filter(
+        (p) =>
+          p.name.toLowerCase().includes(propSearch.toLowerCase()) ||
+          (p.address ?? "").toLowerCase().includes(propSearch.toLowerCase()) ||
+          (p.brand ?? "").toLowerCase().includes(propSearch.toLowerCase())
+      )
+    : properties;
 
   // ユーザーイニシャル（最大2文字）
   const avatarInitials = (() => {
@@ -184,7 +195,7 @@ export function ProductSidebar() {
         {/* ホテル切り替え */}
         <div className="relative group w-full" ref={propRef}>
           <button
-            onClick={() => { setPropOpen((v) => !v); setUserOpen(false); }}
+            onClick={() => { setPropOpen((v) => { if (v) setPropSearch(""); return !v; }); setUserOpen(false); }}
             className={`
               flex items-center justify-center w-12 h-11 transition-all duration-200
               ${propOpen ? "text-white bg-white/15" : "text-white/40 hover:text-white/90 hover:bg-white/10"}
@@ -223,40 +234,84 @@ export function ProductSidebar() {
 
           {/* ホテル切り替えドロップダウン（右側・下から上へ展開） */}
           {propOpen && properties.length > 0 && (
-            <div className="absolute left-full bottom-0 ml-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50">
-              <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+            <div className="absolute left-full bottom-0 ml-2 w-80 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden z-50 flex flex-col" style={{ maxHeight: "min(420px, calc(100vh - 120px))" }}>
+
+              {/* ヘッダー */}
+              <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
                 <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">物件を切り替える</p>
-                <ChevronRight className="w-3 h-3 text-slate-300" />
+                <span className="text-[10px] text-slate-400 tabular-nums">
+                  {filteredProperties.length}/{properties.length}件
+                </span>
               </div>
-              {properties.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => { setPropertyId(p.id); setPropOpen(false); }}
-                  className={`w-full flex items-start gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left cursor-pointer ${p.id === propertyId ? "bg-blue-50/60" : ""}`}
-                >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${p.id === propertyId ? "bg-blue-100" : "bg-slate-100"}`}>
-                    <Building2 className={`w-4 h-4 ${p.id === propertyId ? "text-blue-600" : "text-slate-400"}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`text-sm font-semibold leading-tight ${p.id === propertyId ? "text-blue-700" : "text-slate-700"}`}>
-                        {p.name}
-                      </span>
-                      {p.id === propertyId && (
-                        <span className="text-[10px] font-medium text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded flex-shrink-0">表示中</span>
-                      )}
+
+              {/* 検索バー */}
+              <div className="px-3 py-2 border-b border-slate-100 flex-shrink-0">
+                <div className="flex items-center gap-2 bg-slate-50 rounded-lg px-2.5 py-1.5 border border-slate-200 focus-within:border-blue-400 focus-within:bg-white transition-colors">
+                  <Search className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={propSearch}
+                    onChange={(e) => setPropSearch(e.target.value)}
+                    placeholder="ホテル名・住所で絞り込み..."
+                    className="flex-1 bg-transparent text-xs text-slate-700 placeholder-slate-400 outline-none"
+                    autoFocus
+                  />
+                  {propSearch && (
+                    <button
+                      onClick={() => setPropSearch("")}
+                      className="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0 cursor-pointer"
+                      aria-label="検索をクリア"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* スクロール可能なリスト */}
+              <div className="overflow-y-auto flex-1">
+                {filteredProperties.length === 0 ? (
+                  <div className="px-4 py-8 text-center">
+                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                      <Building2 className="w-5 h-5 text-slate-300" />
                     </div>
-                    {p.address && (
-                      <p className="text-[11px] text-slate-400 flex items-center gap-0.5 mt-0.5">
-                        <MapPin className="w-2.5 h-2.5" />{p.address}
-                      </p>
-                    )}
-                    {p.total_rooms && (
-                      <p className="text-[11px] text-slate-400">{p.total_rooms}室</p>
-                    )}
+                    <p className="text-xs font-medium text-slate-500">
+                      「{propSearch}」に一致する物件がありません
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-1">別のキーワードで検索してください</p>
                   </div>
-                </button>
-              ))}
+                ) : (
+                  filteredProperties.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => { setPropertyId(p.id); setPropOpen(false); setPropSearch(""); }}
+                      className={`w-full flex items-start gap-3 px-4 py-3 hover:bg-slate-50 transition-colors text-left cursor-pointer ${p.id === propertyId ? "bg-blue-50/60" : ""}`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${p.id === propertyId ? "bg-blue-100" : "bg-slate-100"}`}>
+                        <Building2 className={`w-4 h-4 ${p.id === propertyId ? "text-blue-600" : "text-slate-400"}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`text-sm font-semibold leading-tight truncate ${p.id === propertyId ? "text-blue-700" : "text-slate-700"}`}>
+                            {p.name}
+                          </span>
+                          {p.id === propertyId && (
+                            <span className="text-[10px] font-medium text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded flex-shrink-0">表示中</span>
+                          )}
+                        </div>
+                        {p.address && (
+                          <p className="text-[11px] text-slate-400 flex items-center gap-0.5 mt-0.5 truncate">
+                            <MapPin className="w-2.5 h-2.5 flex-shrink-0" />{p.address}
+                          </p>
+                        )}
+                        {p.total_rooms && (
+                          <p className="text-[11px] text-slate-400">{p.total_rooms}室</p>
+                        )}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>
