@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
+import { useProperty } from "@/hooks/useProperty";
 import { TabNavBar } from "@/components/layout/TabNavBar";
 import { ReservationList } from "@/components/reservation/ReservationList";
 import { ReservationHomeTab } from "@/components/reservation/ReservationHomeTab";
@@ -19,17 +20,19 @@ const TABS = [
 
 export default function ReservationPage() {
   const [activeTab, setActiveTab] = useState<ResTabId>("home");
-  const [propertyId, setPropertyId] = useState<number>(1);
+  const [propertyId] = useProperty();
+  const prevPropRef = useRef(propertyId);
+
+  useEffect(() => {
+    if (prevPropRef.current !== propertyId) {
+      prevPropRef.current = propertyId;
+      setActiveTab("home");
+    }
+  }, [propertyId]);
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col">
-      <DashboardHeader
-        propertyId={propertyId}
-        onPropertyChange={(id) => {
-          setPropertyId(id);
-          setActiveTab("home");
-        }}
-      />
+      <DashboardHeader />
 
       <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as ResTabId)} equalWidth />
 

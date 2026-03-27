@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
+import { useProperty } from "@/hooks/useProperty";
 import { DashboardTabs, type TabId } from "@/components/layout/DashboardTabs";
 import { OverviewTab } from "@/components/tabs/OverviewTab";
 import { DailyTab } from "@/components/tabs/DailyTab";
@@ -33,7 +34,8 @@ function DashboardInner() {
   const initialTab: TabId = tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : "overview";
 
   const [activeTab, setActiveTab] = useState<TabId>(initialTab);
-  const [propertyId, setPropertyId] = useState<number>(1);
+  const [propertyId] = useProperty();
+  const prevPropRef = useRef(propertyId);
 
   // タブ変更 → URL を同期（ブラウザ履歴を汚さないよう replace）
   const handleTabChange = useCallback(
@@ -54,15 +56,17 @@ function DashboardInner() {
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // プロパティ切り替え時に overview へリセット + URL同期
+  useEffect(() => {
+    if (prevPropRef.current !== propertyId) {
+      prevPropRef.current = propertyId;
+      handleTabChange("overview");
+    }
+  }, [propertyId, handleTabChange]);
+
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
-      <DashboardHeader
-        propertyId={propertyId}
-        onPropertyChange={(id) => {
-          setPropertyId(id);
-          handleTabChange("overview");
-        }}
-      />
+      <DashboardHeader />
       <DashboardTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
       {/* スキップリンク（キーボードユーザー向け） */}

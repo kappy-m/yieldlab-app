@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { TabNavBar } from "@/components/layout/TabNavBar";
+import { useProperty } from "@/hooks/useProperty";
 import { GuestStayList } from "@/components/front/GuestStayList";
 import { FrontHomeTab } from "@/components/front/FrontHomeTab";
 import { GuestAttributeAnalysis } from "@/components/front/GuestAttributeAnalysis";
@@ -22,17 +23,20 @@ const TABS = [
 
 export default function ManagePage() {
   const [activeTab, setActiveTab] = useState<FrontTabId>("home");
-  const [propertyId, setPropertyId] = useState<number>(1);
+  const [propertyId] = useProperty();
+  const prevPropRef = useRef(propertyId);
+
+  // プロパティ切り替え時にホームタブへリセット
+  useEffect(() => {
+    if (prevPropRef.current !== propertyId) {
+      prevPropRef.current = propertyId;
+      setActiveTab("home");
+    }
+  }, [propertyId]);
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex flex-col">
-      <DashboardHeader
-        propertyId={propertyId}
-        onPropertyChange={(id) => {
-          setPropertyId(id);
-          setActiveTab("home");
-        }}
-      />
+      <DashboardHeader />
 
       <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as FrontTabId)} equalWidth />
 
