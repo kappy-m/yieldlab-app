@@ -17,7 +17,7 @@ const TABS = [
   { id: "attributes"   as FrontTabId, label: "来客属性分析" },
   { id: "upsell"       as FrontTabId, label: "アップセル" },
   { id: "housekeeping" as FrontTabId, label: "ハウスキーピング" },
-  { id: "settings"     as FrontTabId, label: "設定" },
+  { id: "settings"     as FrontTabId, label: "設定", alignRight: true },
 ];
 
 export default function ManagePage() {

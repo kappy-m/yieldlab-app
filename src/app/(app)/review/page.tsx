@@ -14,7 +14,7 @@ const TABS = [
   { id: "summary"   as ReviewTabId, label: "ホーム" },
   { id: "inbox"     as ReviewTabId, label: "口コミ・問い合わせ" },
   { id: "analytics" as ReviewTabId, label: "分析" },
-  { id: "settings"  as ReviewTabId, label: "設定" },
+  { id: "settings"  as ReviewTabId, label: "設定", alignRight: true },
 ];
 
 export default function ReviewPage() {

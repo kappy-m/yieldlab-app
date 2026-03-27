@@ -14,7 +14,7 @@ const TABS = [
   { id: "home"         as ResTabId, label: "ホーム" },
   { id: "reservations" as ResTabId, label: "予約管理" },
   { id: "analytics"    as ResTabId, label: "分析" },
-  { id: "settings"     as ResTabId, label: "設定" },
+  { id: "settings"     as ResTabId, label: "設定", alignRight: true },
 ];
 
 export default function ReservationPage() {

@@ -16,7 +16,7 @@ const TABS = [
   { id: "leads"     as SalesTabId, label: "リード" },
   { id: "deals"     as SalesTabId, label: "商談" },
   { id: "groups"    as SalesTabId, label: "グループ管理" },
-  { id: "settings"  as SalesTabId, label: "設定" },
+  { id: "settings"  as SalesTabId, label: "設定", alignRight: true },
 ];
 
 export default function SalesPage() {

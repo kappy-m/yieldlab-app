@@ -247,13 +247,34 @@ function GuestRow({ guest }: { guest: UpsellGuest }) {
 // Main
 // ────────────────────────────────────────────────────────────────────────────
 
+type FilterTab = "all" | UpsellStatus;
+
+const FILTER_TABS: { id: FilterTab; label: string }[] = [
+  { id: "all",      label: "全件" },
+  { id: "pending",  label: "未提案" },
+  { id: "offered",  label: "提案中" },
+  { id: "accepted", label: "承諾" },
+  { id: "declined", label: "辞退" },
+];
+
 export function UpsellPanel() {
-  const pending  = UPSELL_GUESTS.filter((g) => g.status === "pending").length;
-  const offered  = UPSELL_GUESTS.filter((g) => g.status === "offered").length;
+  const [activeFilter, setActiveFilter] = useState<FilterTab>("pending");
+
+  const counts: Record<FilterTab, number> = {
+    all:      UPSELL_GUESTS.length,
+    pending:  UPSELL_GUESTS.filter((g) => g.status === "pending").length,
+    offered:  UPSELL_GUESTS.filter((g) => g.status === "offered").length,
+    accepted: UPSELL_GUESTS.filter((g) => g.status === "accepted").length,
+    declined: UPSELL_GUESTS.filter((g) => g.status === "declined").length,
+  };
 
   const totalRevenue = UPSELL_GUESTS
     .filter((g) => g.status === "accepted")
     .reduce((sum, g) => sum + g.addedCost * g.nights, 0);
+
+  const filtered = activeFilter === "all"
+    ? UPSELL_GUESTS
+    : UPSELL_GUESTS.filter((g) => g.status === activeFilter);
 
   return (
     <div className="space-y-5">
@@ -266,14 +287,19 @@ export function UpsellPanel() {
       {/* サマリーカード */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label: "対象ゲスト",   value: `${UPSELL_GUESTS.length}名`, icon: Gift,         color: "bg-rose-50 text-rose-600" },
-          { label: "未提案",       value: `${pending}名`,              icon: Clock,         color: "bg-slate-50 text-slate-500" },
-          { label: "提案中",       value: `${offered}名`,              icon: TrendingUp,    color: "bg-blue-50 text-blue-600" },
+          { label: "対象ゲスト",    value: `${UPSELL_GUESTS.length}名`, icon: Gift,         color: "bg-rose-50 text-rose-600" },
+          { label: "未提案",        value: `${counts.pending}名`,       icon: Clock,         color: "bg-slate-50 text-slate-500" },
+          { label: "提案中",        value: `${counts.offered}名`,       icon: TrendingUp,    color: "bg-blue-50 text-blue-600" },
           { label: "承諾・追加収益", value: `¥${totalRevenue.toLocaleString()}`, icon: CheckCircle2, color: "bg-green-50 text-green-600" },
         ].map((stat) => {
           const Icon = stat.icon;
           return (
-            <div key={stat.label} className={cn("rounded-xl p-3 border", stat.color.includes("rose") ? "border-rose-100" : stat.color.includes("blue") ? "border-blue-100" : stat.color.includes("green") ? "border-green-100" : "border-slate-100")}>
+            <div key={stat.label} className={cn(
+              "rounded-xl p-3 border",
+              stat.color.includes("rose")  ? "border-rose-100"  :
+              stat.color.includes("blue")  ? "border-blue-100"  :
+              stat.color.includes("green") ? "border-green-100" : "border-slate-100"
+            )}>
               <div className={cn("w-7 h-7 rounded-lg flex items-center justify-center mb-2", stat.color.split(" ")[0])}>
                 <Icon className={cn("w-3.5 h-3.5", stat.color.split(" ")[1])} />
               </div>
@@ -293,9 +319,48 @@ export function UpsellPanel() {
             空室連動でリアルタイム更新
           </div>
         </div>
-        {UPSELL_GUESTS.map((guest) => (
-          <GuestRow key={guest.id} guest={guest} />
-        ))}
+
+        {/* ステータスフィルタタブ */}
+        <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+          {FILTER_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveFilter(tab.id)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all cursor-pointer whitespace-nowrap",
+                activeFilter === tab.id
+                  ? "bg-white text-slate-800 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              {tab.label}
+              {counts[tab.id] > 0 && (
+                <span className={cn(
+                  "text-[10px] font-semibold px-1.5 py-0.5 rounded-full min-w-[18px] text-center",
+                  activeFilter === tab.id
+                    ? tab.id === "pending" ? "bg-slate-100 text-slate-600"
+                      : tab.id === "offered" ? "bg-blue-50 text-blue-600"
+                      : tab.id === "accepted" ? "bg-green-50 text-green-600"
+                      : "bg-slate-100 text-slate-500"
+                    : "bg-slate-200 text-slate-500"
+                )}>
+                  {counts[tab.id]}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 gap-2 text-slate-400 bg-white rounded-xl border border-slate-100">
+            <Gift className="w-7 h-7 text-slate-200" />
+            <span className="text-sm">該当するゲストがいません</span>
+          </div>
+        ) : (
+          filtered.map((guest) => (
+            <GuestRow key={guest.id} guest={guest} />
+          ))
+        )}
       </div>
     </div>
   );
