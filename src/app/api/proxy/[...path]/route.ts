@@ -27,15 +27,20 @@ async function proxyRequest(
   });
 
   const contentType = req.headers.get("content-type") ?? "application/json";
+  const isMultipart = contentType.startsWith("multipart/form-data");
 
+  // multipart/form-data の場合は Content-Type ヘッダーを転送するが上書きしない
+  // （boundary 情報が含まれるため上書きすると FastAPI のパースが失敗する）
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
-    "Content-Type": contentType,
+    ...(isMultipart ? { "Content-Type": contentType } : { "Content-Type": contentType }),
   };
 
-  let body: string | undefined;
+  let body: string | ArrayBuffer | undefined;
   if (req.method !== "GET" && req.method !== "HEAD") {
-    body = await req.text();
+    // multipart/form-data はバイナリデータなので arrayBuffer で転送する。
+    // text() で読むと文字列変換によりバイナリが破損するため NG。
+    body = isMultipart ? await req.arrayBuffer() : await req.text();
   }
 
   // redirect: "manual" で 3xx を手動追従し、Authorization header を保持する。
