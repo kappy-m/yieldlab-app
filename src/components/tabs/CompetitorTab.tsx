@@ -282,7 +282,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
             onClick={() => setSubTab(tab)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer ${
               subTab === tab
-                ? "border-[#1E3A8A] text-[#1E3A8A]"
+                ? "border-brand-navy text-brand-navy"
                 : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >
@@ -388,7 +388,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
                 )}
                 {c.expediaUrl && (
                   <a href={c.expediaUrl} target="_blank" rel="noopener noreferrer"
-                    className="text-slate-400 hover:text-[#1E3A8A] transition-colors">
+                    className="text-slate-400 hover:text-brand-navy transition-colors">
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 )}
@@ -413,7 +413,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
                 onClick={() => setDisplayDays(opt.days as 14 | 30 | 90)}
                 className={`text-xs px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                   displayDays === opt.days
-                    ? "bg-white text-[#1E3A8A] font-semibold shadow-sm"
+                    ? "bg-white text-brand-navy font-semibold shadow-sm"
                     : "text-slate-500 hover:text-slate-700"
                 }`}
               >
@@ -494,7 +494,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
                       key={avg.target_date}
                       className={`px-3 py-2.5 text-center font-medium min-w-[80px] ${
                         avg.target_date === today
-                          ? "text-[#1E3A8A] bg-blue-50"
+                          ? "text-brand-navy bg-blue-50"
                           : isWeekend
                             ? "text-red-500"
                             : "text-slate-500"
@@ -512,7 +512,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
                 <td className="px-4 py-2.5 sticky left-0 bg-blue-50/50 z-10">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: OWN_COLOR }} />
-                    <span className="font-semibold text-[#1E3A8A]">自社（{propertyName}）</span>
+                    <span className="font-semibold text-brand-navy">自社（{propertyName}）</span>
                   </div>
                 </td>
                 {displayAverages.map(avg => {
@@ -520,7 +520,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
                   return (
                     <td key={avg.target_date} className={`px-3 py-2.5 text-center ${avg.target_date === today ? "bg-blue-50/50" : ""}`}>
                       {own ? (
-                        <div className="font-bold text-[#1E3A8A]">
+                        <div className="font-bold text-brand-navy">
                           {formatPrice(own)}
                         </div>
                       ) : <span className="text-slate-300">—</span>}
@@ -577,7 +577,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
         <div className="px-5 py-2 border-t border-slate-100">
           <div className="flex items-center gap-4 text-[10px] text-slate-400">
             <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-[#1E3A8A] inline-block" />自社（{propertyName}）
+              <span className="w-2 h-2 rounded-full bg-brand-navy inline-block" />自社（{propertyName}）
             </span>
             <span>緑色の競合価格 = 自社より低い（要注意）</span>
             <span className="flex items-center gap-1">

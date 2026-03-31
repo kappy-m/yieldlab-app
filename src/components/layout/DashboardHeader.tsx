@@ -21,8 +21,7 @@ export function DashboardHeader() {
 
   return (
     <header
-      className="sticky top-0 z-50 border-b border-slate-200/80"
-      style={{ background: "linear-gradient(135deg, #1E3A8A 0%, #1e40af 100%)" }}
+      className="sticky top-0 z-50 border-b border-slate-200/80 bg-gradient-to-br from-brand-navy to-blue-800"
     >
       <div className="px-6 py-0 flex items-center h-14">
         <Link href="/yield" className="flex items-center gap-3 group">

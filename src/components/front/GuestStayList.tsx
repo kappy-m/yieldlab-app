@@ -88,8 +88,7 @@ function GuestDetailPanel({ stay, onClose, onStatusChange }: DetailPanelProps) {
       >
         {stay && (
           <>
-            <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-100 flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #1E3A8A 0%, #1e40af 100%)" }}>
+            <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-100 flex-shrink-0 bg-gradient-to-br from-brand-navy to-blue-800">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className="text-white font-semibold text-sm">{stay.guest_name}</span>
@@ -211,8 +210,7 @@ function GuestDetailPanel({ stay, onClose, onStatusChange }: DetailPanelProps) {
               <div className="flex-shrink-0 px-5 py-4 border-t border-slate-100 bg-white">
                 <button
                   onClick={() => onStatusChange(stay.id, "checked_in")}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 text-sm font-semibold text-white rounded-xl cursor-pointer transition-all hover:opacity-90 active:scale-[0.98]"
-                  style={{ background: "linear-gradient(135deg, #1E3A8A 0%, #1e40af 100%)" }}
+                  className="w-full flex items-center justify-center gap-2 py-3 px-4 text-sm font-semibold text-white rounded-xl cursor-pointer transition-all hover:opacity-90 active:scale-[0.98] bg-gradient-to-br from-brand-navy to-blue-800"
                 >
                   <LogIn className="w-4 h-4" />
                   チェックインする
@@ -286,7 +284,7 @@ function Pagination({ page, total, perPage, onChange }: PaginationProps) {
               className={cn(
                 "w-7 h-7 rounded-lg text-xs font-medium transition-colors cursor-pointer",
                 p === page
-                  ? "bg-[#1E3A8A] text-white"
+                  ? "bg-brand-navy text-white"
                   : "text-slate-600 hover:bg-slate-100"
               )}
             >
@@ -322,8 +320,7 @@ function BatchActionBar({ selectedCount, onCheckin, onCheckout, onClear, process
   if (selectedCount === 0) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl border border-white/10"
-      style={{ background: "linear-gradient(135deg, #1E3A8A 0%, #1e40af 100%)" }}>
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl border border-white/10 bg-gradient-to-br from-brand-navy to-blue-800">
       <span className="text-white text-sm font-medium whitespace-nowrap">
         {selectedCount} 件選択中
       </span>
@@ -507,14 +504,14 @@ export function GuestStayList({ propertyId }: GuestStayListProps) {
               className={cn(
                 "relative flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors duration-150 cursor-pointer whitespace-nowrap rounded-t-md",
                 view === tab.id
-                  ? "text-[#1E3A8A]"
+                  ? "text-brand-navy"
                   : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
               )}
             >
               {tab.icon}
               {tab.label}
               <span className={cn(
-                "absolute bottom-0 left-0 right-0 h-0.5 bg-[#1E3A8A] rounded-t transition-transform duration-200 origin-bottom",
+                "absolute bottom-0 left-0 right-0 h-0.5 bg-brand-navy rounded-t transition-transform duration-200 origin-bottom",
                 view === tab.id ? "scale-y-100" : "scale-y-0"
               )} />
             </button>
@@ -531,7 +528,7 @@ export function GuestStayList({ propertyId }: GuestStayListProps) {
                 placeholder="ゲスト名・予約番号・部屋番号で検索..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A]/40"
+                className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-navy/20 focus:border-brand-navy/40"
               />
             </div>
             {/* フィルタトグル */}
@@ -540,14 +537,14 @@ export function GuestStayList({ propertyId }: GuestStayListProps) {
               className={cn(
                 "flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-colors cursor-pointer",
                 showFilters || hasActiveFilters
-                  ? "bg-[#1E3A8A]/5 border-[#1E3A8A]/30 text-[#1E3A8A]"
+                  ? "bg-brand-navy/5 border-brand-navy/30 text-brand-navy"
                   : "border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
               )}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
               フィルタ
               {hasActiveFilters && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[#1E3A8A]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-navy" />
               )}
             </button>
             {/* 選択モード */}
@@ -556,7 +553,7 @@ export function GuestStayList({ propertyId }: GuestStayListProps) {
               className={cn(
                 "flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-colors cursor-pointer",
                 isSelectMode
-                  ? "bg-[#1E3A8A] border-[#1E3A8A] text-white"
+                  ? "bg-brand-navy border-brand-navy text-white"
                   : "border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700"
               )}
             >
@@ -579,7 +576,7 @@ export function GuestStayList({ propertyId }: GuestStayListProps) {
               <select
                 value={roomTypeFilter}
                 onChange={e => setRoomTypeFilter(e.target.value)}
-                className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A]/40 bg-white cursor-pointer"
+                className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-navy/20 focus:border-brand-navy/40 bg-white cursor-pointer"
               >
                 {ROOM_TYPE_OPTIONS.map(o => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -588,7 +585,7 @@ export function GuestStayList({ propertyId }: GuestStayListProps) {
               <select
                 value={floorFilter}
                 onChange={e => setFloorFilter(e.target.value)}
-                className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A]/40 bg-white cursor-pointer"
+                className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-navy/20 focus:border-brand-navy/40 bg-white cursor-pointer"
               >
                 {FLOOR_OPTIONS.map(o => (
                   <option key={o.value} value={o.value}>{o.label}</option>
@@ -649,7 +646,7 @@ export function GuestStayList({ propertyId }: GuestStayListProps) {
                     <div className={cn(
                       "flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-all",
                       isSelected
-                        ? "bg-[#1E3A8A] border-[#1E3A8A]"
+                        ? "bg-brand-navy border-brand-navy"
                         : "border-slate-300 bg-white"
                     )}>
                       {isSelected && (
@@ -662,8 +659,7 @@ export function GuestStayList({ propertyId }: GuestStayListProps) {
 
                   {/* アバター */}
                   <div
-                    className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm font-semibold"
-                    style={{ background: "linear-gradient(135deg, #1E3A8A, #1e40af)" }}
+                    className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-white text-sm font-semibold bg-gradient-to-br from-brand-navy to-blue-800"
                   >
                     {initials}
                   </div>

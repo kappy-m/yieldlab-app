@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Save, CheckCircle2, Users, Kanban, Percent } from "lucide-react";
+import { Users, Kanban, Percent } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommonSettingsLink } from "./CommonSettingsPanel";
+import { SaveButton } from "@/components/shared/SaveButton";
 
 type SubTab = "team" | "stages" | "discounts";
 
@@ -12,25 +13,6 @@ const SUB_TABS: { id: SubTab; label: string; icon: React.ComponentType<{ classNa
   { id: "stages",    label: "商談ステージ定義",   icon: Kanban },
   { id: "discounts", label: "団体割引テンプレート", icon: Percent },
 ];
-
-function SaveButton() {
-  const [saved, setSaved] = useState(false);
-  const handle = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
-  return (
-    <div className="flex justify-end mt-6">
-      <button
-        onClick={handle}
-        className={cn(
-          "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
-          saved ? "bg-green-50 text-green-700 border border-green-200" : "bg-[#1E3A8A] text-white hover:bg-[#1e3070]"
-        )}
-      >
-        {saved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-        {saved ? "保存しました" : "変更を保存"}
-      </button>
-    </div>
-  );
-}
 
 const TEAM_MEMBERS = [
   { name: "村山 一樹",  role: "営業マネージャー", quota: 50,  email: "murayama@hotel.jp" },
@@ -42,7 +24,7 @@ function TeamPanel() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <button className="text-xs bg-[#1E3A8A] text-white px-3 py-1.5 rounded-lg hover:bg-[#1e3070] cursor-pointer font-medium">
+        <button className="text-xs bg-brand-navy text-white px-3 py-1.5 rounded-lg hover:bg-brand-navy/90 cursor-pointer font-medium">
           + メンバー追加
         </button>
       </div>
@@ -75,7 +57,7 @@ function TeamPanel() {
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <button className="text-[#1E3A8A] hover:underline cursor-pointer">編集</button>
+                  <button className="text-brand-navy hover:underline cursor-pointer">編集</button>
                 </td>
               </tr>
             ))}
@@ -133,7 +115,7 @@ function DiscountsPanel() {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <button className="text-xs bg-[#1E3A8A] text-white px-3 py-1.5 rounded-lg hover:bg-[#1e3070] cursor-pointer font-medium">
+        <button className="text-xs bg-brand-navy text-white px-3 py-1.5 rounded-lg hover:bg-brand-navy/90 cursor-pointer font-medium">
           + テンプレート追加
         </button>
       </div>
@@ -190,7 +172,7 @@ export function SalesSettingsPanel() {
               className={cn(
                 "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
                 activeTab === tab.id
-                  ? "border-[#1E3A8A] text-[#1E3A8A]"
+                  ? "border-brand-navy text-brand-navy"
                   : "border-transparent text-slate-500 hover:text-slate-700"
               )}
             >

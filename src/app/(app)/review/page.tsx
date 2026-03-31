@@ -36,7 +36,9 @@ export default function ReviewPage() {
 
       <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={(id) => setActiveTab(id as ReviewTabId)} equalWidth />
 
-      <main className="max-w-[1400px] mx-auto px-6 py-5">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:text-brand-navy focus:shadow-lg focus:rounded-md">メインコンテンツへスキップ</a>
+
+      <main id="main-content" className="max-w-[1400px] mx-auto px-6 py-5">
         {activeTab === "summary"   && <ReviewSummaryTab   propertyId={propertyId} />}
         {activeTab === "inbox"     && <InboxTab           propertyId={propertyId} />}
         {activeTab === "analytics" && <ReviewAnalyticsTab propertyId={propertyId} />}

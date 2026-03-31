@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { Settings } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
+import { TabNavBar } from "@/components/layout/TabNavBar";
 import { useProperty } from "@/hooks/useProperty";
-import { DashboardTabs, type TabId } from "@/components/layout/DashboardTabs";
 import { OverviewTab } from "@/components/tabs/OverviewTab";
 import { DailyTab } from "@/components/tabs/DailyTab";
 import { PricingTab } from "@/components/tabs/PricingTab";
@@ -15,21 +16,27 @@ import { SettingsTab } from "@/components/tabs/SettingsTab";
 import { CostTab } from "@/components/tabs/CostTab";
 import { BudgetTab } from "@/components/tabs/BudgetTab";
 
-// URLに永続化するタブID一覧（overview がデフォルト）
+type TabId = "overview" | "daily" | "booking" | "pricing" | "competitor" | "market" | "cost" | "budget" | "settings";
+
 const VALID_TABS: TabId[] = [
   "overview", "daily", "booking", "pricing", "competitor", "market", "cost", "budget", "settings",
 ];
 
-// 常時マウントしてCSSで表示切り替えするタブ（overview は軽量なのでオンデマンドでよい）
-const ALWAYS_MOUNTED_TABS: TabId[] = [
-  "daily", "pricing", "competitor", "booking", "market", "settings", "cost", "budget",
+const TABS = [
+  { id: "overview"   as TabId, label: "ホーム" },
+  { id: "booking"    as TabId, label: "ブッキング分析" },
+  { id: "pricing"    as TabId, label: "プライシング管理" },
+  { id: "competitor" as TabId, label: "競合分析" },
+  { id: "market"     as TabId, label: "マーケット状況" },
+  { id: "cost"       as TabId, label: "コスト管理" },
+  { id: "budget"     as TabId, label: "予算管理" },
+  { id: "settings"   as TabId, label: "設定", icon: Settings, alignRight: true },
 ];
 
 function DashboardInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // URL の ?tab= からタブを復元、なければ overview をデフォルトに
   const tabFromUrl = searchParams.get("tab") as TabId | null;
   const initialTab: TabId = tabFromUrl && VALID_TABS.includes(tabFromUrl) ? tabFromUrl : "overview";
 
@@ -37,10 +44,9 @@ function DashboardInner() {
   const [propertyId] = useProperty();
   const prevPropRef = useRef(propertyId);
 
-  // タブ変更 → URL を同期（ブラウザ履歴を汚さないよう replace）
   const handleTabChange = useCallback(
-    (tab: TabId) => {
-      setActiveTab(tab);
+    (tab: string) => {
+      setActiveTab(tab as TabId);
       const params = new URLSearchParams(searchParams.toString());
       params.set("tab", tab);
       router.replace(`?${params.toString()}`, { scroll: false });
@@ -56,7 +62,7 @@ function DashboardInner() {
     }
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // プロパティ切り替え時に overview へリセット + URL同期
+  // プロパティ切り替え時に overview へリセット
   useEffect(() => {
     if (prevPropRef.current !== propertyId) {
       prevPropRef.current = propertyId;
@@ -67,43 +73,21 @@ function DashboardInner() {
   return (
     <div className="min-h-screen bg-[#F9FAFB]">
       <DashboardHeader />
-      <DashboardTabs activeTab={activeTab} onTabChange={handleTabChange} />
+      <TabNavBar tabs={TABS} activeTab={activeTab} onTabChange={handleTabChange} />
 
-      {/* スキップリンク（キーボードユーザー向け） */}
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:border focus:border-[#1E3A8A] focus:rounded focus:text-[#1E3A8A] focus:text-sm font-medium"
-      >
-        メインコンテンツへスキップ
-      </a>
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:text-brand-navy focus:shadow-lg focus:rounded-md">メインコンテンツへスキップ</a>
 
+      {/* 条件付きレンダリング: useApiData の SWR キャッシュでタブ切替を高速化 */}
       <main id="main-content" className="max-w-[1400px] mx-auto px-6 py-5">
-        {/* Overview タブ（オンデマンドマウント） */}
-        {activeTab === "overview" && (
-          <OverviewTab
-            key={propertyId}
-            propertyId={propertyId}
-            onTabChange={handleTabChange}
-          />
-        )}
-
-        {/* 常時マウントタブ: CSSで表示切り替え（瞬時遷移） */}
-        {ALWAYS_MOUNTED_TABS.map((tab) => (
-          <div
-            key={tab}
-            className={activeTab === tab ? "block" : "hidden"}
-            aria-hidden={activeTab !== tab}
-          >
-            {tab === "daily"      && <DailyTab      key={propertyId} propertyId={propertyId} />}
-            {tab === "pricing"    && <PricingTab    key={propertyId} propertyId={propertyId} />}
-            {tab === "competitor" && <CompetitorTab key={propertyId} propertyId={propertyId} />}
-            {tab === "booking"    && <BookingTab    key={propertyId} propertyId={propertyId} />}
-            {tab === "market"     && <MarketTab     key={propertyId} propertyId={propertyId} />}
-            {tab === "settings"   && <SettingsTab   key={propertyId} propertyId={propertyId} />}
-            {tab === "cost"       && <CostTab       key={propertyId} propertyId={propertyId} />}
-            {tab === "budget"     && <BudgetTab     key={propertyId} propertyId={propertyId} />}
-          </div>
-        ))}
+        {activeTab === "overview"   && <OverviewTab   key={propertyId} propertyId={propertyId} onTabChange={handleTabChange} />}
+        {activeTab === "daily"      && <DailyTab      key={propertyId} propertyId={propertyId} />}
+        {activeTab === "pricing"    && <PricingTab    key={propertyId} propertyId={propertyId} />}
+        {activeTab === "competitor" && <CompetitorTab key={propertyId} propertyId={propertyId} />}
+        {activeTab === "booking"    && <BookingTab    key={propertyId} propertyId={propertyId} />}
+        {activeTab === "market"     && <MarketTab     key={propertyId} propertyId={propertyId} />}
+        {activeTab === "cost"       && <CostTab       key={propertyId} propertyId={propertyId} />}
+        {activeTab === "budget"     && <BudgetTab     key={propertyId} propertyId={propertyId} />}
+        {activeTab === "settings"   && <SettingsTab   key={propertyId} propertyId={propertyId} />}
       </main>
     </div>
   );

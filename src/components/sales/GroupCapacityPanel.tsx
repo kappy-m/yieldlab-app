@@ -216,7 +216,7 @@ export function GroupCapacityPanel() {
           disabled={!checkIn}
           className={cn(
             "w-full py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer",
-            checkIn ? "bg-[#1E3A8A] text-white hover:bg-[#1e3070]" : "bg-slate-200 text-slate-400 cursor-not-allowed"
+            checkIn ? "bg-brand-navy text-white hover:bg-brand-navy/90" : "bg-slate-200 text-slate-400 cursor-not-allowed"
           )}
         >
           受入可否を確認する

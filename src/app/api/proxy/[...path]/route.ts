@@ -6,6 +6,17 @@ const BACKEND_URL =
   process.env.NEXT_PUBLIC_API_URL ??
   "http://localhost:8400";
 
+// BFF で許可するバックエンドパスの先頭一致リスト。
+// フロントが使わないルート（admin 系など）を遮断し、認証済みユーザーが
+// 任意のバックエンドエンドポイントを叩けないようにする防御層。
+const ALLOWED_PATH_PREFIXES = [
+  "auth/",
+  "properties/",
+  "users/",
+  "ai/",
+  "mail/",
+];
+
 async function proxyRequest(
   req: NextRequest,
   params: Promise<{ path: string[] }>
@@ -19,6 +30,17 @@ async function proxyRequest(
 
   const { path } = await params;
   const joinedPath = path.join("/");
+
+  // パスホワイトリスト検査
+  const isAllowed = ALLOWED_PATH_PREFIXES.some((prefix) =>
+    joinedPath.startsWith(prefix)
+  );
+  if (!isAllowed) {
+    return NextResponse.json(
+      { detail: "Forbidden: path not allowed" },
+      { status: 403 }
+    );
+  }
   const url = new URL(`/${joinedPath}`, BACKEND_URL);
 
   // クエリパラメータを転送

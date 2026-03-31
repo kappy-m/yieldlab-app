@@ -1,12 +1,13 @@
 "use client";
 
 import {
-  Users, BedDouble, TrendingUp, Gift, ArrowUpRight,
+  Users, BedDouble, TrendingUp, Gift,
   Clock, CheckCircle2, AlertTriangle,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
+import { KpiCard } from "@/components/shared/KpiCard";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Mock data
@@ -38,41 +39,7 @@ const TODAY_EVENTS = [
   { time: "11:30", event: "清掃チーム全室完了見込み",         type: "housekeeping" },
 ];
 
-// ────────────────────────────────────────────────────────────────────────────
-// KPI Card
-// ────────────────────────────────────────────────────────────────────────────
-
-interface KpiProps {
-  label: string;
-  value: string;
-  sub?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  iconBg: string;
-  iconColor: string;
-  trend?: string;
-  trendUp?: boolean;
-}
-
-function KpiCard({ label, value, sub, icon: Icon, iconBg, iconColor, trend, trendUp }: KpiProps) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-100 p-4">
-      <div className="flex items-start justify-between mb-3">
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${iconBg}`}>
-          <Icon className={`w-4.5 h-4.5 ${iconColor}`} />
-        </div>
-        {trend && (
-          <div className={`flex items-center gap-0.5 text-xs font-medium ${trendUp ? "text-green-600" : "text-red-500"}`}>
-            <ArrowUpRight className={`w-3.5 h-3.5 ${!trendUp ? "rotate-90" : ""}`} />
-            {trend}
-          </div>
-        )}
-      </div>
-      <p className="text-2xl font-bold text-slate-800">{value}</p>
-      {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
-      <p className="text-xs text-slate-500 mt-1">{label}</p>
-    </div>
-  );
-}
+// KpiCard is now imported from @/components/shared/KpiCard
 
 // ────────────────────────────────────────────────────────────────────────────
 // Main
@@ -82,8 +49,9 @@ export function FrontHomeTab() {
   return (
     <div className="space-y-6">
       {/* KPIグリッド */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         <KpiCard
+          variant="icon"
           label="本日の在泊数"
           value="118"
           sub="総客室数 120室"
@@ -94,6 +62,7 @@ export function FrontHomeTab() {
           trendUp
         />
         <KpiCard
+          variant="icon"
           label="チェックイン予定"
           value="42"
           sub="うち未到着 18名"
@@ -102,6 +71,7 @@ export function FrontHomeTab() {
           iconColor="text-green-600"
         />
         <KpiCard
+          variant="icon"
           label="チェックアウト完了"
           value="38 / 56"
           sub="残り 18名"
@@ -110,6 +80,7 @@ export function FrontHomeTab() {
           iconColor="text-amber-600"
         />
         <KpiCard
+          variant="icon"
           label="アップセル対象ゲスト"
           value="4"
           sub="本日の記念日ゲスト"
@@ -178,7 +149,7 @@ export function FrontHomeTab() {
                   </div>
                   <div className="text-right flex-shrink-0">
                     <span className="text-xs font-semibold text-rose-600">{a.diff}</span>
-                    <button className="block mt-1 text-[10px] bg-[#1E3A8A] text-white px-2 py-0.5 rounded cursor-pointer hover:bg-[#1e3070]">
+                    <button className="block mt-1 text-[10px] bg-brand-navy text-white px-2 py-0.5 rounded cursor-pointer hover:bg-brand-navy/90">
                       提案
                     </button>
                   </div>

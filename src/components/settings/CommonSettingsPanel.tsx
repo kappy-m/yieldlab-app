@@ -89,7 +89,7 @@ function HotelInfoPanel() {
             "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
             saved
               ? "bg-green-50 text-green-700 border border-green-200"
-              : "bg-[#1E3A8A] text-white hover:bg-[#1e3070]"
+              : "bg-brand-navy text-white hover:bg-brand-navy/90"
           )}
         >
           {saved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
@@ -153,7 +153,7 @@ function OtaPanel() {
             >
               {showKeys[ota.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
-            <button className="px-3 py-1.5 rounded-lg bg-[#1E3A8A] text-white text-xs font-medium hover:bg-[#1e3070] cursor-pointer">
+            <button className="px-3 py-1.5 rounded-lg bg-brand-navy text-white text-xs font-medium hover:bg-brand-navy/90 cursor-pointer">
               {ota.status === "connected" ? "更新" : "接続"}
             </button>
           </div>
@@ -181,7 +181,7 @@ function UsersPanel() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-xs text-slate-500">ユーザーにプロダクトごとのアクセス権を付与します。</p>
-        <button className="flex items-center gap-1.5 text-xs bg-[#1E3A8A] text-white px-3 py-1.5 rounded-lg hover:bg-[#1e3070] cursor-pointer font-medium">
+        <button className="flex items-center gap-1.5 text-xs bg-brand-navy text-white px-3 py-1.5 rounded-lg hover:bg-brand-navy/90 cursor-pointer font-medium">
           + ユーザー招待
         </button>
       </div>
@@ -224,7 +224,7 @@ function UsersPanel() {
                   </td>
                 ))}
                 <td className="px-4 py-3">
-                  <button className="text-xs text-[#1E3A8A] hover:underline cursor-pointer">編集</button>
+                  <button className="text-xs text-brand-navy hover:underline cursor-pointer">編集</button>
                 </td>
               </tr>
             ))}
@@ -292,7 +292,7 @@ function NotificationsPanel() {
               <input
                 type="checkbox"
                 defaultChecked={item.checked}
-                className="w-4 h-4 text-[#1E3A8A] rounded border-slate-300 cursor-pointer"
+                className="w-4 h-4 text-brand-navy rounded border-slate-300 cursor-pointer"
               />
               <span className="text-sm text-slate-700 group-hover:text-slate-900">{item.label}</span>
             </label>
@@ -310,7 +310,7 @@ function NotificationsPanel() {
             "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
             saved
               ? "bg-green-50 text-green-700 border border-green-200"
-              : "bg-[#1E3A8A] text-white hover:bg-[#1e3070]"
+              : "bg-brand-navy text-white hover:bg-brand-navy/90"
           )}
         >
           {saved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
@@ -343,7 +343,7 @@ export function CommonSettingsPanel({ initialTab }: { initialTab?: string }) {
               className={cn(
                 "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
                 activeTab === tab.id
-                  ? "border-[#1E3A8A] text-[#1E3A8A]"
+                  ? "border-brand-navy text-brand-navy"
                   : "border-transparent text-slate-500 hover:text-slate-700"
               )}
             >
@@ -383,8 +383,8 @@ export function CommonSettingsLink() {
               href={item.href}
               className="flex items-center gap-3 p-3 border border-slate-100 rounded-xl hover:border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer group"
             >
-              <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-[#1E3A8A]/10">
-                <Icon className="w-4 h-4 text-slate-500 group-hover:text-[#1E3A8A]" />
+              <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0 group-hover:bg-brand-navy/10">
+                <Icon className="w-4 h-4 text-slate-500 group-hover:text-brand-navy" />
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-medium text-slate-700">{item.label}</p>

@@ -265,7 +265,7 @@ export function PriceEditModal({ target, onClose, onSave, recommendation }: Pric
                 max={20}
                 value={isNaN(levelNum) ? 10 : levelNum}
                 onChange={e => setLevel(e.target.value)}
-                className="w-full accent-[#1E3A8A] cursor-pointer"
+                className="w-full accent-brand-navy cursor-pointer"
               />
               <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
                 <span>1 最高値</span>

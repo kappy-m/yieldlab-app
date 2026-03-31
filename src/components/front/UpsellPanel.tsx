@@ -47,7 +47,7 @@ function AssigneeBadge({ name, size = "sm" }: AssigneeBadgeProps) {
     <span className="flex items-center gap-1.5">
       <span
         className={cn(
-          "rounded-full bg-[#1E3A8A] text-white font-bold flex items-center justify-center flex-shrink-0",
+          "rounded-full bg-brand-navy text-white font-bold flex items-center justify-center flex-shrink-0",
           avatarSize
         )}
       >
@@ -201,7 +201,7 @@ function GuestRow({ guest, onClaim, currentUserName, canAssign }: GuestRowProps)
           </div>
         </div>
         <div className="text-right flex-shrink-0">
-          <p className="text-sm font-bold text-[#1E3A8A]">+¥{guest.addedCost.toLocaleString()}<span className="text-xs font-normal text-slate-400">/泊</span></p>
+          <p className="text-sm font-bold text-brand-navy">+¥{guest.addedCost.toLocaleString()}<span className="text-xs font-normal text-slate-400">/泊</span></p>
           <span className={cn("text-[10px] px-2 py-0.5 rounded-full font-medium", statusCfg.bg, statusCfg.text)}>
             {statusCfg.label}
           </span>
@@ -252,7 +252,7 @@ function GuestRow({ guest, onClaim, currentUserName, canAssign }: GuestRowProps)
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-colors",
                   guest.roomAvailable
-                    ? "bg-[#1E3A8A] text-white hover:bg-[#1e3070]"
+                    ? "bg-brand-navy text-white hover:bg-brand-navy/90"
                     : "bg-slate-100 text-slate-400 cursor-not-allowed"
                 )}
               >

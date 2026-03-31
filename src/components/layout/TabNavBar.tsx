@@ -92,7 +92,7 @@ function TabButton({ tab, isActive, onClick, equalWidth }: TabButtonProps) {
         "text-sm font-medium whitespace-nowrap text-center",
         "transition-colors duration-150 cursor-pointer",
         isActive
-          ? "text-[#1E3A8A]"
+          ? "text-brand-navy"
           : "text-slate-500 hover:text-slate-700 hover:bg-slate-50/80 rounded-t"
       )}
     >
@@ -102,7 +102,7 @@ function TabButton({ tab, isActive, onClick, equalWidth }: TabButtonProps) {
       {/* アクティブインジケーター（下線） */}
       <span
         className={cn(
-          "absolute bottom-0 left-0 right-0 h-0.5 bg-[#1E3A8A] rounded-t",
+          "absolute bottom-0 left-0 right-0 h-0.5 bg-brand-navy rounded-t",
           "transition-transform duration-200 origin-bottom",
           isActive ? "scale-y-100" : "scale-y-0"
         )}

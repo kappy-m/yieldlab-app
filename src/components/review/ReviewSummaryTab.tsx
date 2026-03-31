@@ -37,8 +37,7 @@ export function ReviewSummaryTab({ propertyId: _propertyId }: { propertyId: numb
       {/* AI サマリー */}
       <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
         <div className="flex items-start gap-3">
-          <div className="flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #1E3A8A, #3B82F6)" }}>
+          <div className="flex items-center justify-center w-7 h-7 rounded-lg flex-shrink-0 bg-gradient-to-br from-brand-navy to-blue-500">
             <Sparkles className="w-3.5 h-3.5 text-white" />
           </div>
           <div className="flex-1">

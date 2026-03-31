@@ -45,7 +45,7 @@ export function SalesDashboard({ propertyId: _propertyId }: { propertyId: number
     { label: "今月の新規リード",   value: "6件",       icon: Users,        color: "text-blue-600",  bg: "bg-blue-50" },
     { label: "パイプライン総額",   value: `¥${totalPipeline}万`, icon: TrendingUp, color: "text-violet-600", bg: "bg-violet-50" },
     { label: "今月の成約件数",     value: "1件",        icon: CheckCircle2, color: "text-green-600", bg: "bg-green-50" },
-    { label: "成約率",             value: `${winRate}%`, icon: TrendingUp,  color: "text-[#1E3A8A]", bg: "bg-blue-50" },
+    { label: "成約率",             value: `${winRate}%`, icon: TrendingUp,  color: "text-brand-navy", bg: "bg-blue-50" },
   ];
 
   return (
@@ -135,7 +135,7 @@ export function SalesDashboard({ propertyId: _propertyId }: { propertyId: number
         <div className="flex items-center gap-4 mt-2 justify-center">
           {[
             { color: "bg-blue-300", label: "新規リード" },
-            { color: "bg-[#1E3A8A]", label: "成立件数" },
+            { color: "bg-brand-navy", label: "成立件数" },
             { color: "bg-violet-400", label: "成立金額（万円）" },
           ].map((l) => (
             <div key={l.label} className="flex items-center gap-1.5">

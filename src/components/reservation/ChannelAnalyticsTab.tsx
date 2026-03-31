@@ -297,7 +297,7 @@ function PromotionAnalysis() {
                   <div className="flex items-center justify-end gap-2">
                     <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-[#1E3A8A] rounded-full"
+                        className="h-full bg-brand-navy rounded-full"
                         style={{ width: `${Math.min((promo.spend / promo.budget) * 100, 100)}%` }}
                       />
                     </div>
@@ -309,7 +309,7 @@ function PromotionAnalysis() {
                 <td className="px-4 py-3 text-right">
                   <span className={cn(
                     "font-bold",
-                    promo.roas >= 15 ? "text-green-600" : promo.roas >= 10 ? "text-[#1E3A8A]" : "text-amber-600"
+                    promo.roas >= 15 ? "text-green-600" : promo.roas >= 10 ? "text-brand-navy" : "text-amber-600"
                   )}>
                     {promo.roas.toFixed(1)}x
                   </span>
@@ -385,9 +385,9 @@ function CreativeAnalysis() {
               {[
                 { label: "インプレッション", value: `${(cr.impressions / 1000).toFixed(0)}K` },
                 { label: "CTR", value: `${cr.ctr.toFixed(1)}%`,
-                  highlight: cr.ctr >= 5 ? "text-green-600" : cr.ctr >= 3 ? "text-[#1E3A8A]" : "text-amber-600" },
+                  highlight: cr.ctr >= 5 ? "text-green-600" : cr.ctr >= 3 ? "text-brand-navy" : "text-amber-600" },
                 { label: "CVR", value: `${cr.cvr.toFixed(2)}%`,
-                  highlight: cr.cvr >= 1.5 ? "text-green-600" : cr.cvr >= 1.0 ? "text-[#1E3A8A]" : "text-amber-600" },
+                  highlight: cr.cvr >= 1.5 ? "text-green-600" : cr.cvr >= 1.0 ? "text-brand-navy" : "text-amber-600" },
               ].map((stat) => (
                 <div key={stat.label} className="bg-slate-50 rounded-lg p-2">
                   <p className={cn("text-sm font-bold", stat.highlight ?? "text-slate-700")}>{stat.value}</p>
@@ -397,7 +397,7 @@ function CreativeAnalysis() {
             </div>
             <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-50">
               <span className="text-xs text-slate-500">予約 {cr.bookings}件</span>
-              <span className="text-sm font-bold text-[#1E3A8A]">¥{(cr.revenue / 10000).toFixed(0)}万</span>
+              <span className="text-sm font-bold text-brand-navy">¥{(cr.revenue / 10000).toFixed(0)}万</span>
             </div>
           </div>
         ))}
@@ -436,7 +436,7 @@ export function ChannelAnalyticsTab() {
             className={cn(
               "px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
               activeTab === tab.id
-                ? "border-[#1E3A8A] text-[#1E3A8A]"
+                ? "border-brand-navy text-brand-navy"
                 : "border-transparent text-slate-500 hover:text-slate-700"
             )}
           >

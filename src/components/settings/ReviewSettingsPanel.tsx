@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Save, CheckCircle2, MessageSquare, AlertTriangle, Monitor } from "lucide-react";
+import { MessageSquare, AlertTriangle, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommonSettingsLink } from "./CommonSettingsPanel";
+import { SaveButton } from "@/components/shared/SaveButton";
 
 type SubTab = "templates" | "alerts" | "platforms";
 
@@ -12,25 +13,6 @@ const SUB_TABS: { id: SubTab; label: string; icon: React.ComponentType<{ classNa
   { id: "alerts",    label: "評価アラート閾値",       icon: AlertTriangle },
   { id: "platforms", label: "監視プラットフォーム",   icon: Monitor },
 ];
-
-function SaveButton() {
-  const [saved, setSaved] = useState(false);
-  const handle = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
-  return (
-    <div className="flex justify-end mt-6">
-      <button
-        onClick={handle}
-        className={cn(
-          "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
-          saved ? "bg-green-50 text-green-700 border border-green-200" : "bg-[#1E3A8A] text-white hover:bg-[#1e3070]"
-        )}
-      >
-        {saved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-        {saved ? "保存しました" : "変更を保存"}
-      </button>
-    </div>
-  );
-}
 
 const DEFAULT_TEMPLATES = [
   {
@@ -65,7 +47,7 @@ function TemplatesPanel() {
             onClick={() => setSelected(t.id)}
             className={cn(
               "w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors cursor-pointer",
-              selected === t.id ? "bg-[#1E3A8A] text-white" : "hover:bg-slate-50 text-slate-700"
+              selected === t.id ? "bg-brand-navy text-white" : "hover:bg-slate-50 text-slate-700"
             )}
           >
             <p className="font-medium text-[13px]">{t.label}</p>
@@ -74,7 +56,7 @@ function TemplatesPanel() {
             </p>
           </button>
         ))}
-        <button className="w-full text-center text-xs text-[#1E3A8A] hover:underline cursor-pointer px-3 py-2">
+        <button className="w-full text-center text-xs text-brand-navy hover:underline cursor-pointer px-3 py-2">
           + テンプレート追加
         </button>
       </div>
@@ -120,7 +102,7 @@ function AlertsPanel() {
           { platform: "TripAdvisor",  threshold: 3.0, enabled: false },
         ].map((item) => (
           <div key={item.platform} className="flex items-center gap-4 p-3 border border-slate-100 rounded-lg">
-            <input type="checkbox" defaultChecked={item.enabled} className="w-4 h-4 text-[#1E3A8A] rounded border-slate-300 cursor-pointer" />
+            <input type="checkbox" defaultChecked={item.enabled} className="w-4 h-4 text-brand-navy rounded border-slate-300 cursor-pointer" />
             <span className="flex-1 text-sm text-slate-700">{item.platform}</span>
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-400">閾値</span>
@@ -164,7 +146,7 @@ function PlatformsPanel() {
             {p.status === "connected" ? "接続済" : p.status === "pending" ? "設定中" : "未接続"}
           </span>
           {p.status !== "connected" && (
-            <button className="text-xs bg-[#1E3A8A] text-white px-3 py-1.5 rounded-lg hover:bg-[#1e3070] cursor-pointer">
+            <button className="text-xs bg-brand-navy text-white px-3 py-1.5 rounded-lg hover:bg-brand-navy/90 cursor-pointer">
               設定
             </button>
           )}
@@ -189,7 +171,7 @@ export function ReviewSettingsPanel() {
               className={cn(
                 "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
                 activeTab === tab.id
-                  ? "border-[#1E3A8A] text-[#1E3A8A]"
+                  ? "border-brand-navy text-brand-navy"
                   : "border-transparent text-slate-500 hover:text-slate-700"
               )}
             >

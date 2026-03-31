@@ -124,7 +124,7 @@ function DealDetail({ deal, onClose }: DealDetailProps) {
               <div className="flex justify-between"><span className="text-slate-400">人数 / 部屋数</span><span>{deal.pax}名 / {deal.rooms}室</span></div>
               <div className="flex justify-between"><span className="text-slate-400">部屋タイプ</span><span>{deal.room_type}</span></div>
               <div className="flex justify-between"><span className="text-slate-400">単価</span><span>¥{deal.unit_price.toLocaleString()}/室</span></div>
-              <div className="flex justify-between font-semibold"><span className="text-slate-600">合計金額</span><span className="text-[#1E3A8A]">¥{deal.total_amount.toLocaleString()}</span></div>
+              <div className="flex justify-between font-semibold"><span className="text-slate-600">合計金額</span><span className="text-brand-navy">¥{deal.total_amount.toLocaleString()}</span></div>
             </div>
           </section>
           <section>
@@ -143,7 +143,7 @@ function DealDetail({ deal, onClose }: DealDetailProps) {
           </section>
           <div className="flex gap-2">
             <button className="flex-1 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer">編集</button>
-            <button className="flex-1 py-2 rounded-lg bg-[#1E3A8A] text-white text-sm font-medium hover:bg-[#1e3070] cursor-pointer">メール送信</button>
+            <button className="flex-1 py-2 rounded-lg bg-brand-navy text-white text-sm font-medium hover:bg-brand-navy/90 cursor-pointer">メール送信</button>
           </div>
         </div>
       </div>
@@ -171,7 +171,7 @@ export function SalesDeals({ propertyId: _propertyId }: { propertyId: number }) 
         </div>
         <div className="bg-white rounded-xl border border-slate-100 p-4">
           <p className="text-xs text-slate-400">成約率</p>
-          <p className="text-xl font-bold text-[#1E3A8A] mt-1">
+          <p className="text-xl font-bold text-brand-navy mt-1">
             {Math.round((DEALS.filter((d) => d.stage === "won").length / DEALS.filter((d) => d.stage !== "lost").length) * 100)}%
           </p>
         </div>

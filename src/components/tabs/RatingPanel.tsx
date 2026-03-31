@@ -174,7 +174,7 @@ function ReviewCard({
   const isLong = rating.user_review.length > previewLen;
 
   return (
-    <div className={`rounded-xl border p-4 bg-white shadow-sm transition-all duration-200 ${isOwn ? "border-[#1E3A8A]/30 bg-blue-50/30" : "border-slate-100"}`}>
+    <div className={`rounded-xl border p-4 bg-white shadow-sm transition-all duration-200 ${isOwn ? "border-brand-navy/30 bg-blue-50/30" : "border-slate-100"}`}>
       {/* ヘッダー行 */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -185,7 +185,7 @@ function ReviewCard({
               <span className="text-xs font-semibold text-slate-800 truncate">
                 {isOwn ? `${rating.hotel_name}（自社）` : rating.hotel_name}
               </span>
-              {isOwn && <Building2 className="w-3 h-3 text-[#1E3A8A]" />}
+              {isOwn && <Building2 className="w-3 h-3 text-brand-navy" />}
             </div>
             {/* ソースバッジ + 日付 */}
             <div className="flex items-center gap-2 mt-0.5">
@@ -505,7 +505,7 @@ export function RatingPanel({ propertyId, propertyName, ownTodayPrice, compPrice
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-[#1E3A8A] text-white text-sm rounded-lg hover:bg-[#1e3070] transition-colors cursor-pointer disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 bg-brand-navy text-white text-sm rounded-lg hover:bg-brand-navy/90 transition-colors cursor-pointer disabled:opacity-50"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
           {refreshCountdown != null ? (String(refreshCountdown) + "秒") : refreshing ? "起動中..." : "評価データを取得する"}
@@ -555,7 +555,7 @@ export function RatingPanel({ propertyId, propertyName, ownTodayPrice, compPrice
       <div className="space-y-3">
         {/* 自社を先頭に表示 */}
         {ownRating && (
-          <div className="yl-card p-4 border-[#1E3A8A]/20 bg-blue-50/20">
+          <div className="yl-card p-4 border-brand-navy/20 bg-blue-50/20">
             <HotelRatingCard
               hotelName={`${ownRating.hotel_name}（自社）`}
               color={OWN_COLOR}
@@ -725,7 +725,7 @@ function HotelRatingCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap mb-2.5">
           <span className="text-sm font-semibold text-slate-800">{hotelName}</span>
-          {isOwn && <Building2 className="w-3.5 h-3.5 text-[#1E3A8A]" />}
+          {isOwn && <Building2 className="w-3.5 h-3.5 text-brand-navy" />}
           {rakuten?.review_count != null && (
             <span className="flex items-center gap-0.5 text-[10px] text-slate-400">
               <Users className="w-3 h-3" />{rakuten.review_count.toLocaleString()}件

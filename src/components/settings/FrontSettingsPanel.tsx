@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Save, CheckCircle2, Clock, Home, BedDouble, TrendingUp } from "lucide-react";
+import { Clock, Home, BedDouble, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommonSettingsLink } from "./CommonSettingsPanel";
+import { SaveButton } from "@/components/shared/SaveButton";
 
 type SubTab = "basic" | "housekeeping" | "roomtypes" | "upsell";
 
@@ -13,25 +14,6 @@ const SUB_TABS: { id: SubTab; label: string; icon: React.ComponentType<{ classNa
   { id: "roomtypes",    label: "部屋タイプ",      icon: BedDouble },
   { id: "upsell",       label: "アップセル",      icon: TrendingUp },
 ];
-
-function SaveButton({ onSave }: { onSave: () => void }) {
-  const [saved, setSaved] = useState(false);
-  const handle = () => { onSave(); setSaved(true); setTimeout(() => setSaved(false), 2000); };
-  return (
-    <div className="flex justify-end mt-6">
-      <button
-        onClick={handle}
-        className={cn(
-          "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
-          saved ? "bg-green-50 text-green-700 border border-green-200" : "bg-[#1E3A8A] text-white hover:bg-[#1e3070]"
-        )}
-      >
-        {saved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-        {saved ? "保存しました" : "変更を保存"}
-      </button>
-    </div>
-  );
-}
 
 function BasicPanel() {
   return (
@@ -89,7 +71,7 @@ function HousekeepingPanel() {
         <div className="space-y-2">
           {["早番 (07:00〜15:00)", "中番 (10:00〜18:00)", "遅番 (14:00〜22:00)"].map((shift) => (
             <label key={shift} className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" defaultChecked className="w-4 h-4 text-[#1E3A8A] rounded border-slate-300" />
+              <input type="checkbox" defaultChecked className="w-4 h-4 text-brand-navy rounded border-slate-300" />
               <span className="text-sm text-slate-700">{shift}</span>
             </label>
           ))}
@@ -130,7 +112,7 @@ function RoomTypesPanel() {
             {ROOM_TYPES.map((r) => (
               <tr key={r.id} className="border-b border-slate-50 hover:bg-slate-50/60">
                 <td className="px-4 py-2.5">
-                  <span className="font-mono font-medium text-[#1E3A8A] text-[11px]">{r.id}</span>
+                  <span className="font-mono font-medium text-brand-navy text-[11px]">{r.id}</span>
                 </td>
                 <td className="px-4 py-2.5 text-slate-700">{r.name}</td>
                 <td className="px-4 py-2.5 text-right text-slate-600">{r.count}室</td>
@@ -164,7 +146,7 @@ function UpsellSettingsPanel() {
             { from: "スーペリアダブル → デラックス",            diff: 8000, enabled: false },
           ].map((item) => (
             <div key={item.from} className="flex items-center gap-3 p-3 border border-slate-100 rounded-lg">
-              <input type="checkbox" defaultChecked={item.enabled} className="w-4 h-4 text-[#1E3A8A] rounded border-slate-300 cursor-pointer" />
+              <input type="checkbox" defaultChecked={item.enabled} className="w-4 h-4 text-brand-navy rounded border-slate-300 cursor-pointer" />
               <span className="flex-1 text-sm text-slate-700">{item.from}</span>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-slate-400">差額</span>
@@ -184,7 +166,7 @@ function UpsellSettingsPanel() {
         <div className="space-y-2">
           {["誕生日", "結婚記念日", "ハネムーン", "入籍記念日"].map((occasion) => (
             <label key={occasion} className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" defaultChecked className="w-4 h-4 text-[#1E3A8A] rounded border-slate-300" />
+              <input type="checkbox" defaultChecked className="w-4 h-4 text-brand-navy rounded border-slate-300" />
               <span className="text-sm text-slate-700">{occasion}</span>
             </label>
           ))}
@@ -213,7 +195,7 @@ export function FrontSettingsPanel() {
               className={cn(
                 "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
                 activeTab === tab.id
-                  ? "border-[#1E3A8A] text-[#1E3A8A]"
+                  ? "border-brand-navy text-brand-navy"
                   : "border-transparent text-slate-500 hover:text-slate-700"
               )}
             >

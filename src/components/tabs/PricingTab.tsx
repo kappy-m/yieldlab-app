@@ -358,7 +358,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
             <button
               onClick={handleApply}
               disabled={applying}
-              className="text-xs bg-[#1E3A8A] text-white rounded px-3 py-1 font-medium hover:bg-[#1e3070] disabled:opacity-50 cursor-pointer"
+              className="text-xs bg-brand-navy text-white rounded px-3 py-1 font-medium hover:bg-brand-navy/90 disabled:opacity-50 cursor-pointer"
             >
               {applying ? "適用中..." : "Apply"}
             </button>

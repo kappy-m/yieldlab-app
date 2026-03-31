@@ -53,7 +53,7 @@ function AssigneeDropdown({ currentAssignee, onAssign, currentUserName, canAssig
   if (!canAssign) {
     return currentAssignee ? (
       <span className="flex items-center gap-1.5 text-xs text-slate-500 bg-white border border-slate-200 px-2.5 py-1 rounded-lg">
-        <span className="w-5 h-5 rounded-full bg-[#1E3A8A] text-white text-[9px] font-bold flex items-center justify-center">
+        <span className="w-5 h-5 rounded-full bg-brand-navy text-white text-[9px] font-bold flex items-center justify-center">
           {getInitials(currentAssignee)}
         </span>
         担当: {currentAssignee}
@@ -67,11 +67,11 @@ function AssigneeDropdown({ currentAssignee, onAssign, currentUserName, canAssig
     <div ref={ref} className="relative ml-auto">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 px-2.5 py-1 rounded-lg hover:border-[#1E3A8A]/40 transition-colors cursor-pointer"
+        className="flex items-center gap-1.5 text-xs bg-white border border-slate-200 px-2.5 py-1 rounded-lg hover:border-brand-navy/40 transition-colors cursor-pointer"
       >
         {currentAssignee ? (
           <>
-            <span className="w-5 h-5 rounded-full bg-[#1E3A8A] text-white text-[9px] font-bold flex items-center justify-center">
+            <span className="w-5 h-5 rounded-full bg-brand-navy text-white text-[9px] font-bold flex items-center justify-center">
               {getInitials(currentAssignee)}
             </span>
             <span className="text-slate-600">{currentAssignee}</span>
@@ -108,7 +108,7 @@ function AssigneeDropdown({ currentAssignee, onAssign, currentUserName, canAssig
               </span>
               {staff.name}
               {currentAssignee === staff.name && (
-                <Check className="w-3 h-3 text-[#1E3A8A] ml-auto" />
+                <Check className="w-3 h-3 text-brand-navy ml-auto" />
               )}
             </button>
           ))}
@@ -228,8 +228,7 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
         {!inquiry ? null : (
           <>
             {/* パネルヘッダー */}
-            <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-100 flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #1E3A8A 0%, #1e40af 100%)" }}>
+            <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-100 flex-shrink-0 bg-gradient-to-br from-brand-navy to-blue-800">
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 border border-white/20 flex-shrink-0 mt-0.5 text-white">
                 {CHANNEL_ICONS[inquiry.channel as InquiryChannel] ?? CHANNEL_ICONS.email}
               </div>
@@ -351,11 +350,7 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
                   <button
                     onClick={handleGenerateAiDraft}
                     disabled={aiLoading}
-                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border mb-3 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-                    style={aiDraftOpen
-                      ? { background: "#1E3A8A", color: "white", borderColor: "#1E3A8A" }
-                      : { background: "white", color: "#1E3A8A", borderColor: "#1E3A8A" }
-                    }
+                    className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border mb-3 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${aiDraftOpen ? "bg-brand-navy text-white border-brand-navy" : "bg-white text-brand-navy border-brand-navy"}`}
                   >
                     <Sparkles className={`w-3.5 h-3.5 ${aiLoading ? "animate-spin" : ""}`} />
                     {aiLoading ? "生成中..." : "AI返信案を生成"}
@@ -384,8 +379,7 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
                         <button
                           onClick={handleUseAIDraft}
                           disabled={aiLoading}
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg cursor-pointer disabled:opacity-50"
-                          style={{ background: "#1E3A8A" }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white rounded-lg cursor-pointer disabled:opacity-50 bg-brand-navy"
                         >
                           <Check className="w-3 h-3" />
                           返信欄にコピー
@@ -415,8 +409,7 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
                     <button
                       onClick={handleSend}
                       disabled={!replyText.trim() || sent || mailSending}
-                      className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                      style={{ background: sent ? "#16A34A" : "#1E3A8A" }}
+                      className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-all ${sent ? "bg-green-600" : "bg-brand-navy"}`}
                     >
                       {sent ? (
                         <><Check className="w-3.5 h-3.5" />送信しました</>

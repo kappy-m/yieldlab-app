@@ -121,7 +121,7 @@ function ParticipantForm({
 
   return (
     <div className="bg-blue-50/60 rounded-xl border border-blue-100 p-4 space-y-3">
-      <p className="text-xs font-semibold text-[#1E3A8A]">
+      <p className="text-xs font-semibold text-brand-navy">
         {initial ? "参加者を編集" : "参加者を追加"}
       </p>
       <div className="grid grid-cols-2 gap-2">
@@ -210,7 +210,7 @@ function ParticipantForm({
         <button
           onClick={() => { if (canSave) onSave(form); }}
           disabled={!canSave}
-          className="text-xs px-3 py-1.5 rounded-lg bg-[#1E3A8A] text-white font-medium hover:bg-[#1e3070] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          className="text-xs px-3 py-1.5 rounded-lg bg-brand-navy text-white font-medium hover:bg-brand-navy/90 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {initial ? "更新" : "追加"}
         </button>
@@ -310,7 +310,7 @@ function GroupDetail({ group, onClose }: GroupDetailProps) {
               className={cn(
                 "px-4 py-2.5 text-xs font-medium transition-colors cursor-pointer whitespace-nowrap",
                 activePanel === panel.id
-                  ? "text-[#1E3A8A] border-b-2 border-[#1E3A8A]"
+                  ? "text-brand-navy border-b-2 border-brand-navy"
                   : "text-slate-500 hover:text-slate-700"
               )}
             >
@@ -335,7 +335,7 @@ function GroupDetail({ group, onClose }: GroupDetailProps) {
                 {!showForm && (
                   <button
                     onClick={openAddForm}
-                    className="flex items-center gap-1 text-xs text-[#1E3A8A] hover:underline cursor-pointer font-medium"
+                    className="flex items-center gap-1 text-xs text-brand-navy hover:underline cursor-pointer font-medium"
                   >
                     <Plus className="w-3 h-3" /> 参加者追加
                   </button>
@@ -387,7 +387,7 @@ function GroupDetail({ group, onClose }: GroupDetailProps) {
                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handleEdit(p)}
-                            className="p-1 rounded text-slate-400 hover:text-[#1E3A8A] hover:bg-blue-50 cursor-pointer"
+                            className="p-1 rounded text-slate-400 hover:text-brand-navy hover:bg-blue-50 cursor-pointer"
                             title="編集"
                           >
                             <Pencil className="w-3 h-3" />
@@ -428,7 +428,7 @@ function GroupDetail({ group, onClose }: GroupDetailProps) {
                 </p>
                 <button
                   onClick={() => { setActivePanel("participants"); openAddForm(); }}
-                  className="flex items-center gap-1 text-xs text-[#1E3A8A] hover:underline cursor-pointer font-medium"
+                  className="flex items-center gap-1 text-xs text-brand-navy hover:underline cursor-pointer font-medium"
                 >
                   <Plus className="w-3 h-3" /> 参加者追加
                 </button>
@@ -446,8 +446,8 @@ function GroupDetail({ group, onClose }: GroupDetailProps) {
                     .map(([roomNo, occupants]) => (
                       <div key={roomNo} className="bg-white rounded-xl border border-slate-100 p-3 hover:border-slate-200 transition-colors">
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-7 h-7 bg-[#1E3A8A]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <Bed className="w-3.5 h-3.5 text-[#1E3A8A]" />
+                          <div className="w-7 h-7 bg-brand-navy/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Bed className="w-3.5 h-3.5 text-brand-navy" />
                           </div>
                           <div className="min-w-0">
                             <p className="text-xs font-semibold text-slate-700">{roomNo}号室</p>
@@ -522,7 +522,7 @@ function GroupDetail({ group, onClose }: GroupDetailProps) {
                   <p className="text-[10px] text-slate-400 mt-1">※ Resend API連携後に実際の送信が有効になります</p>
                   <div className="flex gap-2 mt-3">
                     <button onClick={() => setShowReply(false)} className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer">キャンセル</button>
-                    <button className="text-xs px-3 py-1.5 rounded-lg bg-[#1E3A8A] text-white font-medium hover:bg-[#1e3070] cursor-pointer flex items-center gap-1.5">
+                    <button className="text-xs px-3 py-1.5 rounded-lg bg-brand-navy text-white font-medium hover:bg-brand-navy/90 cursor-pointer flex items-center gap-1.5">
                       <Send className="w-3 h-3" /> 送信（スタブ）
                     </button>
                   </div>
@@ -564,18 +564,18 @@ export function SalesGroups({ propertyId: _propertyId }: { propertyId: number })
           className={cn(
             "flex items-center gap-3 p-4 rounded-xl border transition-colors cursor-pointer",
             activePanel === "capacity"
-              ? "border-[#1E3A8A] bg-[#1E3A8A]/5"
+              ? "border-brand-navy bg-brand-navy/5"
               : "border-slate-100 bg-white hover:border-slate-200"
           )}
         >
-          <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0", activePanel === "capacity" ? "bg-[#1E3A8A]/10" : "bg-slate-50")}>
-            <BarChart2 className={cn("w-5 h-5", activePanel === "capacity" ? "text-[#1E3A8A]" : "text-slate-400")} />
+          <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0", activePanel === "capacity" ? "bg-brand-navy/10" : "bg-slate-50")}>
+            <BarChart2 className={cn("w-5 h-5", activePanel === "capacity" ? "text-brand-navy" : "text-slate-400")} />
           </div>
           <div className="text-left flex-1">
-            <p className={cn("text-sm font-semibold", activePanel === "capacity" ? "text-[#1E3A8A]" : "text-slate-700")}>キャパシティチェック</p>
+            <p className={cn("text-sm font-semibold", activePanel === "capacity" ? "text-brand-navy" : "text-slate-700")}>キャパシティチェック</p>
             <p className="text-xs text-slate-400 mt-0.5">日程・室数から受入可否を判定</p>
           </div>
-          {activePanel === "capacity" ? <ChevronUp className="w-4 h-4 text-[#1E3A8A]" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+          {activePanel === "capacity" ? <ChevronUp className="w-4 h-4 text-brand-navy" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
         </button>
 
         <button
@@ -583,18 +583,18 @@ export function SalesGroups({ propertyId: _propertyId }: { propertyId: number })
           className={cn(
             "flex items-center gap-3 p-4 rounded-xl border transition-colors cursor-pointer",
             activePanel === "rate"
-              ? "border-[#1E3A8A] bg-[#1E3A8A]/5"
+              ? "border-brand-navy bg-brand-navy/5"
               : "border-slate-100 bg-white hover:border-slate-200"
           )}
         >
-          <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0", activePanel === "rate" ? "bg-[#1E3A8A]/10" : "bg-slate-50")}>
-            <Calculator className={cn("w-5 h-5", activePanel === "rate" ? "text-[#1E3A8A]" : "text-slate-400")} />
+          <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0", activePanel === "rate" ? "bg-brand-navy/10" : "bg-slate-50")}>
+            <Calculator className={cn("w-5 h-5", activePanel === "rate" ? "text-brand-navy" : "text-slate-400")} />
           </div>
           <div className="text-left flex-1">
-            <p className={cn("text-sm font-semibold", activePanel === "rate" ? "text-[#1E3A8A]" : "text-slate-700")}>グループレート算出</p>
+            <p className={cn("text-sm font-semibold", activePanel === "rate" ? "text-brand-navy" : "text-slate-700")}>グループレート算出</p>
             <p className="text-xs text-slate-400 mt-0.5">リードタイム×ボリューム×季節で推奨レート算出</p>
           </div>
-          {activePanel === "rate" ? <ChevronUp className="w-4 h-4 text-[#1E3A8A]" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+          {activePanel === "rate" ? <ChevronUp className="w-4 h-4 text-brand-navy" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
         </button>
       </div>
 
@@ -689,7 +689,7 @@ export function SalesGroups({ propertyId: _propertyId }: { propertyId: number })
                   <td className="px-4 py-3">
                     <button
                       onClick={() => setSelected(group)}
-                      className="flex items-center gap-1 text-xs text-[#1E3A8A] hover:underline cursor-pointer"
+                      className="flex items-center gap-1 text-xs text-brand-navy hover:underline cursor-pointer"
                     >
                       詳細 <ChevronRight className="w-3 h-3" />
                     </button>

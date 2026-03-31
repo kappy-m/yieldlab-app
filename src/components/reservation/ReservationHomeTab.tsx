@@ -1,13 +1,14 @@
 "use client";
 
 import {
-  Calendar, TrendingUp, TrendingDown, ArrowUpRight,
+  Calendar, TrendingDown, ArrowUpRight,
   Users, DollarSign, BarChart2,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
 } from "recharts";
+import { KpiCard } from "@/components/shared/KpiCard";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Mock data
@@ -40,42 +41,6 @@ const UPCOMING = [
 ];
 
 // ────────────────────────────────────────────────────────────────────────────
-// KPI Card
-// ────────────────────────────────────────────────────────────────────────────
-
-interface KpiProps {
-  label: string;
-  value: string;
-  sub?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  iconBg: string;
-  iconColor: string;
-  trend?: string;
-  trendUp?: boolean;
-}
-
-function KpiCard({ label, value, sub, icon: Icon, iconBg, iconColor, trend, trendUp }: KpiProps) {
-  return (
-    <div className="bg-white rounded-xl border border-slate-100 p-4">
-      <div className="flex items-start justify-between mb-3">
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${iconBg}`}>
-          <Icon className={`w-4 h-4 ${iconColor}`} />
-        </div>
-        {trend !== undefined && (
-          <div className={`flex items-center gap-0.5 text-xs font-medium ${trendUp ? "text-green-600" : "text-red-500"}`}>
-            {trendUp ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-            {trend}
-          </div>
-        )}
-      </div>
-      <p className="text-2xl font-bold text-slate-800">{value}</p>
-      {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
-      <p className="text-xs text-slate-500 mt-1">{label}</p>
-    </div>
-  );
-}
-
-// ────────────────────────────────────────────────────────────────────────────
 // Main
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -83,8 +48,9 @@ export function ReservationHomeTab() {
   return (
     <div className="space-y-6">
       {/* KPI */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         <KpiCard
+          variant="icon"
           label="今月の予約数"
           value="312"
           sub="前月比 +24件"
@@ -95,6 +61,7 @@ export function ReservationHomeTab() {
           trendUp
         />
         <KpiCard
+          variant="icon"
           label="本日の新規予約"
           value="22"
           sub="キャンセル 1件"
@@ -105,6 +72,7 @@ export function ReservationHomeTab() {
           trendUp
         />
         <KpiCard
+          variant="icon"
           label="今月の予約取消率"
           value="4.2%"
           sub="前月 5.1%"
@@ -115,6 +83,7 @@ export function ReservationHomeTab() {
           trendUp
         />
         <KpiCard
+          variant="icon"
           label="平均単価"
           value="¥24,800"
           sub="RevPAR ¥23,200"
@@ -132,7 +101,7 @@ export function ReservationHomeTab() {
         <div className="col-span-2 bg-white rounded-xl border border-slate-100 p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-slate-700">チャネルミックス（今月）</h3>
-            <a href="#" className="text-xs text-[#1E3A8A] flex items-center gap-0.5 hover:underline">
+            <a href="#" className="text-xs text-brand-navy flex items-center gap-0.5 hover:underline">
               詳細分析 <ArrowUpRight className="w-3 h-3" />
             </a>
           </div>
@@ -213,7 +182,7 @@ export function ReservationHomeTab() {
                 </div>
               </div>
               <span className={`text-xs font-medium w-10 text-right ${
-                day.occupancy >= 90 ? "text-[#1E3A8A]" : day.occupancy >= 75 ? "text-blue-500" : "text-slate-400"
+                day.occupancy >= 90 ? "text-brand-navy" : day.occupancy >= 75 ? "text-blue-500" : "text-slate-400"
               }`}>
                 {day.occupancy}%
               </span>

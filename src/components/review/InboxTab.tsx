@@ -26,10 +26,9 @@ export function InboxTab({ propertyId }: { propertyId: number }) {
             className={cn(
               "flex flex-col items-start px-4 py-2 rounded-lg text-left transition-all duration-150 cursor-pointer min-w-[120px]",
               activeSubTab === tab.id
-                ? "text-white shadow-sm"
+                ? "text-white shadow-sm bg-brand-navy"
                 : "text-slate-500 hover:text-slate-700 hover:bg-slate-50"
             )}
-            style={activeSubTab === tab.id ? { background: "#1E3A8A" } : {}}
           >
             <span className="text-xs font-semibold leading-none">{tab.label}</span>
             <span className={cn(

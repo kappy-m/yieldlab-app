@@ -111,7 +111,7 @@ export function GuestAttributeAnalysis() {
               onClick={() => setPeriod(p)}
               className={cn(
                 "px-3 py-1.5 cursor-pointer transition-colors",
-                period === p ? "bg-[#1E3A8A] text-white" : "bg-white text-slate-600 hover:bg-slate-50"
+                period === p ? "bg-brand-navy text-white" : "bg-white text-slate-600 hover:bg-slate-50"
               )}
             >
               {p === "today" ? "本日" : p === "week" ? "今週" : "今月"}

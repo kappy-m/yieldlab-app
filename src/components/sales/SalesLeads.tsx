@@ -16,7 +16,7 @@ import type { SalesRole } from "@/lib/api";
 const SALES_ROLE_META: Record<SalesRole, { label: string; bg: string; text: string; border: string }> = {
   sales_manager:    { label: "営業",    bg: "bg-amber-50",  text: "text-amber-700",  border: "border-amber-200" },
   booking_staff:    { label: "予約担当", bg: "bg-blue-50",   text: "text-blue-700",   border: "border-blue-200" },
-  revenue_manager:  { label: "Revenue", bg: "bg-[#1E3A8A]/10", text: "text-[#1E3A8A]", border: "border-[#1E3A8A]/20" },
+  revenue_manager:  { label: "Revenue", bg: "bg-brand-navy/10", text: "text-brand-navy", border: "border-brand-navy/20" },
 };
 
 function SalesRoleBadge({ role }: { role: SalesRole }) {
@@ -40,7 +40,7 @@ function LeadAssigneeBadge({ name }: { name: string }) {
   if (isUnassigned) return <span className="text-xs text-slate-400">— 未割当</span>;
   return (
     <span className="flex items-center gap-1.5">
-      <span className="w-5 h-5 rounded-full bg-[#1E3A8A] text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0">
+      <span className="w-5 h-5 rounded-full bg-brand-navy text-white text-[9px] font-bold flex items-center justify-center flex-shrink-0">
         {getInitials(name)}
       </span>
       <span className="text-xs text-slate-600">{name}</span>
@@ -162,7 +162,7 @@ function QuickReplyModal({ lead, onClose }: QuickReplyModalProps) {
         </div>
         <div className="flex items-center justify-end gap-3 px-5 py-4 border-t border-slate-100">
           <button onClick={onClose} className="text-sm px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer">キャンセル</button>
-          <button className="text-sm px-4 py-2 rounded-lg bg-[#1E3A8A] text-white font-medium hover:bg-[#1e3070] cursor-pointer flex items-center gap-1.5">
+          <button className="text-sm px-4 py-2 rounded-lg bg-brand-navy text-white font-medium hover:bg-brand-navy/90 cursor-pointer flex items-center gap-1.5">
             <Send className="w-3.5 h-3.5" /> 送信（スタブ）
           </button>
         </div>
@@ -207,7 +207,7 @@ export function SalesLeads({ propertyId: _propertyId }: { propertyId: number }) 
             onClick={() => setFilterStatus(filterStatus === status ? "all" : status)}
             className={cn(
               "bg-white rounded-xl border p-3 text-left transition-all cursor-pointer",
-              filterStatus === status ? "border-[#1E3A8A] ring-1 ring-[#1E3A8A]/20" : "border-slate-100 hover:border-slate-200"
+              filterStatus === status ? "border-brand-navy ring-1 ring-brand-navy/20" : "border-slate-100 hover:border-slate-200"
             )}
           >
             <p className="text-xs text-slate-400">{meta.label}</p>
@@ -243,7 +243,7 @@ export function SalesLeads({ propertyId: _propertyId }: { propertyId: number }) 
 
           {/* ロールベースのアクションボタン */}
           {canCreateLead && (
-            <button className="flex items-center gap-1.5 bg-[#1E3A8A] text-white text-sm px-4 py-2 rounded-lg font-medium hover:bg-[#1e3070] cursor-pointer">
+            <button className="flex items-center gap-1.5 bg-brand-navy text-white text-sm px-4 py-2 rounded-lg font-medium hover:bg-brand-navy/90 cursor-pointer">
               <Plus className="w-4 h-4" /> 新規リード
             </button>
           )}
@@ -253,7 +253,7 @@ export function SalesLeads({ propertyId: _propertyId }: { propertyId: number }) 
             </button>
           )}
           {canViewRevenue && (
-            <button className="flex items-center gap-1.5 bg-white border border-[#1E3A8A]/30 text-[#1E3A8A] text-sm px-4 py-2 rounded-lg font-medium hover:bg-[#1E3A8A]/5 cursor-pointer">
+            <button className="flex items-center gap-1.5 bg-white border border-brand-navy/30 text-brand-navy text-sm px-4 py-2 rounded-lg font-medium hover:bg-brand-navy/5 cursor-pointer">
               <span className="text-xs font-bold">¥</span> レート確認
             </button>
           )}
@@ -325,18 +325,18 @@ export function SalesLeads({ propertyId: _propertyId }: { propertyId: number }) 
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => setReplyTarget(lead)}
-                        className="text-slate-400 hover:text-[#1E3A8A] transition-colors cursor-pointer"
+                        className="text-slate-400 hover:text-brand-navy transition-colors cursor-pointer"
                         title="返信メール作成"
                       >
                         <Mail className="w-4 h-4" />
                       </button>
-                      <button className="text-slate-400 hover:text-[#1E3A8A] transition-colors cursor-pointer" title="メモ">
+                      <button className="text-slate-400 hover:text-brand-navy transition-colors cursor-pointer" title="メモ">
                         <MessageSquare className="w-4 h-4" />
                       </button>
-                      <button className="text-slate-400 hover:text-[#1E3A8A] transition-colors cursor-pointer" title="電話">
+                      <button className="text-slate-400 hover:text-brand-navy transition-colors cursor-pointer" title="電話">
                         <Phone className="w-4 h-4" />
                       </button>
-                      <button className="text-slate-400 hover:text-[#1E3A8A] transition-colors cursor-pointer">
+                      <button className="text-slate-400 hover:text-brand-navy transition-colors cursor-pointer">
                         <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>

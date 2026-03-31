@@ -10,7 +10,8 @@ import {
   CheckCircle, ArrowRight, Minus,
 } from "lucide-react";
 import { fetchOverview, type OverviewOut, type OverviewAlertOut } from "@/lib/api";
-import type { TabId } from "@/components/layout/DashboardTabs";
+// Yield プロダクトのタブID（DashboardTabs 廃止に伴いローカル定義）
+type TabId = "overview" | "daily" | "booking" | "pricing" | "competitor" | "market" | "cost" | "budget" | "settings";
 
 // ─── count-up アニメーション ─────────────────────────────────────────────────
 function useCountUp(target: number, duration = 800, decimals = 1) {
@@ -67,11 +68,11 @@ function KpiCardAnimated({ label, value, unit, change, decimals = 1, prefix = ""
         ) : isPositive ? (
           <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
         ) : (
-          <TrendingDown className="w-3.5 h-3.5 text-rose-500" />
+          <TrendingDown className="w-3.5 h-3.5 text-yl-negative" />
         )}
         <span
           className={`text-xs font-medium ${
-            isNeutral ? "text-slate-400" : isPositive ? "text-emerald-600" : "text-rose-500"
+            isNeutral ? "text-slate-400" : isPositive ? "text-yl-positive" : "text-yl-negative"
           }`}
         >
           {isNeutral ? "前日比 変動なし" : `前日比 ${isPositive ? "+" : ""}${change.toLocaleString("ja-JP")}${unit}`}
@@ -127,7 +128,7 @@ function AlertCard({ alert, onAction }: AlertCardProps) {
       {onAction && (
         <button
           onClick={onAction}
-          className="flex items-center gap-1 text-xs font-medium text-[#1E3A8A] hover:text-[#0369A1] cursor-pointer transition-colors duration-150 flex-shrink-0"
+          className="flex items-center gap-1 text-xs font-medium text-brand-navy hover:text-brand-navy/80 cursor-pointer transition-colors duration-150 flex-shrink-0"
         >
           確認
           <ArrowRight className="w-3 h-3" />
@@ -321,8 +322,8 @@ export function OverviewTab({ propertyId, onTabChange }: OverviewTabProps) {
         </h2>
         <div className="bg-gradient-to-r from-slate-50 to-blue-50/30 rounded-xl border border-slate-200 p-5">
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#1E3A8A]/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <svg className="w-4 h-4 text-[#1E3A8A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div className="w-8 h-8 rounded-lg bg-brand-navy/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg className="w-4 h-4 text-brand-navy" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
             </div>

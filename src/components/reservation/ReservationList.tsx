@@ -114,12 +114,12 @@ function ReservationCalendar({ year, month, monthlyCounts, onDayClick, onMonthCh
               className={cn(
                 "relative flex flex-col items-center py-1.5 rounded-lg transition-colors",
                 count > 0 ? "cursor-pointer hover:bg-blue-50" : "cursor-default",
-                isToday ? "bg-[#1E3A8A]/10 font-bold" : ""
+                isToday ? "bg-brand-navy/10 font-bold" : ""
               )}
             >
               <span className={cn(
                 "text-xs",
-                isToday ? "text-[#1E3A8A] font-bold" :
+                isToday ? "text-brand-navy font-bold" :
                 dow === 0 ? "text-rose-500" :
                 dow === 6 ? "text-blue-500" :
                 "text-slate-700"
@@ -127,7 +127,7 @@ function ReservationCalendar({ year, month, monthlyCounts, onDayClick, onMonthCh
                 {day}
               </span>
               {count > 0 && (
-                <span className="mt-0.5 text-[10px] font-semibold text-[#1E3A8A] bg-blue-50 rounded-full px-1 min-w-[18px] text-center">
+                <span className="mt-0.5 text-[10px] font-semibold text-brand-navy bg-blue-50 rounded-full px-1 min-w-[18px] text-center">
                   {count}
                 </span>
               )}
@@ -194,7 +194,7 @@ export function ReservationList({ propertyId }: ReservationListProps) {
           <button
             onClick={() => setViewMode("list")}
             className={cn("flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors cursor-pointer",
-              viewMode === "list" ? "bg-[#1E3A8A] text-white" : "text-slate-500 hover:bg-slate-50"
+              viewMode === "list" ? "bg-brand-navy text-white" : "text-slate-500 hover:bg-slate-50"
             )}
           >
             <List className="w-3.5 h-3.5" />
@@ -203,7 +203,7 @@ export function ReservationList({ propertyId }: ReservationListProps) {
           <button
             onClick={() => setViewMode("calendar")}
             className={cn("flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors cursor-pointer",
-              viewMode === "calendar" ? "bg-[#1E3A8A] text-white" : "text-slate-500 hover:bg-slate-50"
+              viewMode === "calendar" ? "bg-brand-navy text-white" : "text-slate-500 hover:bg-slate-50"
             )}
           >
             <Calendar className="w-3.5 h-3.5" />
@@ -219,7 +219,7 @@ export function ReservationList({ propertyId }: ReservationListProps) {
             placeholder="ゲスト名・予約番号で検索..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 focus:border-[#1E3A8A]/40"
+            className="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-navy/20 focus:border-brand-navy/40"
           />
         </div>
 
@@ -227,7 +227,7 @@ export function ReservationList({ propertyId }: ReservationListProps) {
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
-          className="py-2 pl-3 pr-8 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20 cursor-pointer"
+          className="py-2 pl-3 pr-8 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-navy/20 cursor-pointer"
         >
           <option value="all">全ステータス</option>
           <option value="confirmed">確定</option>
@@ -292,8 +292,7 @@ export function ReservationList({ propertyId }: ReservationListProps) {
           />
           <div className="fixed right-0 top-0 h-full w-full max-w-sm bg-white shadow-2xl z-50 flex flex-col overflow-y-auto">
             {/* Header */}
-            <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-100 flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #1E3A8A 0%, #1e40af 100%)" }}>
+            <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-100 flex-shrink-0 bg-gradient-to-br from-brand-navy to-blue-800">
               <div className="flex-1 min-w-0">
                 <p className="text-white font-semibold text-sm">{selected.guest_name}</p>
                 <p className="text-white/60 text-xs">{selected.reservation_no}</p>

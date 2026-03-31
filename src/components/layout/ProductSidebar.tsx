@@ -131,8 +131,7 @@ export function ProductSidebar() {
 
   return (
     <aside
-      className="sticky top-0 h-screen w-12 flex-shrink-0 flex flex-col border-r border-white/10 z-40"
-      style={{ background: "linear-gradient(180deg, #1E3A8A 0%, #1e40af 100%)" }}
+      className="sticky top-0 h-screen w-12 flex-shrink-0 flex flex-col border-r border-white/10 z-40 bg-gradient-to-b from-brand-navy to-blue-800"
     >
       {/* ヘッダー（h-14 = 56px）分の余白 */}
       <div className="h-14 flex-shrink-0" />
@@ -324,8 +323,7 @@ export function ProductSidebar() {
             aria-label="アカウントメニュー"
           >
             <div
-              className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold border-2 transition-all duration-200 ${userOpen ? "border-white/60 ring-2 ring-white/30" : "border-white/20 hover:border-white/40 hover:ring-2 hover:ring-white/20"}`}
-              style={{ background: "#CA8A04", color: "#1E3A8A" }}
+              className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold border-2 transition-all duration-200 bg-yellow-600 text-brand-navy ${userOpen ? "border-white/60 ring-2 ring-white/30" : "border-white/20 hover:border-white/40 hover:ring-2 hover:ring-white/20"}`}
             >
               {avatarInitials}
             </div>

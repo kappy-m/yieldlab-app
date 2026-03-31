@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Save, CheckCircle2, Sliders, Bell, Ban } from "lucide-react";
+import { Sliders, Bell, Ban } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CommonSettingsLink } from "./CommonSettingsPanel";
+import { SaveButton } from "@/components/shared/SaveButton";
 
 type SubTab = "channels" | "notifications" | "cancellation";
 
@@ -12,25 +13,6 @@ const SUB_TABS: { id: SubTab; label: string; icon: React.ComponentType<{ classNa
   { id: "notifications", label: "予約通知ルール",       icon: Bell },
   { id: "cancellation",  label: "キャンセルポリシー",   icon: Ban },
 ];
-
-function SaveButton() {
-  const [saved, setSaved] = useState(false);
-  const handle = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
-  return (
-    <div className="flex justify-end mt-6">
-      <button
-        onClick={handle}
-        className={cn(
-          "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer",
-          saved ? "bg-green-50 text-green-700 border border-green-200" : "bg-[#1E3A8A] text-white hover:bg-[#1e3070]"
-        )}
-      >
-        {saved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-        {saved ? "保存しました" : "変更を保存"}
-      </button>
-    </div>
-  );
-}
 
 const CHANNELS_CONFIG = [
   { name: "楽天トラベル",  priority: 1, enabled: true,  quota: 80 },
@@ -63,7 +45,7 @@ function ChannelsPanel() {
                 </td>
                 <td className="px-4 py-2.5 text-slate-700 font-medium">{ch.name}</td>
                 <td className="px-4 py-2.5 text-center">
-                  <input type="checkbox" defaultChecked={ch.enabled} className="w-4 h-4 text-[#1E3A8A] rounded border-slate-300 cursor-pointer" />
+                  <input type="checkbox" defaultChecked={ch.enabled} className="w-4 h-4 text-brand-navy rounded border-slate-300 cursor-pointer" />
                 </td>
                 <td className="px-4 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-1">
@@ -82,7 +64,7 @@ function ChannelsPanel() {
       </div>
       <div>
         <label className="flex items-center gap-3 cursor-pointer">
-          <input type="checkbox" defaultChecked className="w-4 h-4 text-[#1E3A8A] rounded border-slate-300" />
+          <input type="checkbox" defaultChecked className="w-4 h-4 text-brand-navy rounded border-slate-300" />
           <span className="text-sm text-slate-700">予約を自動確認する（手動承認を省略）</span>
         </label>
       </div>
@@ -99,7 +81,7 @@ function NotificationsPanel() {
         <div className="space-y-3">
           {["新規予約", "修正・変更", "キャンセル", "問い合わせ"].map((type) => (
             <div key={type} className="flex items-center gap-3 p-3 border border-slate-100 rounded-lg">
-              <input type="checkbox" defaultChecked className="w-4 h-4 text-[#1E3A8A] rounded border-slate-300 cursor-pointer" />
+              <input type="checkbox" defaultChecked className="w-4 h-4 text-brand-navy rounded border-slate-300 cursor-pointer" />
               <span className="flex-1 text-sm text-slate-700">{type}</span>
               <select className="border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-700 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-200">
                 <option>即時</option>
@@ -157,7 +139,7 @@ export function ReservationSettingsPanel() {
               className={cn(
                 "flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
                 activeTab === tab.id
-                  ? "border-[#1E3A8A] text-[#1E3A8A]"
+                  ? "border-brand-navy text-brand-navy"
                   : "border-transparent text-slate-500 hover:text-slate-700"
               )}
             >

@@ -67,7 +67,7 @@ function NumberInput({
         min={min}
         max={max}
         onChange={e => onChange(e.target.value)}
-        className="w-28 text-sm border border-slate-200 rounded-lg px-3 py-1.5 text-right focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/20"
+        className="w-28 text-sm border border-slate-200 rounded-lg px-3 py-1.5 text-right focus:outline-none focus:ring-2 focus:ring-brand-navy/20"
       />
       {suffix && <span className="text-xs text-slate-400">{suffix}</span>}
     </div>
@@ -162,7 +162,7 @@ export function PricingPolicyPanel({ propertyId }: { propertyId: number }) {
               "w-10 h-5 rounded-full transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5",
               "after:bg-white after:rounded-full after:w-4 after:h-4 after:transition-all",
               "peer-checked:after:translate-x-5",
-              form.enforce_room_order ? "bg-[#1E3A8A]" : "bg-slate-200"
+              form.enforce_room_order ? "bg-brand-navy" : "bg-slate-200"
             )} />
           </label>
         </Field>
@@ -204,7 +204,7 @@ export function PricingPolicyPanel({ propertyId }: { propertyId: number }) {
               "w-10 h-5 rounded-full transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5",
               "after:bg-white after:rounded-full after:w-4 after:h-4 after:transition-all",
               "peer-checked:after:translate-x-5",
-              form.mlos_enabled ? "bg-[#1E3A8A]" : "bg-slate-200"
+              form.mlos_enabled ? "bg-brand-navy" : "bg-slate-200"
             )} />
           </label>
         </Field>

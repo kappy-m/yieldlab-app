@@ -60,12 +60,12 @@ function RateResult({ result }: { result: CalcResult }) {
   const final       = afterVolume * result.seasonMultiplier.multiplier;
 
   return (
-    <div className="rounded-xl border border-[#1E3A8A]/20 bg-blue-50/40 p-5 space-y-4">
+    <div className="rounded-xl border border-brand-navy/20 bg-blue-50/40 p-5 space-y-4">
       {/* 推奨レート */}
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs text-slate-500 mb-1">推奨グループレート（1室/泊）</p>
-          <p className="text-3xl font-bold text-[#1E3A8A]">
+          <p className="text-3xl font-bold text-brand-navy">
             ¥{Math.round(result.recommendedRate).toLocaleString()}
           </p>
           <p className="text-xs text-slate-400 mt-0.5">
@@ -116,7 +116,7 @@ function RateResult({ result }: { result: CalcResult }) {
               <div key={row.step} className={cn("flex items-center justify-between py-1.5", i < 3 && "border-b border-slate-50")}>
                 <span className={cn("text-slate-500", i === 3 && "font-semibold text-slate-700")}>{row.step}</span>
                 <div className="text-right">
-                  <span className={cn("font-medium", i === 3 ? "text-[#1E3A8A] text-sm" : "text-slate-700")}>
+                  <span className={cn("font-medium", i === 3 ? "text-brand-navy text-sm" : "text-slate-700")}>
                     ¥{Math.round(row.value).toLocaleString()}
                   </span>
                   <span className="text-slate-400 ml-2">{row.note}</span>
@@ -246,7 +246,7 @@ export function GroupRateCalculator() {
           disabled={!checkIn}
           className={cn(
             "w-full py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2",
-            checkIn ? "bg-[#1E3A8A] text-white hover:bg-[#1e3070] cursor-pointer" : "bg-slate-200 text-slate-400 cursor-not-allowed"
+            checkIn ? "bg-brand-navy text-white hover:bg-brand-navy/90 cursor-pointer" : "bg-slate-200 text-slate-400 cursor-not-allowed"
           )}
         >
           <Calculator className="w-4 h-4" />
