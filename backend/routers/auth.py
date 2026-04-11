@@ -65,22 +65,17 @@ class UserOut(BaseModel):
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def _verify_password(plain: str, hashed: str) -> bool:
-    if _HAS_BCRYPT:
-        try:
-            return _bcrypt_lib.checkpw(plain.encode(), hashed.encode())
-        except Exception:
-            pass
-    return plain == hashed
+    if not _HAS_BCRYPT:
+        # bcrypt が未インストール: ハッシュ化されていないパスワードのみ許容（開発環境限定）
+        return plain == hashed
+    return _bcrypt_lib.checkpw(plain.encode(), hashed.encode())
 
 
 def _hash_password(plain: str) -> str:
-    if _HAS_BCRYPT:
-        try:
-            salt = _bcrypt_lib.gensalt()
-            return _bcrypt_lib.hashpw(plain.encode(), salt).decode()
-        except Exception:
-            pass
-    return plain
+    if not _HAS_BCRYPT:
+        return plain
+    salt = _bcrypt_lib.gensalt()
+    return _bcrypt_lib.hashpw(plain.encode(), salt).decode()
 
 
 def _build_product_roles(user: User) -> dict[str, str]:
