@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from .database import init_db, engine
 from .config import settings
 from .rate_limit import limiter
@@ -448,6 +449,7 @@ app = FastAPI(
 # ─── Rate Limiting ─────────────────────────────────────────────────────────────
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # ─── CORS（ホワイトリスト方式・ワイルドカード禁止） ────────────────────────────
 app.add_middleware(
