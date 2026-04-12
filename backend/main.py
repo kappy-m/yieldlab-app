@@ -410,31 +410,49 @@ _logger = logging.getLogger(__name__)
 _db_ready = False
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+async def _seed_all_background():
+    """
+    シード処理をまとめてバックグラウンドで実行する。
+    lifespan の yield 後に create_task で呼び出すことで、
+    healthcheck を即座に通過させつつデータ投入を非同期で行う。
+    """
     global _db_ready
     try:
-        # PostgreSQL 環境: Alembic でスキーマ管理
-        # SQLite フォールバック環境: create_all で互換維持
-        db_url = settings.DATABASE_URL
-        if "sqlite" in db_url:
-            await init_db()
-            await _migrate_competitor_ratings_columns()
-
         await _auto_seed_if_empty()
         await _auto_seed_daily_perf_if_empty()
         await _auto_seed_users_if_empty()
         await _auto_seed_canvas_event_area()
         await _auto_pipeline_if_prices_empty()
         await _auto_fetch_ratings_if_empty()
+        await _auto_seed_booking_snapshots_if_empty()
         _db_ready = True
-        _logger.info("Database initialized and seeded.")
+        _logger.info("Background seeding complete.")
     except Exception as e:
-        _logger.warning(f"DB init failed on startup (will retry on first request): {e}")
+        _logger.warning(f"Background seeding failed: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    import asyncio
+
+    # SQLite 環境のみスキーマ作成（PostgreSQL は Railway が管理）
+    db_url = settings.DATABASE_URL
+    if "sqlite" in db_url:
+        try:
+            await init_db()
+            await _migrate_competitor_ratings_columns()
+        except Exception as e:
+            _logger.warning(f"DB init failed on startup: {e}")
+
     _scheduler.start()
-    # 起動時に booking_snapshots が空なら過去90日分のシードを投入
-    await _auto_seed_booking_snapshots_if_empty()
+
+    # シード処理をバックグラウンドに回して healthcheck をブロックしない。
+    # yield 後に create_task することで lifespan 内で task が生存保証される。
+    seed_task = asyncio.create_task(_seed_all_background())
+
     yield
+
+    seed_task.cancel()
     _scheduler.shutdown(wait=False)
 
 
