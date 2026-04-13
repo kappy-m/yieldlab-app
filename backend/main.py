@@ -435,14 +435,14 @@ async def _seed_all_background():
 async def lifespan(app: FastAPI):
     import asyncio
 
-    # SQLite 環境のみスキーマ作成（PostgreSQL は Railway が管理）
-    db_url = settings.DATABASE_URL
-    if "sqlite" in db_url:
-        try:
-            await init_db()
+    # 起動時にスキーマを作成（create_all は既存テーブルをスキップするので冪等）
+    try:
+        await init_db()
+        db_url = settings.DATABASE_URL
+        if "sqlite" in db_url:
             await _migrate_competitor_ratings_columns()
-        except Exception as e:
-            _logger.warning(f"DB init failed on startup: {e}")
+    except Exception as e:
+        _logger.warning(f"DB init failed on startup: {e}")
 
     _scheduler.start()
 
