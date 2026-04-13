@@ -509,7 +509,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
             <tbody>
               {/* 自社行 */}
               <tr className="border-b border-slate-50 bg-blue-50/30">
-                <td className="px-4 py-2.5 sticky left-0 bg-blue-50/50 z-10">
+                <td className="px-4 py-2.5 sticky left-0 bg-blue-50 z-10">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: OWN_COLOR }} />
                     <span className="font-semibold text-brand-navy">自社（{propertyName}）</span>
@@ -562,7 +562,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
               ))}
               {/* 競合平均行 */}
               <tr className="border-t border-slate-200 bg-amber-50/20">
-                <td className="px-4 py-2.5 sticky left-0 bg-amber-50/30 z-10">
+                <td className="px-4 py-2.5 sticky left-0 bg-amber-50 z-10">
                   <span className="font-semibold text-amber-700 text-xs">競合平均</span>
                 </td>
                 {displayAverages.map(avg => (
