@@ -286,8 +286,10 @@ async def _auto_seed_users_if_empty():
         import bcrypt as _bc
         salt = _bc.gensalt()
         pwd_hash = _bc.hashpw(b"admin123", salt).decode()
-    except Exception:
-        pwd_hash = "admin123"
+    except Exception as e:
+        # bcrypt が使えない環境ではシード自体をスキップ（平文保存を防止）
+        logger.error("bcrypt unavailable, skipping demo user seed: %s", e)
+        return
 
     async with AsyncSessionLocal() as db:
         org = (await db.execute(select(Organization).limit(1))).scalar_one_or_none()

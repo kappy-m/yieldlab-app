@@ -15,3 +15,17 @@
 **Depends on:** なし。独立して着手可能。
 
 ---
+
+## Architecture Review follow-ups (2026-04-13)
+
+### メール送信統一 (SES ベース)
+- **What:** yieldlab-app の Resend を廃止し、yieldlab-lp と同じ Nodemailer + SES SMTP に統一
+- **Why:** LP 側がバウンスハンドリング・配信停止リンク・特定電子メール法対応で成熟している。2系統の管理は非効率
+- **Priority:** P3 (PoC 後の SaaS 統合フェーズ)
+- **Added:** 2026-04-13
+
+### テスト基盤構築 (pytest + vitest)
+- **What:** 上記の認証フローテストに加え、全体的なテストフレームワーク (pytest for backend, vitest for frontend) のセットアップ
+- **Why:** テストゼロの状態でクラウド移設はリスク。最低限 CI で回帰検出が必要
+- **Priority:** P3 (クラウド移設前の MUST)
+- **Added:** 2026-04-13

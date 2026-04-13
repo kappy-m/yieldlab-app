@@ -3,9 +3,12 @@
 POST /auth/login  → JWT トークン発行 + HttpOnly cookie セット
 GET  /auth/me     → 現在のユーザー情報（product_roles 含む）
 """
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -31,7 +34,11 @@ except ImportError:
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "yieldlab-poc-secret-key-change-in-production")
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "")
+if not SECRET_KEY:
+    import secrets
+    SECRET_KEY = secrets.token_hex(32)
+    logger.warning("JWT_SECRET_KEY not set — using random key (sessions won't survive restart)")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7日間
 _IS_PROD = os.environ.get("ENVIRONMENT", "development") == "production"
