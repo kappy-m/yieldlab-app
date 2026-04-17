@@ -64,6 +64,8 @@ class UpdateReservationBody(BaseModel):
 async def list_reservations(
     property_id: int,
     month: Optional[str] = Query(default=None, description="YYYY-MM（月フィルタ）"),
+    booking_date_from: Optional[str] = Query(default=None, description="YYYY-MM-DD（予約日FROM）"),
+    booking_date_to: Optional[str] = Query(default=None, description="YYYY-MM-DD（予約日TO）"),
     status_filter: Optional[str] = Query(default=None, alias="status"),
     search: Optional[str] = Query(default=None),
     view: str = Query(default="list", description="list | calendar"),
@@ -71,6 +73,18 @@ async def list_reservations(
     current_user: User = Depends(require_auth),
 ) -> ReservationListOut:
     filters = [Reservation.property_id == property_id]
+
+    if booking_date_from:
+        try:
+            filters.append(Reservation.booking_date >= datetime.date.fromisoformat(booking_date_from))
+        except ValueError:
+            pass
+
+    if booking_date_to:
+        try:
+            filters.append(Reservation.booking_date <= datetime.date.fromisoformat(booking_date_to))
+        except ValueError:
+            pass
 
     if month:
         try:

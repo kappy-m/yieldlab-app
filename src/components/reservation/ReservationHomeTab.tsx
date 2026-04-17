@@ -13,10 +13,14 @@ import { KpiCard } from "@/components/shared/KpiCard";
 import { fetchReservations, type ReservationListOut } from "@/lib/api";
 
 const CHANNEL_COLORS: Record<string, string> = {
+  "楽天トラベル": "#e11d48",
   "楽天": "#e11d48",
   "Booking.com": "#2563eb",
   "直接": "#1E3A8A",
+  "自社サイト": "#1E3A8A",
+  "直電": "#1d4ed8",
   "じゃらん": "#f97316",
+  "一休.com": "#8b5cf6",
   "Expedia": "#eab308",
   "Airbnb": "#f43f5e",
 };
@@ -47,14 +51,28 @@ function LoadingSkeleton() {
 
 export function ReservationHomeTab({ propertyId }: { propertyId: number }) {
   const [data, setData] = useState<ReservationListOut | null>(null);
+  const [trendData, setTrendData] = useState<ReservationListOut | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
     setData(null);
+    setTrendData(null);
     const month = new Date().toISOString().slice(0, 7);
-    fetchReservations(propertyId, { month })
-      .then(setData)
+    const today = new Date();
+    const from = new Date(today);
+    from.setDate(today.getDate() - 30);
+    const booking_date_from = from.toISOString().slice(0, 10);
+    const booking_date_to = today.toISOString().slice(0, 10);
+
+    Promise.all([
+      fetchReservations(propertyId, { month }),
+      fetchReservations(propertyId, { booking_date_from, booking_date_to }),
+    ])
+      .then(([monthData, recent]) => {
+        setData(monthData);
+        setTrendData(recent);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [propertyId]);
@@ -63,12 +81,13 @@ export function ReservationHomeTab({ propertyId }: { propertyId: number }) {
 
   const today = new Date().toISOString().slice(0, 10);
   const items = data?.items ?? [];
+  const recentItems = trendData?.items ?? [];
 
   // KPIs
   const activeItems = items.filter(r => r.status !== "cancelled" && r.status !== "no_show");
   const cancelledItems = items.filter(r => r.status === "cancelled");
   const monthlyCount = activeItems.length;
-  const todayNew = items.filter(r => r.booking_date === today).length;
+  const todayNew = recentItems.filter(r => r.booking_date === today).length;
   const cancelRate = items.length > 0 ? (cancelledItems.length / items.length) * 100 : 0;
   const itemsWithAmount = activeItems.filter(r => r.total_amount != null);
   const avgRate = itemsWithAmount.length > 0
@@ -90,7 +109,7 @@ export function ReservationHomeTab({ propertyId }: { propertyId: number }) {
       color: channelColor(name, i),
     }));
 
-  // Booking trend (last 7 days)
+  // Booking trend (last 7 days) — recentItems は booking_date でフィルタ済み
   const trend = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
     d.setDate(d.getDate() - (6 - i));
@@ -98,8 +117,8 @@ export function ReservationHomeTab({ propertyId }: { propertyId: number }) {
     const label = `${d.getMonth() + 1}/${d.getDate()}`;
     return {
       day: label,
-      bookings: items.filter(r => r.booking_date === dateStr && r.status !== "cancelled").length,
-      cancels: items.filter(r => r.booking_date === dateStr && r.status === "cancelled").length,
+      bookings: recentItems.filter(r => r.booking_date === dateStr && r.status !== "cancelled").length,
+      cancels: recentItems.filter(r => r.booking_date === dateStr && r.status === "cancelled").length,
     };
   });
 
