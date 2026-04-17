@@ -1,7 +1,8 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
-  Calendar, TrendingDown, ArrowUpRight,
+  Calendar, TrendingDown,
   Users, DollarSign, BarChart2,
 } from "lucide-react";
 import {
@@ -9,42 +10,111 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import { KpiCard } from "@/components/shared/KpiCard";
+import { fetchReservations, type ReservationListOut } from "@/lib/api";
 
-// ────────────────────────────────────────────────────────────────────────────
-// Mock data
-// ────────────────────────────────────────────────────────────────────────────
+const CHANNEL_COLORS: Record<string, string> = {
+  "楽天": "#e11d48",
+  "Booking.com": "#2563eb",
+  "直接": "#1E3A8A",
+  "じゃらん": "#f97316",
+  "Expedia": "#eab308",
+  "Airbnb": "#f43f5e",
+};
+const FALLBACK_COLORS = ["#6366f1", "#0ea5e9", "#14b8a6", "#84cc16", "#a78bfa"];
 
-const CHANNEL_MIX = [
-  { name: "楽天",       value: 32, color: "#e11d48" },
-  { name: "Booking",   value: 28, color: "#2563eb" },
-  { name: "自社直接",  value: 22, color: "#1E3A8A" },
-  { name: "じゃらん",  value: 12, color: "#f97316" },
-  { name: "Expedia",   value: 6,  color: "#eab308" },
-];
+function channelColor(name: string, index: number) {
+  return CHANNEL_COLORS[name] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length];
+}
 
-const BOOKING_TREND = [
-  { day: "3/21", bookings: 18, cancels: 2 },
-  { day: "3/22", bookings: 24, cancels: 1 },
-  { day: "3/23", bookings: 20, cancels: 3 },
-  { day: "3/24", bookings: 32, cancels: 1 },
-  { day: "3/25", bookings: 28, cancels: 2 },
-  { day: "3/26", bookings: 35, cancels: 0 },
-  { day: "3/27", bookings: 22, cancels: 1 },
-];
+const DAYS_JA = ["日", "月", "火", "水", "木", "金", "土"];
 
-const UPCOMING = [
-  { date: "3/28（土）", arrivals: 42, departures: 38, occupancy: 96 },
-  { date: "3/29（日）", arrivals: 28, departures: 44, occupancy: 82 },
-  { date: "3/30（月）", arrivals: 18, departures: 32, occupancy: 72 },
-  { date: "3/31（火）", arrivals: 22, departures: 20, occupancy: 74 },
-  { date: "4/1（水）",  arrivals: 35, departures: 18, occupancy: 88 },
-];
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-28 bg-slate-100 rounded-xl" />
+        ))}
+      </div>
+      <div className="grid grid-cols-5 gap-4">
+        <div className="col-span-2 h-60 bg-slate-100 rounded-xl" />
+        <div className="col-span-3 h-60 bg-slate-100 rounded-xl" />
+      </div>
+      <div className="h-40 bg-slate-100 rounded-xl" />
+    </div>
+  );
+}
 
-// ────────────────────────────────────────────────────────────────────────────
-// Main
-// ────────────────────────────────────────────────────────────────────────────
+export function ReservationHomeTab({ propertyId }: { propertyId: number }) {
+  const [data, setData] = useState<ReservationListOut | null>(null);
+  const [loading, setLoading] = useState(true);
 
-export function ReservationHomeTab() {
+  useEffect(() => {
+    setLoading(true);
+    setData(null);
+    const month = new Date().toISOString().slice(0, 7);
+    fetchReservations(propertyId, { month })
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [propertyId]);
+
+  if (loading) return <LoadingSkeleton />;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const items = data?.items ?? [];
+
+  // KPIs
+  const activeItems = items.filter(r => r.status !== "cancelled" && r.status !== "no_show");
+  const cancelledItems = items.filter(r => r.status === "cancelled");
+  const monthlyCount = activeItems.length;
+  const todayNew = items.filter(r => r.booking_date === today).length;
+  const cancelRate = items.length > 0 ? (cancelledItems.length / items.length) * 100 : 0;
+  const itemsWithAmount = activeItems.filter(r => r.total_amount != null);
+  const avgRate = itemsWithAmount.length > 0
+    ? itemsWithAmount.reduce((sum, r) => sum + (r.total_amount ?? 0), 0) / itemsWithAmount.length
+    : 0;
+
+  // Channel mix
+  const channelCounts: Record<string, number> = {};
+  for (const r of activeItems) {
+    const ch = r.ota_channel ?? "直接";
+    channelCounts[ch] = (channelCounts[ch] ?? 0) + 1;
+  }
+  const totalActive = activeItems.length || 1;
+  const channelMix = Object.entries(channelCounts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count], i) => ({
+      name,
+      value: Math.round((count / totalActive) * 100),
+      color: channelColor(name, i),
+    }));
+
+  // Booking trend (last 7 days)
+  const trend = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    const dateStr = d.toISOString().slice(0, 10);
+    const label = `${d.getMonth() + 1}/${d.getDate()}`;
+    return {
+      day: label,
+      bookings: items.filter(r => r.booking_date === dateStr && r.status !== "cancelled").length,
+      cancels: items.filter(r => r.booking_date === dateStr && r.status === "cancelled").length,
+    };
+  });
+
+  // Upcoming 5 days
+  const upcoming = Array.from({ length: 5 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const dateStr = d.toISOString().slice(0, 10);
+    return {
+      date: `${d.getMonth() + 1}/${d.getDate()}（${DAYS_JA[d.getDay()]}）`,
+      arrivals: items.filter(r => r.checkin_date === dateStr && r.status !== "cancelled").length,
+      departures: items.filter(r => r.checkout_date === dateStr && r.status !== "cancelled").length,
+    };
+  });
+
   return (
     <div className="space-y-6">
       {/* KPI */}
@@ -52,90 +122,79 @@ export function ReservationHomeTab() {
         <KpiCard
           variant="icon"
           label="今月の予約数"
-          value="312"
-          sub="前月比 +24件"
+          value={String(monthlyCount)}
+          sub="キャンセル除く"
           icon={Calendar}
           iconBg="bg-blue-50"
           iconColor="text-blue-600"
-          trend="+8.3%"
-          trendUp
         />
         <KpiCard
           variant="icon"
           label="本日の新規予約"
-          value="22"
-          sub="キャンセル 1件"
+          value={String(todayNew)}
+          sub="本日の受付件数"
           icon={Users}
           iconBg="bg-green-50"
           iconColor="text-green-600"
-          trend="+4"
-          trendUp
         />
         <KpiCard
           variant="icon"
-          label="今月の予約取消率"
-          value="4.2%"
-          sub="前月 5.1%"
+          label="今月のキャンセル率"
+          value={`${cancelRate.toFixed(1)}%`}
+          sub={`キャンセル ${cancelledItems.length}件`}
           icon={TrendingDown}
           iconBg="bg-amber-50"
           iconColor="text-amber-600"
-          trend="-0.9pt"
-          trendUp
         />
         <KpiCard
           variant="icon"
           label="平均単価"
-          value="¥24,800"
-          sub="RevPAR ¥23,200"
+          value={avgRate > 0 ? `¥${Math.round(avgRate).toLocaleString()}` : "—"}
+          sub="今月の予約平均"
           icon={DollarSign}
           iconBg="bg-purple-50"
           iconColor="text-purple-600"
-          trend="+¥1,200"
-          trendUp
         />
       </div>
 
       {/* チャネルミックス + 予約推移 */}
       <div className="grid grid-cols-5 gap-4">
-        {/* チャネルミックス */}
         <div className="col-span-2 bg-white rounded-xl border border-slate-100 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-700">チャネルミックス（今月）</h3>
-            <a href="#" className="text-xs text-brand-navy flex items-center gap-0.5 hover:underline">
-              詳細分析 <ArrowUpRight className="w-3 h-3" />
-            </a>
-          </div>
-          <div className="flex items-center gap-4">
-            <ResponsiveContainer width={120} height={120}>
-              <PieChart>
-                <Pie data={CHANNEL_MIX} dataKey="value" cx="50%" cy="50%" innerRadius={35} outerRadius={55}>
-                  {CHANNEL_MIX.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ fontSize: 11, borderRadius: 6, border: "1px solid #e2e8f0" }}
-                  formatter={(v: number | undefined) => [`${v ?? 0}%`, ""]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="space-y-2 flex-1">
-              {CHANNEL_MIX.map((ch) => (
-                <div key={ch.name} className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: ch.color }} />
-                  <span className="text-xs text-slate-600 flex-1">{ch.name}</span>
-                  <span className="text-xs font-medium text-slate-700">{ch.value}%</span>
-                </div>
-              ))}
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">チャネルミックス（今月）</h3>
+          {channelMix.length === 0 ? (
+            <div className="flex items-center justify-center h-32 text-slate-400 text-xs">データなし</div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <ResponsiveContainer width={120} height={120}>
+                <PieChart>
+                  <Pie data={channelMix} dataKey="value" cx="50%" cy="50%" innerRadius={35} outerRadius={55}>
+                    {channelMix.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ fontSize: 11, borderRadius: 6, border: "1px solid #e2e8f0" }}
+                    formatter={(v: number | undefined) => [`${v ?? 0}%`, ""]}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-2 flex-1">
+                {channelMix.slice(0, 5).map((ch) => (
+                  <div key={ch.name} className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: ch.color }} />
+                    <span className="text-xs text-slate-600 flex-1">{ch.name}</span>
+                    <span className="text-xs font-medium text-slate-700">{ch.value}%</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* 予約推移チャート */}
         <div className="col-span-3 bg-white rounded-xl border border-slate-100 p-4">
           <h3 className="text-sm font-semibold text-slate-700 mb-4">直近7日の予約推移</h3>
           <ResponsiveContainer width="100%" height={170}>
-            <AreaChart data={BOOKING_TREND} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+            <AreaChart data={trend} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="bookGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#1E3A8A" stopOpacity={0.15} />
@@ -144,9 +203,10 @@ export function ReservationHomeTab() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#94a3b8" }} />
-              <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} />
+              <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} allowDecimals={false} />
               <Tooltip
                 contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e2e8f0" }}
+                formatter={(v: number | undefined) => [`${v ?? 0}件`, ""]}
               />
               <Area type="monotone" dataKey="bookings" name="新規予約" stroke="#1E3A8A" fill="url(#bookGrad)" strokeWidth={2} />
               <Area type="monotone" dataKey="cancels" name="キャンセル" stroke="#ef4444" fill="none" strokeWidth={1.5} strokeDasharray="4 2" />
@@ -155,37 +215,22 @@ export function ReservationHomeTab() {
         </div>
       </div>
 
-      {/* 今後の予定 */}
+      {/* 今後5日間 */}
       <div className="bg-white rounded-xl border border-slate-100 p-4">
         <div className="flex items-center gap-2 mb-4">
           <BarChart2 className="w-4 h-4 text-slate-400" />
           <h3 className="text-sm font-semibold text-slate-700">今後5日間の予約状況</h3>
         </div>
         <div className="space-y-2">
-          {UPCOMING.map((day) => (
-            <div key={day.date} className="flex items-center gap-4 py-2 border-b border-slate-50 last:border-0">
+          {upcoming.map((day) => (
+            <div key={day.date} className="flex items-center gap-6 py-2 border-b border-slate-50 last:border-0">
               <span className="text-xs font-medium text-slate-600 w-28 flex-shrink-0">{day.date}</span>
-              <div className="flex items-center gap-1.5 w-24">
-                <span className="text-xs text-green-600">↑ {day.arrivals}</span>
-                <span className="text-slate-300">/</span>
-                <span className="text-xs text-amber-600">↓ {day.departures}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-green-600">↑ チェックイン {day.arrivals}件</span>
               </div>
-              <div className="flex-1">
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${day.occupancy}%`,
-                      background: day.occupancy >= 90 ? "#1E3A8A" : day.occupancy >= 75 ? "#3b82f6" : "#94a3b8",
-                    }}
-                  />
-                </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-amber-600">↓ チェックアウト {day.departures}件</span>
               </div>
-              <span className={`text-xs font-medium w-10 text-right ${
-                day.occupancy >= 90 ? "text-brand-navy" : day.occupancy >= 75 ? "text-blue-500" : "text-slate-400"
-              }`}>
-                {day.occupancy}%
-              </span>
             </div>
           ))}
         </div>

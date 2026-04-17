@@ -43,7 +43,7 @@ export default function ManagePage() {
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:text-brand-navy focus:shadow-lg focus:rounded-md">メインコンテンツへスキップ</a>
 
       <main id="main-content" className="max-w-[1400px] mx-auto px-6 py-5 w-full">
-        {activeTab === "home"       && <FrontHomeTab />}
+        {activeTab === "home"       && <FrontHomeTab propertyId={propertyId} />}
         {activeTab === "front-desk" && <GuestStayList propertyId={propertyId} />}
         {activeTab === "attributes" && <GuestAttributeAnalysis />}
         {activeTab === "upsell"     && <UpsellPanel />}

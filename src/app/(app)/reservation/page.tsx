@@ -39,7 +39,7 @@ export default function ReservationPage() {
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:text-brand-navy focus:shadow-lg focus:rounded-md">メインコンテンツへスキップ</a>
 
       <main id="main-content" className="max-w-[1400px] mx-auto px-6 py-5 w-full">
-        {activeTab === "home"         && <ReservationHomeTab />}
+        {activeTab === "home"         && <ReservationHomeTab propertyId={propertyId} />}
         {activeTab === "reservations" && <ReservationList propertyId={propertyId} />}
         {activeTab === "analytics"    && <ChannelAnalyticsTab />}
         {activeTab === "settings"     && (
