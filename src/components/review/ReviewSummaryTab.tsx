@@ -1,12 +1,14 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import { TrendingUp, TrendingDown, Minus, Sparkles } from "lucide-react";
+import { fetchReviews, type ReviewOut } from "@/lib/api";
 import {
-  MOCK_REVIEWS, MONTHLY_TREND, SENTIMENT_DATA, PLATFORM_SCORES,
+  MONTHLY_TREND, SENTIMENT_DATA,
   PLATFORM_LABELS, PLATFORM_COLORS, LANG_LABELS, LANG_COLORS,
 } from "./reviewData";
 
@@ -26,10 +28,56 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-export function ReviewSummaryTab({ propertyId: _propertyId }: { propertyId: number }) {
-  const totalScore = 4.2;
-  const totalCount = PLATFORM_SCORES.reduce((s, p) => s + p.count, 0);
-  const recentReviews = MOCK_REVIEWS.slice(0, 3);
+type PlatformKey = string;
+
+export function ReviewSummaryTab({ propertyId }: { propertyId: number }) {
+  const [reviews, setReviews] = useState<ReviewOut[]>([]);
+  const [unresponded, setUnresponded] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchReviews(propertyId)
+      .then((data) => {
+        setReviews(data.items ?? []);
+        setUnresponded(data.unresponded ?? 0);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [propertyId]);
+
+  // 実データからスコア集計
+  const totalScore = reviews.length > 0
+    ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10
+    : 0;
+  const totalCount = reviews.length;
+  const recentReviews = [...reviews].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 3);
+
+  // プラットフォーム別集計
+  const platformMap: Record<PlatformKey, { sum: number; count: number }> = {};
+  for (const r of reviews) {
+    const p = r.platform ?? "other";
+    if (!platformMap[p]) platformMap[p] = { sum: 0, count: 0 };
+    platformMap[p].sum += r.rating;
+    platformMap[p].count += 1;
+  }
+  const platformScores = Object.entries(platformMap).map(([platform, { sum, count }]) => ({
+    platform,
+    label: PLATFORM_LABELS[platform as keyof typeof PLATFORM_LABELS] ?? platform,
+    score: Math.round((sum / count) * 10) / 10,
+    count,
+    delta: 0,
+  }));
+
+  if (loading) {
+    return (
+      <div className="space-y-5 animate-pulse">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-32 bg-slate-100 rounded-xl" />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
@@ -43,9 +91,9 @@ export function ReviewSummaryTab({ propertyId: _propertyId }: { propertyId: numb
           <div className="flex-1">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">AI 分析サマリー</p>
             <p className="text-sm text-slate-700 leading-relaxed">
-              3月の総合評価は <strong>4.2 / 5.0</strong>（先月比 <span className="text-green-600">+0.1</span>）。
-              Expedia での評価が改善傾向にあります。楽天トラベルでは「部屋の広さ」に関するネガティブレビューが増加。
-              スタッフ対応への好評価が全プラットフォームで継続しています。未返信口コミが <strong>10件</strong> あります。
+              総合評価は <strong>{totalScore > 0 ? `${totalScore} / 5.0` : "データなし"}</strong>。
+              全 <strong>{totalCount}件</strong> のレビューを集計しています。
+              未返信口コミが <strong>{unresponded}件</strong> あります。
             </p>
           </div>
         </div>
@@ -57,19 +105,15 @@ export function ReviewSummaryTab({ propertyId: _propertyId }: { propertyId: numb
         <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">総合評価</p>
           <div className="flex items-end gap-2 mb-1">
-            <span className="text-3xl font-bold text-slate-800">{totalScore}</span>
+            <span className="text-3xl font-bold text-slate-800">{totalScore > 0 ? totalScore : "—"}</span>
             <span className="text-sm text-slate-400 mb-1">/ 5.0</span>
           </div>
-          <StarRating rating={totalScore} />
+          {totalScore > 0 && <StarRating rating={totalScore} />}
           <p className="text-xs text-slate-400 mt-1.5">{totalCount} 件のレビュー</p>
-          <div className="flex items-center gap-1 mt-1">
-            <TrendingUp className="w-3 h-3 text-green-500" />
-            <span className="text-xs text-green-600">+0.1 先月比</span>
-          </div>
         </div>
 
         {/* プラットフォーム別 */}
-        {PLATFORM_SCORES.map((p) => (
+        {platformScores.map((p) => (
           <div key={p.platform} className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">{p.label}</p>
             <div className="flex items-end gap-1.5 mb-1">
@@ -93,14 +137,17 @@ export function ReviewSummaryTab({ propertyId: _propertyId }: { propertyId: numb
 
       {/* チャート行 */}
       <div className="grid grid-cols-3 gap-4">
-        {/* 評価トレンド */}
+        {/* 評価トレンド（時系列データはバックエンド未対応のため参考値） */}
         <div className="col-span-2 bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">評価スコアトレンド（過去12ヶ月）</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-slate-700">評価スコアトレンド（過去12ヶ月）</h3>
+            <span className="text-xs text-slate-400">参考値（時系列データ未対応）</span>
+          </div>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={MONTHLY_TREND} margin={{ top: 5, right: 16, left: -20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-              <YAxis domain={[3.4, 5.0]} tick={{ fontSize: 11 }} tickFormatter={(v) => v.toFixed(1)} />
+              <YAxis domain={[3.4, 5.0]} tick={{ fontSize: 11 }} tickFormatter={(v) => (v as number).toFixed(1)} />
               <Tooltip formatter={(v) => (v as number).toFixed(1)} />
               <Legend iconType="circle" wrapperStyle={{ fontSize: 11 }} />
               <Line type="monotone" dataKey="google"  name="Google"      stroke="#4285F4" strokeWidth={2} dot={false} />
@@ -110,9 +157,12 @@ export function ReviewSummaryTab({ propertyId: _propertyId }: { propertyId: numb
           </ResponsiveContainer>
         </div>
 
-        {/* 感情分布 */}
+        {/* 感情分布（分析データはバックエンド未対応のため参考値） */}
         <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">感情分布</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-semibold text-slate-700">感情分布</h3>
+            <span className="text-[10px] text-slate-400">参考値</span>
+          </div>
           <ResponsiveContainer width="100%" height={140}>
             <PieChart>
               <Pie data={SENTIMENT_DATA} cx="50%" cy="50%" innerRadius={40} outerRadius={65}
@@ -141,26 +191,30 @@ export function ReviewSummaryTab({ propertyId: _propertyId }: { propertyId: numb
       {/* 最近の口コミ */}
       <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
         <h3 className="text-sm font-semibold text-slate-700 mb-3">最近の口コミ</h3>
-        <div className="space-y-3">
-          {recentReviews.map((r) => (
-            <div key={r.id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50/50 border border-slate-100">
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5 ${PLATFORM_COLORS[r.platform]}`}>
-                {PLATFORM_LABELS[r.platform]}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-semibold text-slate-700">{r.author}</span>
-                  <StarRating rating={r.rating} />
-                  <span className="text-[10px] text-slate-400 ml-auto">{r.date}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${LANG_COLORS[r.language]}`}>
-                    {LANG_LABELS[r.language]}
-                  </span>
+        {recentReviews.length === 0 ? (
+          <p className="text-xs text-slate-400 text-center py-6">口コミデータがありません</p>
+        ) : (
+          <div className="space-y-3">
+            {recentReviews.map((r) => (
+              <div key={r.id} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50/50 border border-slate-100">
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5 ${PLATFORM_COLORS[r.platform as keyof typeof PLATFORM_COLORS] ?? "bg-slate-100 text-slate-600"}`}>
+                  {PLATFORM_LABELS[r.platform as keyof typeof PLATFORM_LABELS] ?? r.platform}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-semibold text-slate-700">{r.author}</span>
+                    <StarRating rating={r.rating} />
+                    <span className="text-[10px] text-slate-400 ml-auto">{r.date}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${LANG_COLORS[r.language as keyof typeof LANG_COLORS] ?? "bg-slate-100 text-slate-600"}`}>
+                      {LANG_LABELS[r.language as keyof typeof LANG_LABELS] ?? r.language}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">{r.text}</p>
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">{r.text}</p>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
