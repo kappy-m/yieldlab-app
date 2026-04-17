@@ -7,7 +7,7 @@ import {
   type Platform, type Language,
 } from "./reviewData";
 import { ReviewSlidePanel } from "./ReviewSlidePanel";
-import { fetchReviews, respondToReview, type ReviewOut } from "@/lib/api";
+import { fetchReviews, fetchProperty, respondToReview, type ReviewOut } from "@/lib/api";
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -27,6 +27,7 @@ export function ReviewListTab({ propertyId }: { propertyId: number }) {
   const [loading, setLoading]       = useState(true);
   const [unresponded, setUnresponded] = useState(0);
   const [selected, setSelected]     = useState<ReviewOut | null>(null);
+  const [hotelName, setHotelName]   = useState<string | undefined>(undefined);
   const [platformFilter, setPlatformFilter] = useState<Platform | "all">("all");
   const [ratingFilter, setRatingFilter]     = useState<number | "all">("all");
   const [langFilter, setLangFilter]         = useState<Language | "all">("all");
@@ -35,9 +36,13 @@ export function ReviewListTab({ propertyId }: { propertyId: number }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchReviews(propertyId);
+      const [data, property] = await Promise.all([
+        fetchReviews(propertyId),
+        fetchProperty(propertyId),
+      ]);
       setReviews(data.items);
       setUnresponded(data.unresponded);
+      setHotelName(property.name);
     } catch {
       // エラー時はモックフォールバックなし — エンプティステートを表示
     } finally {
@@ -212,6 +217,7 @@ export function ReviewListTab({ propertyId }: { propertyId: number }) {
         onClose={() => setSelected(null)}
         onMarkResponded={handleMarkResponded}
         propertyId={propertyId}
+        hotelName={hotelName}
       />
     </>
   );

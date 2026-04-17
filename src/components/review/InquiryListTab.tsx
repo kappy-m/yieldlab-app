@@ -7,7 +7,7 @@ import {
   type InquiryChannel, type InquiryStatus, type InquiryPriority,
 } from "./inquiryData";
 import { InquirySlidePanel } from "./InquirySlidePanel";
-import { fetchInquiries, updateInquiryStatus, respondToInquiry, type InquiryOut } from "@/lib/api";
+import { fetchInquiries, fetchProperty, updateInquiryStatus, respondToInquiry, type InquiryOut } from "@/lib/api";
 
 const CHANNEL_ICONS: Record<InquiryChannel, React.ReactNode> = {
   email: <Mail className="w-4 h-4" />,
@@ -27,6 +27,7 @@ export function InquiryListTab({ propertyId }: { propertyId: number }) {
   const [inquiries, setInquiries]   = useState<InquiryOut[]>([]);
   const [loading, setLoading]       = useState(true);
   const [selected, setSelected]     = useState<InquiryOut | null>(null);
+  const [hotelName, setHotelName]   = useState<string | undefined>(undefined);
   const [channelFilter, setChannelFilter]   = useState<InquiryChannel | "all">("all");
   const [statusFilter, setStatusFilter]     = useState<InquiryStatus | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<InquiryPriority | "all">("all");
@@ -35,8 +36,12 @@ export function InquiryListTab({ propertyId }: { propertyId: number }) {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await fetchInquiries(propertyId);
+      const [data, property] = await Promise.all([
+        fetchInquiries(propertyId),
+        fetchProperty(propertyId),
+      ]);
       setInquiries(data.items);
+      setHotelName(property.name);
     } catch {
       // エンプティステートを表示
     } finally {
@@ -249,6 +254,7 @@ export function InquiryListTab({ propertyId }: { propertyId: number }) {
         onRespond={handleRespond}
         onAssigneeChange={handleAssigneeChange}
         propertyId={propertyId}
+        hotelName={hotelName}
       />
     </>
   );

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 // サーバーサイドのみ: BACKEND_URL はクライアントには公開しない
 const BACKEND_URL = process.env.BACKEND_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8400";
 const IS_PROD = process.env.NODE_ENV === "production";
-const ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24; // 1日
+const ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7; // バックエンドの JWT 有効期限と揃える（7日）
 
 export async function POST(req: NextRequest) {
   const body = await req.text();

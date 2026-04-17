@@ -39,9 +39,10 @@ interface Props {
   onClose: () => void;
   onMarkResponded: (id: number, responseText: string) => void;
   propertyId: number;
+  hotelName?: string;
 }
 
-export function ReviewSlidePanel({ review, onClose, onMarkResponded }: Props) {
+export function ReviewSlidePanel({ review, onClose, onMarkResponded, hotelName }: Props) {
   const [aiDraftOpen, setAiDraftOpen] = useState(false);
   const [aiDraftText, setAiDraftText] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -78,6 +79,7 @@ export function ReviewSlidePanel({ review, onClose, onMarkResponded }: Props) {
         language: (review.language ?? "ja") as "ja" | "en" | "zh" | "ko" | "de",
         platform: review.platform,
         rating: review.rating,
+        hotel_name: hotelName,
       });
       setAiDraftText(res.reply);
     } catch {

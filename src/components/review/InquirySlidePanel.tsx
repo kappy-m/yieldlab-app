@@ -21,6 +21,7 @@ const LANG_REPLY_TEMPLATES: Record<string, string> = {
   en: "Thank you for reaching out to us.\n\nRegarding your inquiry, please find our response below:\n\n[Please insert specific response here]\n\nIf you have any further questions, please don't hesitate to contact us. We look forward to hearing from you.",
   zh: "感谢您的来函。\n\n关于您的咨询，请见以下回复：\n\n[请在此处填写具体回复内容]\n\n如有任何疑问，请随时与我们联系。期待为您服务。",
   ko: "문의해 주셔서 감사합니다.\n\n문의하신 내용에 대해 아래와 같이 답변 드립니다.\n\n[구체적인 답변 내용을 여기에 입력해 주세요]\n\n추가적인 질문이 있으시면 언제든지 연락 주시기 바랍니다.",
+  de: "Vielen Dank für Ihre Anfrage.\n\nBezüglich Ihrer Anfrage finden Sie unsere Antwort unten:\n\n[Bitte fügen Sie hier eine spezifische Antwort ein]\n\nBei weiteren Fragen stehen wir Ihnen jederzeit zur Verfügung. Wir freuen uns darauf, von Ihnen zu hören.",
 };
 
 /** モックのユーザーリスト（将来は /api/users から取得） */
@@ -126,9 +127,10 @@ interface Props {
   onRespond?: (id: number, responseText: string) => void;
   onAssigneeChange?: (id: number, assignee: string) => void;
   propertyId?: number;
+  hotelName?: string;
 }
 
-export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriorityChange, onRespond, onAssigneeChange }: Props) {
+export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriorityChange, onRespond, onAssigneeChange, hotelName }: Props) {
   const [aiDraftOpen, setAiDraftOpen] = useState(false);
   const [aiDraftText, setAiDraftText] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -168,6 +170,7 @@ export function InquirySlidePanel({ inquiry, onClose, onStatusChange, onPriority
         content_type: "inquiry",
         content: inquiry.content,
         language: (inquiry.language ?? "ja") as "ja" | "en" | "zh" | "ko" | "de",
+        hotel_name: hotelName,
       });
       setAiDraftText(res.reply);
     } catch {
