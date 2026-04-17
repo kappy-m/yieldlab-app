@@ -239,10 +239,8 @@ async def get_cost_summary(
     fixed_monthly_total = sum(c.fixed_monthly for c in costs)
     variable_per_room = sum(c.amount_per_room_night for c in costs)
 
-    rooms_result = await db.execute(
-        select(func.sum(RoomType.total_rooms)).where(RoomType.property_id == prop.id)
-    )
-    total_rooms = int(rooms_result.scalar() or 134)
+    # プロパティの総客室数を使う（RoomTypeの合計はpricing用の部分集合で実際の総客室数と異なる）
+    total_rooms = prop.total_rooms or 100
 
     summaries = []
     for i in range(months):

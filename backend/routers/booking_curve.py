@@ -70,10 +70,7 @@ async def get_booking_curve(
     else:
         tgt = date.today() + timedelta(days=30)
 
-    rooms_result = await db.execute(
-        select(func.sum(RoomType.total_rooms)).where(RoomType.property_id == prop.id)
-    )
-    total_rooms = rooms_result.scalar() or 134
+    total_rooms = prop.total_rooms or 100
 
     snap_result = await db.execute(
         select(BookingSnapshot).where(
@@ -286,10 +283,7 @@ async def get_booking_heatmap(
     today = date.today()
     lead_times = [90, 60, 45, 30, 21, 14, 7, 3, 0]
 
-    rooms_result = await db.execute(
-        select(func.sum(RoomType.total_rooms)).where(RoomType.property_id == prop.id)
-    )
-    total_rooms = int(rooms_result.scalar() or 134)
+    total_rooms = prop.total_rooms or 100
 
     target_dates = [today + timedelta(days=i) for i in range(days)]
     date_labels = []
