@@ -168,10 +168,8 @@ async def get_monthly_onhand(
     today = date.today()
     results: list[MonthlyOnhandOut] = []
 
-    rooms_result = await db.execute(
-        select(func.sum(RoomType.total_rooms)).where(RoomType.property_id == prop.id)
-    )
-    total_rooms = int(rooms_result.scalar() or 134)
+    # プロパティの総客室数を使う（RoomTypeの合計はpricing用の部分集合で実際の総客室数と異なる）
+    total_rooms = prop.total_rooms or 100
 
     for i in range(months_ahead + 1):
         # i=0: 当月, i=1: 翌月, ...
