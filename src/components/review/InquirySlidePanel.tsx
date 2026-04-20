@@ -9,6 +9,7 @@ import {
 import type { InquiryOut } from "@/lib/api";
 import { generateAiReply, sendMail } from "@/lib/api";
 import { useCurrentUser, getInitials } from "@/hooks/useCurrentUser";
+import { useStaffList } from "@/hooks/useStaffList";
 
 const CHANNEL_ICONS: Record<InquiryChannel, React.ReactNode> = {
   email: <Mail className="w-4 h-4" />,
@@ -24,13 +25,6 @@ const LANG_REPLY_TEMPLATES: Record<string, string> = {
   de: "Vielen Dank für Ihre Anfrage.\n\nBezüglich Ihrer Anfrage finden Sie unsere Antwort unten:\n\n[Bitte fügen Sie hier eine spezifische Antwort ein]\n\nBei weiteren Fragen stehen wir Ihnen jederzeit zur Verfügung. Wir freuen uns darauf, von Ihnen zu hören.",
 };
 
-/** モックのユーザーリスト（将来は /api/users から取得） */
-const MOCK_STAFF = [
-  { id: 1, name: "佐藤 花子" },
-  { id: 2, name: "田村 誠" },
-  { id: 3, name: "中村 浩二" },
-  { id: 4, name: "山田 太郎" },
-];
 
 interface AssigneeDropdownProps {
   currentAssignee?: string;
@@ -40,6 +34,7 @@ interface AssigneeDropdownProps {
 }
 
 function AssigneeDropdown({ currentAssignee, onAssign, currentUserName, canAssign }: AssigneeDropdownProps) {
+  const staffList = useStaffList();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -98,7 +93,7 @@ function AssigneeDropdown({ currentAssignee, onAssign, currentUserName, canAssig
               自分に割当て（{currentUserName}）
             </button>
           )}
-          {MOCK_STAFF.map((staff) => (
+          {staffList.map((staff) => (
             <button
               key={staff.id}
               onClick={() => { onAssign(staff.name); setOpen(false); }}

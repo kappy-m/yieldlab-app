@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     SCRAPER_MODE: str = "mock"
     # 追加許可オリジン（カンマ区切り）
     EXTRA_CORS_ORIGINS: str = ""
+    # IMAP 設定（ゲストチャット自動取り込み用。未設定時はポーリング無効）
+    IMAP_HOST:     str = ""
+    IMAP_USER:     str = ""
+    IMAP_PASSWORD: str = ""
 
     model_config = SettingsConfigDict(
         # CWD が yieldlab-app/ になる場合も backend/.env を参照できるよう両方指定

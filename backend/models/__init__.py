@@ -20,6 +20,7 @@ from .review_entry import ReviewEntry
 from .inquiry_entry import InquiryEntry
 from .guest_stay import GuestStay
 from .reservation import Reservation
+from .guest_conversation import GuestConversation, GuestMessage
 
 __all__ = [
     "Base",
@@ -44,4 +45,6 @@ __all__ = [
     "InquiryEntry",
     "GuestStay",
     "Reservation",
+    "GuestConversation",
+    "GuestMessage",
 ]

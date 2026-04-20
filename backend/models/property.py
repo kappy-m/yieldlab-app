@@ -37,3 +37,4 @@ class Property(Base):
     inquiry_entries:    Mapped[list["InquiryEntry"]]    = relationship(back_populates="property")
     guest_stays:        Mapped[list["GuestStay"]]       = relationship(back_populates="property")
     reservations:       Mapped[list["Reservation"]]     = relationship(back_populates="property")
+    guest_conversations: Mapped[list["GuestConversation"]] = relationship(back_populates="property")

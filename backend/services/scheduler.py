@@ -9,6 +9,7 @@ import logging
 from datetime import date
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select, and_, func
 from ..database import AsyncSessionLocal
 from ..models import (
@@ -351,6 +352,20 @@ async def take_booking_snapshots():
     logger.info("[Snapshot] Booking snapshots completed")
 
 
+async def poll_imap_all_properties():
+    """全プロパティの IMAP をポーリングする。IMAP 未設定時は即座にリターン。"""
+    from ..config import settings
+    if not settings.IMAP_HOST:
+        return
+    from sqlalchemy import select
+    from ..models import Property
+    from ..services.imap_poller import poll_imap_and_ingest
+    async with AsyncSessionLocal() as db:
+        props = (await db.execute(select(Property))).scalars().all()
+    for prop in props:
+        await poll_imap_and_ingest(prop.id)
+
+
 def create_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler(timezone="Asia/Tokyo")
     scheduler.add_job(
@@ -365,6 +380,13 @@ def create_scheduler() -> AsyncIOScheduler:
         trigger=CronTrigger(hour=0, minute=5),
         id="booking_snapshots",
         name="Daily booking snapshots",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        poll_imap_all_properties,
+        trigger=IntervalTrigger(minutes=5),
+        id="imap_poll",
+        name="IMAP guest mail polling (5min)",
         replace_existing=True,
     )
     return scheduler

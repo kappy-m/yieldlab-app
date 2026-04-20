@@ -17,6 +17,7 @@ from .routers import ai_reply
 from .routers import front
 from .routers import reservation as reservation_router
 from .routers import mail
+from .routers import conversations as conversations_router
 from .services.scheduler import create_scheduler
 
 _scheduler = create_scheduler()
@@ -241,6 +242,22 @@ async def _auto_seed_booking_snapshots_if_empty():
     logger.info("[AutoSnapshot] Booking snapshot seed completed.")
 
 
+async def _auto_seed_conversations_if_empty():
+    """guest_conversations が空ならサンプルデータを投入する。"""
+    import logging
+    from sqlalchemy import text
+    from .database import AsyncSessionLocal
+    logger = logging.getLogger(__name__)
+
+    async with AsyncSessionLocal() as db:
+        count = (await db.execute(text("SELECT COUNT(*) FROM guest_conversations"))).scalar()
+    if count == 0:
+        logger.info("[AutoSeed] guest_conversations is empty — seeding...")
+        from .seed_conversations import seed_conversations
+        await seed_conversations()
+        logger.info("[AutoSeed] guest_conversations seeded.")
+
+
 async def _auto_seed_users_if_empty():
     """デモ用ユーザーが未登録なら投入する。既存ユーザーのproduct_rolesも補完する。"""
     import logging
@@ -427,6 +444,7 @@ async def _seed_all_background():
         await _auto_pipeline_if_prices_empty()
         await _auto_fetch_ratings_if_empty()
         await _auto_seed_booking_snapshots_if_empty()
+        await _auto_seed_conversations_if_empty()
         _db_ready = True
         _logger.info("Background seeding complete.")
     except Exception as e:
@@ -510,6 +528,7 @@ app.include_router(ai_reply.router)
 app.include_router(front.router)
 app.include_router(reservation_router.router)
 app.include_router(mail.router)
+app.include_router(conversations_router.router)
 
 
 # ─── 管理エンドポイント認証 ────────────────────────────────────────────────────

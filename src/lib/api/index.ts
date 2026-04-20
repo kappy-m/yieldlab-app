@@ -161,3 +161,20 @@ export type {
   SendMailRequest,
   SendMailResponse,
 } from "./mail";
+
+export {
+  fetchConversations,
+  fetchConversation,
+  markConversationRead,
+  sendConversationMessage,
+  generateConversationAiDraft,
+  updateConversationAssignee,
+  updateConversationStatus,
+} from "./conversations";
+export type {
+  MessageOut,
+  ConversationSummaryOut,
+  ConversationDetailOut,
+  ConversationListOut,
+  AiDraftOut,
+} from "./conversations";
