@@ -6,7 +6,7 @@ import os
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -81,6 +81,13 @@ class ConversationListOut(BaseModel):
 class SendMessageIn(BaseModel):
     text: str
     direction: Literal["inbound", "outbound"] = "outbound"
+
+    @field_validator("text")
+    @classmethod
+    def text_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("message text must not be blank")
+        return v
 
 
 class AiDraftOut(BaseModel):
@@ -423,6 +430,15 @@ async def update_assignee(
     conv = result.scalar_one_or_none()
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
+
+    # Validate that the assignee exists (allow null to unassign)
+    if body.assignee_id is not None:
+        user_result = await db.execute(
+            select(User).where(User.id == body.assignee_id)
+        )
+        if not user_result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Assignee not found")
+
     conv.assignee_id = body.assignee_id
     await db.commit()
     return {"ok": True}
