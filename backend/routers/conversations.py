@@ -187,7 +187,7 @@ async def list_conversations(
             selectinload(GuestConversation.messages),
             selectinload(GuestConversation.assignee),
         )
-        .order_by(GuestConversation.last_message_at.desc())
+        .order_by(GuestConversation.unread_count.desc(), GuestConversation.last_message_at.desc())
     )
     convs = result.scalars().all()
     unread_total = sum(c.unread_count for c in convs)
