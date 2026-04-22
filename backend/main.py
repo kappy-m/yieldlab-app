@@ -305,12 +305,12 @@ async def _auto_extend_booking_snapshots():
             for r in perf_rows
         }
 
-        # 既存 (capture_date, target_date) を取得して重複回避
+        # 既存 (property_id, capture_date, target_date) を取得して重複回避
         existing = set()
         for row in (await db.execute(
-            select(BookingSnapshot.capture_date, BookingSnapshot.target_date)
+            select(BookingSnapshot.property_id, BookingSnapshot.capture_date, BookingSnapshot.target_date)
         )).all():
-            existing.add((str(row.capture_date), str(row.target_date)))
+            existing.add((row.property_id, str(row.capture_date), str(row.target_date)))
 
         rows_added = 0
         start = latest_capture + timedelta(days=1)
@@ -320,10 +320,9 @@ async def _auto_extend_booking_snapshots():
                 target = cap + timedelta(days=ahead)
                 c_str = str(cap)
                 t_str = str(target)
-                if (c_str, t_str) in existing:
-                    continue
-
                 for prop in props:
+                    if (prop.id, c_str, t_str) in existing:
+                        continue
                     key = (t_str, prop.id)
                     occ_rate, total_rooms, adr = occ_map.get(key, (65.0, prop.total_rooms or 100, 25000.0))
                     final_rooms = round(occ_rate * total_rooms / 100)
