@@ -240,7 +240,9 @@ export function BudgetTab({ propertyId }: { propertyId: number }) {
                       ) : (
                         <div className="space-y-0.5">
                           <div className="text-slate-400">{fmt(b?.target_revpar)}</div>
-                          <div className="font-medium text-slate-900">—</div>
+                          <div className="font-medium text-slate-900">
+                            {s ? fmt(Math.round(s.avg_adr * s.avg_occupancy / 100)) : "—"}
+                          </div>
                         </div>
                       )}
                     </td>

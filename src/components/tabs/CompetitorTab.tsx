@@ -204,15 +204,16 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
   const chartData = useMemo(() => {
     return displayAverages.map(avg => {
       const { label, isWeekend } = getDayLabel(avg.target_date);
-      const row: Record<string, string | number | boolean> = {
+      const ownPrice = ownPriceMap[avg.target_date];
+      const row: Record<string, string | number | boolean | null> = {
         date: label,
         rawDate: avg.target_date,
         isWeekend,
         競合平均: avg.avg_price,
-        自社価格: ownPriceMap[avg.target_date] ?? 0,
+        自社価格: ownPrice ?? null,
       };
       for (const c of compSummaries) {
-        row[c.name] = c.prices[avg.target_date] ?? 0;
+        row[c.name] = c.prices[avg.target_date] ?? null;
       }
       return row;
     });

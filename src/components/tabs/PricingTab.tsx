@@ -105,6 +105,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
   const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
   const [editRec, setEditRec] = useState<RecommendationOut | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [aiSummary, setAiSummary] = useState<PricingAiSummaryOut | null>(null);
   const [showRecPanel, setShowRecPanel] = useState(false);
@@ -126,6 +127,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const [rts, cells, recs, summary] = await Promise.all([
         fetchRoomTypes(propertyId),
@@ -149,6 +151,7 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
         setRecommendations(recs);
       }
     } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "価格データの取得に失敗しました");
       console.error("Failed to load pricing data", e);
     } finally {
       setLoading(false);
@@ -288,6 +291,18 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
 
   // 3monthモード: セルをより小さく表示
   const isCompact = viewMode === "3month";
+
+  if (loadError && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4 animate-in fade-in">
+        <Bot className="w-10 h-10 text-slate-300" />
+        <p className="text-sm text-slate-600">{loadError}</p>
+        <button onClick={loadData} className="text-xs px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 cursor-pointer">
+          再試行
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>
