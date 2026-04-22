@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, delete
 from pydantic import BaseModel
 from datetime import date, timedelta
 from ..database import get_db
@@ -87,6 +87,15 @@ async def generate_recommendations(
     db: AsyncSession = Depends(get_db),
 ):
     """ルールエンジンを実行して推奨価格を生成する"""
+    # 毎回クリーンな状態で生成するため、既存の pending をすべて削除（べき等化）
+    await db.execute(
+        delete(Recommendation).where(
+            Recommendation.property_id == prop.id,
+            Recommendation.status == "pending",
+        )
+    )
+    await db.flush()
+
     setting_result = await db.execute(
         select(ApprovalSetting).where(ApprovalSetting.property_id == prop.id)
     )

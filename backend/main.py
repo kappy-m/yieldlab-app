@@ -242,6 +242,107 @@ async def _auto_seed_booking_snapshots_if_empty():
     logger.info("[AutoSnapshot] Booking snapshot seed completed.")
 
 
+async def _auto_extend_booking_snapshots():
+    """
+    最新キャプチャが3日以上古い場合、今日分まで booking_snapshots を延伸する。
+    デプロイのたびに自動更新され、PickupTable が常に最新データを参照できる。
+    """
+    import logging
+    from sqlalchemy import text, select, func
+    from datetime import date, timedelta
+    from .database import AsyncSessionLocal
+    logger = logging.getLogger(__name__)
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(text("SELECT MAX(capture_date) FROM booking_snapshots"))
+        latest_capture_raw = result.scalar()
+
+    if not latest_capture_raw:
+        logger.info("[ExtendSnapshot] No snapshots found — skip extend (initial seed handles this).")
+        return
+
+    # PostgreSQL は date 型、SQLite は文字列を返すことがある
+    if isinstance(latest_capture_raw, str):
+        from datetime import date as dt
+        latest_capture = dt.fromisoformat(latest_capture_raw)
+    else:
+        latest_capture = latest_capture_raw
+
+    today = date.today()
+    if latest_capture >= today - timedelta(days=3):
+        logger.info(f"[ExtendSnapshot] Latest capture={latest_capture} is fresh — skip.")
+        return
+
+    logger.info(f"[ExtendSnapshot] Extending from {latest_capture + timedelta(days=1)} to {today}...")
+
+    from .models import Property, DailyPerformance, BookingSnapshot
+    from sqlalchemy import and_
+
+    def _booking_factor(days_before: int) -> float:
+        curve = [(0, 1.0), (3, 0.93), (7, 0.86), (14, 0.78), (21, 0.70), (30, 0.60), (45, 0.45), (60, 0.32), (90, 0.18)]
+        if days_before <= 0:
+            return 1.0
+        if days_before >= 90:
+            return 0.18
+        for i in range(len(curve) - 1):
+            lo_d, lo_f = curve[i]
+            hi_d, hi_f = curve[i + 1]
+            if lo_d <= days_before <= hi_d:
+                t = (days_before - lo_d) / (hi_d - lo_d)
+                return lo_f + t * (hi_f - lo_f)
+        return 0.18
+
+    async with AsyncSessionLocal() as db:
+        props = (await db.execute(select(Property))).scalars().all()
+
+        # daily_performances から稼働率マップを構築
+        perf_rows = (await db.execute(
+            select(DailyPerformance.date, DailyPerformance.property_id,
+                   DailyPerformance.occupancy_rate, DailyPerformance.total_rooms, DailyPerformance.adr)
+        )).all()
+        occ_map: dict[tuple, tuple] = {
+            (str(r.date), r.property_id): (float(r.occupancy_rate), int(r.total_rooms), float(r.adr))
+            for r in perf_rows
+        }
+
+        # 既存 (capture_date, target_date) を取得して重複回避
+        existing = set()
+        for row in (await db.execute(
+            select(BookingSnapshot.capture_date, BookingSnapshot.target_date)
+        )).all():
+            existing.add((str(row.capture_date), str(row.target_date)))
+
+        rows_added = 0
+        start = latest_capture + timedelta(days=1)
+        cap = start
+        while cap <= today:
+            for ahead in range(91):
+                target = cap + timedelta(days=ahead)
+                c_str = str(cap)
+                t_str = str(target)
+                if (c_str, t_str) in existing:
+                    continue
+
+                for prop in props:
+                    key = (t_str, prop.id)
+                    occ_rate, total_rooms, adr = occ_map.get(key, (65.0, prop.total_rooms or 100, 25000.0))
+                    final_rooms = round(occ_rate * total_rooms / 100)
+                    factor = _booking_factor(ahead)
+                    booked = max(1, round(final_rooms * factor))
+                    db.add(BookingSnapshot(
+                        property_id=prop.id,
+                        capture_date=cap,
+                        target_date=target,
+                        booked_rooms=booked,
+                        booked_revenue=int(booked * round(adr)),
+                    ))
+                    rows_added += 1
+            cap += timedelta(days=1)
+
+        await db.commit()
+    logger.info(f"[ExtendSnapshot] Added {rows_added} rows (capture {start} → {today}).")
+
+
 async def _auto_seed_conversations_if_empty():
     """guest_conversations が空ならサンプルデータを投入する。"""
     import logging
@@ -444,6 +545,7 @@ async def _seed_all_background():
         await _auto_pipeline_if_prices_empty()
         await _auto_fetch_ratings_if_empty()
         await _auto_seed_booking_snapshots_if_empty()
+        await _auto_extend_booking_snapshots()
         await _auto_seed_conversations_if_empty()
         _db_ready = True
         _logger.info("Background seeding complete.")

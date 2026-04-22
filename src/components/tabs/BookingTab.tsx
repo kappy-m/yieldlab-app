@@ -63,14 +63,19 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
 function PickupTable({ heatmap, visibleDates }: { heatmap: BookingHeatmapOut; visibleDates: Set<string> }) {
   const ltLen = heatmap.lead_times.length;
   if (ltLen < 2) return null;
-  const latestIdx = ltLen - 1;
-  const prevIdx = ltLen - 2;
 
   const rows = heatmap.dates
     .filter(d => visibleDates.has(d))
     .map((date, di) => {
-      const latest = heatmap.current_year[di]?.[latestIdx] ?? 0;
-      const prev = heatmap.current_year[di]?.[prevIdx] ?? 0;
+      const rowData = heatmap.current_year[di] ?? [];
+      // Find the most recent slot with actual booking data (not always "当日" which is empty for future dates)
+      let latestIdx = ltLen - 1;
+      for (let i = ltLen - 1; i >= 0; i--) {
+        if ((rowData[i] ?? 0) > 0) { latestIdx = i; break; }
+      }
+      const prevIdx = latestIdx > 0 ? latestIdx - 1 : 0;
+      const latest = rowData[latestIdx] ?? 0;
+      const prev = rowData[prevIdx] ?? 0;
       const pickup = latest - prev;
       const prevYearLatest = heatmap.prev_year[di]?.[latestIdx] ?? 0;
       const diff = latest - prevYearLatest;
@@ -83,7 +88,7 @@ function PickupTable({ heatmap, visibleDates }: { heatmap: BookingHeatmapOut; vi
       <div className="px-5 py-3 border-b border-slate-100">
         <h3 className="text-sm font-semibold text-slate-900">直近ピックアップ（週次速報）</h3>
         <p className="text-xs text-slate-400 mt-0.5">
-          {heatmap.lead_times[prevIdx]} → {heatmap.lead_times[latestIdx]} の間に積み上がった稼働率
+          最新スナップショット稼働率と直前リードタイム差分
         </p>
       </div>
       <div className="overflow-x-auto">
