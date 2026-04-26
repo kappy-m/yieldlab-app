@@ -224,6 +224,114 @@ async def get_demand_curve(
     }
 
 
+def _classify_strategy(points: list[tuple[int, float]]) -> str:
+    """リードタイム曲線から競合の値付け戦略を分類する"""
+    import statistics
+    if len(points) < 5:
+        return "insufficient_data"
+    max_days = max(d for d, _ in points)
+    # データ範囲に応じてしきい値を動的調整（最大30日なら半分以降を「遠い」と見なす）
+    far_threshold = max(7, max_days // 2)
+    near_threshold = min(7, max_days // 4)
+    prices_far = [p for d, p in points if d > far_threshold]
+    prices_near = [p for d, p in points if d <= near_threshold]
+    if not prices_far or not prices_near:
+        return "insufficient_data"
+    all_prices = [p for _, p in points]
+    mean_all = statistics.mean(all_prices)
+    if mean_all == 0:
+        return "insufficient_data"
+    cv = statistics.stdev(all_prices) / mean_all if len(all_prices) > 1 else 0.0
+    mean_far = statistics.mean(prices_far)
+    mean_near = statistics.mean(prices_near)
+    if cv < 0.05:
+        return "stable_pricer"
+    if mean_far > 0 and mean_near < mean_far * 0.90:
+        return "last_minute_discounter"
+    if mean_far > 0 and mean_near > mean_far * 1.10:
+        return "demand_follower"
+    return "premium_holder"
+
+
+class LeadTimeCurvePoint(BaseModel):
+    days_before: int
+    avg_price: int
+    sample_count: int
+
+
+class LeadTimeCurveOut(BaseModel):
+    competitor_name: str
+    curves: list[LeadTimeCurvePoint]
+    strategy: str   # premium_holder | demand_follower | last_minute_discounter | stable_pricer | insufficient_data
+    total_samples: int
+
+
+@router.get("/lead-time", response_model=list[LeadTimeCurveOut])
+async def get_lead_time_curves(
+    date_from: date | None = None,
+    date_to: date | None = None,
+    prop: Property = Depends(get_authed_property),
+    db: AsyncSession = Depends(get_db),
+):
+    """競合各社のリードタイム価格曲線と戦略分類を返す。
+    days_before = target_date - scrape日。正の整数 = 何日前に見た価格か。
+    全target_dateをaggregateして1競合1曲線を生成する。
+    """
+    today = date.today()
+    df = date_from or (today - timedelta(days=30))
+    dt = date_to or (today + timedelta(days=90))
+
+    query = select(
+        CompetitorPrice.competitor_name,
+        CompetitorPrice.scraped_at,
+        CompetitorPrice.target_date,
+        CompetitorPrice.price,
+    ).where(
+        and_(
+            CompetitorPrice.property_id == prop.id,
+            CompetitorPrice.target_date >= df,
+            CompetitorPrice.target_date <= dt,
+        )
+    )
+    result = await db.execute(query)
+    rows = result.all()
+
+    # competitor_name → days_before(int) → [price, ...]
+    buckets: dict[str, dict[int, list[int]]] = {}
+    for row in rows:
+        name = row.competitor_name
+        td = row.target_date if isinstance(row.target_date, date) else date.fromisoformat(str(row.target_date))
+        sd = row.scraped_at.date() if hasattr(row.scraped_at, "date") else date.fromisoformat(str(row.scraped_at)[:10])
+        days_before = (td - sd).days
+        if days_before < 0:
+            continue
+        if name not in buckets:
+            buckets[name] = {}
+        if days_before not in buckets[name]:
+            buckets[name][days_before] = []
+        buckets[name][days_before].append(row.price)
+
+    output: list[LeadTimeCurveOut] = []
+    for name, day_map in sorted(buckets.items()):
+        curves = [
+            LeadTimeCurvePoint(
+                days_before=d,
+                avg_price=round(sum(prices) / len(prices)),
+                sample_count=len(prices),
+            )
+            for d, prices in sorted(day_map.items(), reverse=True)
+        ]
+        all_points = [(c.days_before, float(c.avg_price)) for c in curves]
+        output.append(LeadTimeCurveOut(
+            competitor_name=name,
+            curves=curves,
+            strategy=_classify_strategy(all_points),
+            total_samples=sum(c.sample_count for c in curves),
+        ))
+
+    return output
+
+
 @router.post("/scrape")
 async def trigger_scrape(
     body: ScrapeRequest,

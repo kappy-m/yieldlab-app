@@ -3,7 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { Bot, CheckCircle2, Download, ChevronDown, ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { AiSummaryCard } from "@/components/shared/AiSummaryCard";
-import { PriceEditModal, type EditTarget, getRankColor } from "@/components/pricing/PriceEditModal";
+import {
+  PriceEditModal,
+  type EditTarget,
+  getRankColor,
+  parseSignalBadges,
+  SignalBadgeIcon,
+  type SignalBadge,
+} from "@/components/pricing/PriceEditModal";
 import { cn } from "@/lib/utils";
 import {
   fetchPricingGrid,
@@ -644,7 +651,29 @@ export function PricingTab({ propertyId }: { propertyId: number }) {
                               ({rec.delta_levels > 0 ? "+" : ""}{rec.delta_levels}ランク)
                             </span>
                           </div>
-                          <div className="text-xs text-gray-400">{rec.reason}</div>
+                          {(() => {
+                            const badges: SignalBadge[] = parseSignalBadges(rec.reason);
+                            return badges.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {badges.map((badge, i) => (
+                                  <span
+                                    key={i}
+                                    className={cn(
+                                      "flex items-center gap-0.5 text-[9px] font-medium px-1.5 py-0.5 rounded-full border",
+                                      badge.type === "up"      && "text-green-700 bg-green-50 border-green-200",
+                                      badge.type === "down"    && "text-red-700 bg-red-50 border-red-200",
+                                      badge.type === "neutral" && "text-slate-600 bg-slate-50 border-slate-200",
+                                    )}
+                                  >
+                                    <SignalBadgeIcon icon={badge.icon} type={badge.type} />
+                                    {badge.label}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="text-xs text-gray-400">{rec.reason}</div>
+                            );
+                          })()}
                         </div>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">

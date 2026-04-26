@@ -7,6 +7,7 @@ from ..database import get_db
 from ..models import Recommendation, ApprovalLog, ApprovalSetting, PricingGrid, RoomType, BarLadder
 from ..models.property import Property
 from ..services.rule_engine import RuleEngineInput, recommend
+from ..services.pricing_engine import PricingEngine
 from ..dependencies import get_authed_property
 
 router = APIRouter(prefix="/properties/{property_id}/recommendations", tags=["recommendations"])
@@ -83,10 +84,15 @@ async def list_recommendations(
 @router.post("/generate", response_model=list[RecommendationOut])
 async def generate_recommendations(
     days_ahead: int = 30,
+    use_v2: bool = False,
     prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
-    """ルールエンジンを実行して推奨価格を生成する"""
+    """
+    推奨価格を生成する。
+    use_v2=true: PricingEngine v2（需要予測 + Auto-ML 重み + ヒエラルキー制約）
+    use_v2=false: rule_engine v1（従来ルールベース）
+    """
     # 毎回クリーンな状態で生成するため、既存の pending をすべて削除（べき等化）
     await db.execute(
         delete(Recommendation).where(
@@ -102,13 +108,19 @@ async def generate_recommendations(
     s = setting_result.scalar_one_or_none()
     threshold = s.auto_approve_threshold_levels if s else 1
 
+    if use_v2:
+        engine = PricingEngine()
+        await engine.generate(prop=prop, days_ahead=days_ahead, threshold=threshold, db=db)
+        await db.commit()
+        return await list_recommendations(status=None, prop=prop, db=db)
+
+    # ── v1: 従来ルールベースエンジン ──
     room_types_result = await db.execute(
         select(RoomType).where(RoomType.property_id == prop.id).order_by(RoomType.sort_order)
     )
     room_types = room_types_result.scalars().all()
 
     today = date.today()
-    new_recs: list[Recommendation] = []
 
     for rt in room_types:
         bar_result = await db.execute(
@@ -164,7 +176,6 @@ async def generate_recommendations(
                 status=status,
             )
             db.add(rec)
-            new_recs.append(rec)
 
     await db.commit()
     return await list_recommendations(status=None, prop=prop, db=db)

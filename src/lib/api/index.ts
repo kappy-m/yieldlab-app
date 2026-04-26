@@ -62,6 +62,7 @@ export {
   fetchCompetitorAverages,
   fetchCompetitorRatings,
   refreshCompetitorRatings,
+  fetchLeadTimeCurves,
 } from "./competitor";
 export type {
   CompSetOut,
@@ -69,6 +70,9 @@ export type {
   CompetitorPriceOut,
   RatingCategoryOut,
   CompetitorRatingOut,
+  LeadTimeCurvePoint,
+  LeadTimeCurveOut,
+  CompetitorStrategy,
 } from "./competitor";
 
 export {

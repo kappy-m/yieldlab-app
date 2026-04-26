@@ -7,7 +7,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { X, Bot, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp } from "lucide-react";
+import { X, Bot, TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp, BarChart2, Activity, Target, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RecommendationOut } from "@/lib/api";
 
@@ -50,6 +50,41 @@ export function getRankColor(level: string): string {
   if (n <= 12) return "bg-slate-100 text-slate-700 border border-slate-200";
   if (n <= 16) return "bg-amber-100 text-amber-700 border border-amber-200";
   return "bg-red-100 text-red-700 border border-red-200";
+}
+
+// ----------------------------------------------------------------
+// シグナルバッジ（v2 エンジンの reason テキストをパース）
+// ----------------------------------------------------------------
+export type SignalBadgeType = "up" | "down" | "neutral";
+export type SignalBadgeIconType = "demand" | "supply" | "pace" | "position" | "hierarchy";
+
+export interface SignalBadge {
+  label: string;
+  type: SignalBadgeType;
+  icon: SignalBadgeIconType;
+}
+
+export function parseSignalBadges(reason: string): SignalBadge[] {
+  const badges: SignalBadge[] = [];
+  if (/需要指数高/.test(reason))           badges.push({ label: "需要↑",   type: "up",      icon: "demand" });
+  if (/需要指数低/.test(reason))           badges.push({ label: "需要↓",   type: "down",    icon: "demand" });
+  if (/市場圧縮|競合価格が上昇/.test(reason)) badges.push({ label: "供給圧縮", type: "up",   icon: "supply" });
+  if (/市場緩和|競合価格が下落/.test(reason)) badges.push({ label: "供給緩和", type: "down", icon: "supply" });
+  if (/ペースが理想を上回る/.test(reason))  badges.push({ label: "ペース↑", type: "up",      icon: "pace" });
+  if (/ペースが理想を下回る/.test(reason))  badges.push({ label: "ペース↓", type: "down",    icon: "pace" });
+  if (/ポジション.*割安/.test(reason))      badges.push({ label: "割安",     type: "up",      icon: "position" });
+  if (/ポジション.*割高/.test(reason))      badges.push({ label: "割高",     type: "down",    icon: "position" });
+  if (/ヒエラルキー/.test(reason))          badges.push({ label: "制約調整", type: "neutral", icon: "hierarchy" });
+  return badges;
+}
+
+export function SignalBadgeIcon({ icon, type }: { icon: SignalBadgeIconType; type: SignalBadgeType }) {
+  const cls = "w-2.5 h-2.5 flex-shrink-0";
+  if (icon === "demand")    return type === "up" ? <TrendingUp className={cls} /> : <TrendingDown className={cls} />;
+  if (icon === "supply")    return <BarChart2 className={cls} />;
+  if (icon === "pace")      return <Activity className={cls} />;
+  if (icon === "position")  return <Target className={cls} />;
+  return <Layers className={cls} />;
 }
 
 // ----------------------------------------------------------------
@@ -118,6 +153,30 @@ function AiReasonPanel({ rec }: { rec: RecommendationOut }) {
               <p className="text-sm font-bold text-violet-700">¥{rec.recommended_price.toLocaleString()}</p>
             </div>
           </div>
+
+          {/* シグナルバッジ（v2エンジンから生成） */}
+          {(() => {
+            const badges = parseSignalBadges(rec.reason);
+            if (badges.length === 0) return null;
+            return (
+              <div className="flex flex-wrap gap-1.5">
+                {badges.map((badge, i) => (
+                  <span
+                    key={i}
+                    className={cn(
+                      "flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border",
+                      badge.type === "up"      && "text-green-700 bg-green-50 border-green-200",
+                      badge.type === "down"    && "text-red-700 bg-red-50 border-red-200",
+                      badge.type === "neutral" && "text-slate-600 bg-slate-50 border-slate-200",
+                    )}
+                  >
+                    <SignalBadgeIcon icon={badge.icon} type={badge.type} />
+                    {badge.label}
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* 推奨理由 */}
           <div className="space-y-1.5">

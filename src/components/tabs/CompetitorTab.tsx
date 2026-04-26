@@ -20,8 +20,9 @@ import {
 } from "@/lib/api";
 import { SkeletonChart, SkeletonTable, SkeletonCardGrid } from "@/components/shared/Skeleton";
 import { RatingPanel } from "./RatingPanel";
+import { LeadTimePanel } from "@/components/competitor/LeadTimePanel";
 
-type SubTab = "price" | "rating";
+type SubTab = "price" | "rating" | "leadtime";
 
 // 競合ホテルカラーパレット
 const COMP_COLORS = ["#EF4444", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#06B6D4"];
@@ -275,9 +276,9 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
-      {/* サブタブ: 価格 | 評価 */}
+      {/* サブタブ: 価格 | 評価 | リードタイム分析 */}
       <div className="flex items-center gap-1 border-b border-slate-200">
-        {(["price", "rating"] as SubTab[]).map((tab) => (
+        {(["price", "rating", "leadtime"] as SubTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setSubTab(tab)}
@@ -287,7 +288,7 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
                 : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >
-            {tab === "price" ? "価格モニター" : "評価モニター"}
+            {tab === "price" ? "価格モニター" : tab === "rating" ? "評価モニター" : "リードタイム分析"}
           </button>
         ))}
       </div>
@@ -301,6 +302,9 @@ export function CompetitorTab({ propertyId }: { propertyId: number }) {
           compPriceMap={compPriceMapToday}
         />
       )}
+
+      {/* リードタイム分析タブ */}
+      {subTab === "leadtime" && <LeadTimePanel propertyId={propertyId} />}
 
       {/* 価格タブ */}
       {subTab === "price" && <>

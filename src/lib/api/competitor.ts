@@ -94,6 +94,42 @@ export function fetchCompetitorPrices(
   );
 }
 
+// ---- Lead-time Curves ----
+
+export interface LeadTimeCurvePoint {
+  days_before: number;
+  avg_price: number;
+  sample_count: number;
+}
+
+export type CompetitorStrategy =
+  | "premium_holder"
+  | "demand_follower"
+  | "last_minute_discounter"
+  | "stable_pricer"
+  | "insufficient_data";
+
+export interface LeadTimeCurveOut {
+  competitor_name: string;
+  curves: LeadTimeCurvePoint[];
+  strategy: CompetitorStrategy;
+  total_samples: number;
+}
+
+export function fetchLeadTimeCurves(
+  propertyId: number,
+  params?: { date_from?: string; date_to?: string }
+) {
+  const qs = new URLSearchParams(
+    Object.fromEntries(
+      Object.entries(params ?? {}).filter(([, v]) => v != null)
+    ) as Record<string, string>
+  ).toString();
+  return apiFetch<LeadTimeCurveOut[]>(
+    `/properties/${propertyId}/competitor/lead-time${qs ? `?${qs}` : ""}`
+  );
+}
+
 export function fetchCompetitorAverages(
   propertyId: number,
   params?: { date_from?: string; date_to?: string }

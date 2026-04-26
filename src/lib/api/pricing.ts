@@ -92,9 +92,13 @@ export function fetchRecommendations(propertyId: number, status?: string) {
   );
 }
 
-export function generateRecommendations(propertyId: number, daysAhead = 30) {
+export function generateRecommendations(propertyId: number, daysAhead = 30, useV2 = true) {
+  const qs = new URLSearchParams({
+    days_ahead: String(daysAhead),
+    use_v2: String(useV2),
+  }).toString();
   return apiFetch<RecommendationOut[]>(
-    `/properties/${propertyId}/recommendations/generate?days_ahead=${daysAhead}`,
+    `/properties/${propertyId}/recommendations/generate?${qs}`,
     { method: "POST" }
   );
 }
