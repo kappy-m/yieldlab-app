@@ -205,6 +205,7 @@ export function LeadTimePanel({ propertyId }: LeadTimePanelProps) {
           <h3 className="text-sm font-semibold text-slate-800">チェックイン直前ほど価格はどう変わるか</h3>
           <p className="text-xs text-slate-400 mt-0.5">
             横軸: 予約リードタイム（遠い ← → 直前）／縦軸: 楽天最安値の平均
+            ／複数の宿泊日サンプルを集計した平均曲線
           </p>
         </div>
 
@@ -234,6 +235,7 @@ export function LeadTimePanel({ propertyId }: LeadTimePanelProps) {
                 tick={{ fontSize: 10, fill: "#94A3B8" }}
                 tickFormatter={(v) => v >= 1000 ? `¥${Math.round(v / 1000)}K` : `¥${v}`}
                 width={55}
+                domain={["auto", "auto"]}
               />
               {/* 直前14日の境界線 — last_minute_discounter の判定基準 */}
               <ReferenceLine
@@ -241,7 +243,7 @@ export function LeadTimePanel({ propertyId }: LeadTimePanelProps) {
                 stroke="#EF4444"
                 strokeDasharray="4 2"
                 strokeOpacity={0.5}
-                label={{ value: "直前14日", position: "insideTopRight", fontSize: 10, fill: "#EF4444" }}
+                label={{ value: "直前14日", position: "insideTopLeft", fontSize: 10, fill: "#EF4444" }}
               />
               <Tooltip
                 formatter={(v: number | undefined, name: string | undefined) => [

@@ -39,10 +39,10 @@ export default function SalesPage() {
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:px-4 focus:py-2 focus:bg-white focus:text-brand-navy focus:shadow-lg focus:rounded-md">メインコンテンツへスキップ</a>
 
       <main id="main-content" className="max-w-[1400px] mx-auto px-6 py-5 w-full">
-        {activeTab === "dashboard" && <SalesDashboard propertyId={propertyId} />}
-        {activeTab === "leads"     && <SalesLeads     propertyId={propertyId} />}
-        {activeTab === "deals"     && <SalesDeals     propertyId={propertyId} />}
-        {activeTab === "groups"    && <SalesGroups    propertyId={propertyId} />}
+        {activeTab === "dashboard" && <SalesDashboard key={propertyId} propertyId={propertyId} />}
+        {activeTab === "leads"     && <SalesLeads     key={propertyId} propertyId={propertyId} />}
+        {activeTab === "deals"     && <SalesDeals     key={propertyId} propertyId={propertyId} />}
+        {activeTab === "groups"    && <SalesGroups    key={propertyId} propertyId={propertyId} />}
         {activeTab === "settings"  && (
           <div className="bg-white rounded-xl border border-slate-100 p-6">
             <div className="mb-5">
