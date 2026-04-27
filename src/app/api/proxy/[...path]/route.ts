@@ -32,8 +32,11 @@ async function proxyRequest(
   const joinedPath = path.join("/");
 
   // パスホワイトリスト検査
+  // "properties/" で末尾スラッシュ付きを許可しているが、joinedPath は trailing slash なし
+  // ("properties") のため startsWith が失敗するケースを防ぐ。
+  // 末尾に "/" を付けて比較することで "properties" も "properties/" にも対応する。
   const isAllowed = ALLOWED_PATH_PREFIXES.some((prefix) =>
-    joinedPath.startsWith(prefix)
+    (joinedPath + "/").startsWith(prefix)
   );
   if (!isAllowed) {
     return NextResponse.json(
