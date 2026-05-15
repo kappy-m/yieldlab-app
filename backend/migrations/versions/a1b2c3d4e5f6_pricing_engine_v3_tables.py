@@ -13,7 +13,6 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy import inspect
 
 
 revision: str = 'a1b2c3d4e5f6'
@@ -22,12 +21,28 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _table_exists(conn, table_name: str) -> bool:
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        result = conn.execute(
+            sa.text("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=:t"),
+            {"t": table_name},
+        )
+    else:
+        result = conn.execute(
+            sa.text(
+                "SELECT EXISTS (SELECT 1 FROM information_schema.tables "
+                "WHERE table_schema = 'public' AND table_name = :t)"
+            ),
+            {"t": table_name},
+        )
+    return bool(result.scalar())
+
+
 def upgrade() -> None:
     conn = op.get_bind()
-    inspector = inspect(conn)
-    existing_tables = inspector.get_table_names()
 
-    if 'price_freeze_logs' not in existing_tables:
+    if not _table_exists(conn, 'price_freeze_logs'):
         op.create_table(
             'price_freeze_logs',
             sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
@@ -49,7 +64,7 @@ def upgrade() -> None:
             unique=False,
         )
 
-    if 'google_trends_cache' not in existing_tables:
+    if not _table_exists(conn, 'google_trends_cache'):
         op.create_table(
             'google_trends_cache',
             sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),

@@ -13,7 +13,6 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy import inspect
 
 
 revision: str = 'b2c3d4e5f6a7'
@@ -22,17 +21,30 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _column_exists(conn, table: str, column: str) -> bool:
+    dialect = conn.dialect.name
+    if dialect == "sqlite":
+        result = conn.execute(sa.text(f"PRAGMA table_info({table})"))
+        return any(row[1] == column for row in result)
+    result = conn.execute(
+        sa.text(
+            "SELECT EXISTS (SELECT 1 FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = :t AND column_name = :c)"
+        ),
+        {"t": table, "c": column},
+    )
+    return bool(result.scalar())
+
+
 def upgrade() -> None:
     conn = op.get_bind()
-    inspector = inspect(conn)
-    existing_columns = {col['name'] for col in inspector.get_columns('properties')}
 
-    if 'cold_start_mode' not in existing_columns:
+    if not _column_exists(conn, 'properties', 'cold_start_mode'):
         op.add_column(
             'properties',
             sa.Column('cold_start_mode', sa.String(length=20), server_default='full', nullable=False),
         )
-    if 'use_v2_engine' not in existing_columns:
+    if not _column_exists(conn, 'properties', 'use_v2_engine'):
         op.add_column(
             'properties',
             sa.Column('use_v2_engine', sa.Boolean(), server_default='1', nullable=False),
