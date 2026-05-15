@@ -1,6 +1,6 @@
 import csv
 import io
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -11,6 +11,7 @@ from pydantic import BaseModel, field_validator
 
 from ..database import get_db
 from ..models import PricingGrid, RoomType, Recommendation, DailyPerformance
+from ..models.price_freeze_log import PriceFreezeLog
 from ..models.property import Property
 from ..dependencies import get_authed_property
 
@@ -315,3 +316,77 @@ async def get_pricing_ai_summary(
         bullets.append(f"{pending_count}件の価格調整提案を承認することで、最適な価格水準へ自動反映できます")
 
     return PricingAiSummaryOut(summary=summary, bullets=bullets)
+
+
+# ─── Rating Circuit Breaker ───────────────────────────────────────────────────
+
+class CircuitBreakerStatusOut(BaseModel):
+    is_frozen: bool
+    frozen_from: str | None
+    trigger_reason: str | None
+    baseline_overall: float | None
+    trigger_overall: float | None
+
+
+@router.get("/circuit-breaker", response_model=CircuitBreakerStatusOut)
+async def get_circuit_breaker_status(
+    prop: Property = Depends(get_authed_property),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rating Circuit Breaker の現在状態を返す。"""
+    res = await db.execute(
+        select(PriceFreezeLog).where(
+            and_(
+                PriceFreezeLog.property_id == prop.id,
+                PriceFreezeLog.is_active == True,
+            )
+        ).limit(1)
+    )
+    freeze = res.scalar_one_or_none()
+
+    if freeze is None:
+        return CircuitBreakerStatusOut(
+            is_frozen=False,
+            frozen_from=None,
+            trigger_reason=None,
+            baseline_overall=None,
+            trigger_overall=None,
+        )
+
+    return CircuitBreakerStatusOut(
+        is_frozen=True,
+        frozen_from=freeze.frozen_from.isoformat(),
+        trigger_reason=freeze.trigger_reason,
+        baseline_overall=freeze.baseline_overall,
+        trigger_overall=freeze.trigger_overall,
+    )
+
+
+@router.post("/circuit-breaker/release")
+async def release_circuit_breaker(
+    prop: Property = Depends(get_authed_property),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rating Circuit Breaker を手動解除する（管理画面から使用）。"""
+    res = await db.execute(
+        select(PriceFreezeLog).where(
+            and_(
+                PriceFreezeLog.property_id == prop.id,
+                PriceFreezeLog.is_active == True,
+            )
+        )
+    )
+    freezes = res.scalars().all()
+
+    if not freezes:
+        raise HTTPException(status_code=404, detail="アクティブな凍結がありません")
+
+    now = datetime.now(timezone.utc)
+    for freeze in freezes:
+        freeze.is_active = False
+        freeze.released_at = now
+        freeze.manual_release = True
+        freeze.trigger_reason += " | 手動解除"
+
+    await db.commit()
+    return {"message": f"{len(freezes)}件の価格凍結を解除しました"}

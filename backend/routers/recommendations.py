@@ -84,15 +84,21 @@ async def list_recommendations(
 @router.post("/generate", response_model=list[RecommendationOut])
 async def generate_recommendations(
     days_ahead: int = 30,
-    use_v2: bool = False,
+    use_v2: bool | None = None,
+    cold_start_mode: str | None = None,
     prop: Property = Depends(get_authed_property),
     db: AsyncSession = Depends(get_db),
 ):
     """
     推奨価格を生成する。
-    use_v2=true: PricingEngine v2（需要予測 + Auto-ML 重み + ヒエラルキー制約）
+    use_v2 / cold_start_mode を省略した場合は Property の永続設定を使用。
+    use_v2=true:  PricingEngine v2（需要予測 + Auto-ML 重み + ヒエラルキー制約）
     use_v2=false: rule_engine v1（従来ルールベース）
+    cold_start_mode: "full" | "market_only"
     """
+    effective_v2 = use_v2 if use_v2 is not None else prop.use_v2_engine
+    effective_mode = cold_start_mode or prop.cold_start_mode
+
     # 毎回クリーンな状態で生成するため、既存の pending をすべて削除（べき等化）
     await db.execute(
         delete(Recommendation).where(
@@ -108,9 +114,15 @@ async def generate_recommendations(
     s = setting_result.scalar_one_or_none()
     threshold = s.auto_approve_threshold_levels if s else 1
 
-    if use_v2:
+    if effective_v2:
         engine = PricingEngine()
-        await engine.generate(prop=prop, days_ahead=days_ahead, threshold=threshold, db=db)
+        await engine.generate(
+            prop=prop,
+            days_ahead=days_ahead,
+            threshold=threshold,
+            db=db,
+            cold_start_mode=effective_mode,
+        )
         await db.commit()
         return await list_recommendations(status=None, prop=prop, db=db)
 

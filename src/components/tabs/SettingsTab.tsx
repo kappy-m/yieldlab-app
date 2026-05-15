@@ -3,38 +3,35 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-import { OwnRakutenNoPanel }  from "@/components/settings/OwnRakutenNoPanel";
-import { EventAreaPanel }     from "@/components/settings/EventAreaPanel";
-import { CompSetPanel }       from "@/components/settings/CompSetPanel";
-import { BarLadderPanel }     from "@/components/settings/BarLadderPanel";
-import { ApprovalPanel }      from "@/components/settings/ApprovalPanel";
-import { IntegrationsPanel }  from "@/components/settings/IntegrationsPanel";
-import { CsvImportPanel }     from "@/components/settings/CsvImportPanel";
-import { PricingPolicyPanel } from "@/components/settings/PricingPolicyPanel";
-import { UserAccessPanel }    from "./UserAccessPanel";
-import { CommonSettingsLink } from "@/components/settings/CommonSettingsPanel";
+import { OwnRakutenNoPanel }     from "@/components/settings/OwnRakutenNoPanel";
+import { EventAreaPanel }        from "@/components/settings/EventAreaPanel";
+import { CompSetPanel }          from "@/components/settings/CompSetPanel";
+import { BarLadderPanel }        from "@/components/settings/BarLadderPanel";
+import { ApprovalPanel }         from "@/components/settings/ApprovalPanel";
+import { IntegrationsPanel }     from "@/components/settings/IntegrationsPanel";
+import { CsvImportPanel }        from "@/components/settings/CsvImportPanel";
+import { PricingPolicyPanel }    from "@/components/settings/PricingPolicyPanel";
+import { AlgorithmEnginePanel }  from "@/components/settings/AlgorithmEnginePanel";
+import { UserAccessPanel }       from "./UserAccessPanel";
+import { CommonSettingsLink }    from "@/components/settings/CommonSettingsPanel";
 
 type SettingsSubTab =
-  | "compset"
-  | "barladder"
-  | "pricing_policy"
+  | "algorithm"
   | "approval"
   | "data"
   | "integrations"
   | "users";
 
 const SUB_TABS: { id: SettingsSubTab; label: string }[] = [
-  { id: "compset",        label: "競合セット管理" },
-  { id: "barladder",      label: "BARラダー" },
-  { id: "pricing_policy", label: "プライシングポリシー" },
-  { id: "approval",       label: "承認設定" },
-  { id: "data",           label: "データ管理" },
-  { id: "integrations",   label: "外部システム連携" },
-  { id: "users",          label: "ユーザー管理" },
+  { id: "algorithm",    label: "アルゴリズム設定" },
+  { id: "approval",     label: "承認設定" },
+  { id: "data",         label: "データ管理" },
+  { id: "integrations", label: "外部システム連携" },
+  { id: "users",        label: "ユーザー管理" },
 ];
 
 export function SettingsTab({ propertyId }: { propertyId: number }) {
-  const [activeSubTab, setActiveSubTab] = useState<SettingsSubTab>("compset");
+  const [activeSubTab, setActiveSubTab] = useState<SettingsSubTab>("algorithm");
 
   return (
     <div className="space-y-0">
@@ -55,19 +52,20 @@ export function SettingsTab({ propertyId }: { propertyId: number }) {
         ))}
       </div>
 
-      {activeSubTab === "compset" && (
+      {activeSubTab === "algorithm" && (
         <>
-          <OwnRakutenNoPanel propertyId={propertyId} />
-          <EventAreaPanel    propertyId={propertyId} />
-          <CompSetPanel      propertyId={propertyId} />
+          <OwnRakutenNoPanel    propertyId={propertyId} />
+          <EventAreaPanel       propertyId={propertyId} />
+          <CompSetPanel         propertyId={propertyId} />
+          <BarLadderPanel       propertyId={propertyId} />
+          <PricingPolicyPanel   propertyId={propertyId} />
+          <AlgorithmEnginePanel propertyId={propertyId} />
         </>
       )}
-      {activeSubTab === "barladder"      && <BarLadderPanel      propertyId={propertyId} />}
-      {activeSubTab === "pricing_policy" && <PricingPolicyPanel  propertyId={propertyId} />}
-      {activeSubTab === "approval"       && <ApprovalPanel       propertyId={propertyId} />}
-      {activeSubTab === "data"           && <CsvImportPanel      propertyId={propertyId} />}
-      {activeSubTab === "integrations"   && <IntegrationsPanel />}
-      {activeSubTab === "users"          && <UserAccessPanel />}
+      {activeSubTab === "approval"     && <ApprovalPanel    propertyId={propertyId} />}
+      {activeSubTab === "data"         && <CsvImportPanel   propertyId={propertyId} />}
+      {activeSubTab === "integrations" && <IntegrationsPanel />}
+      {activeSubTab === "users"        && <UserAccessPanel />}
 
       <CommonSettingsLink />
     </div>

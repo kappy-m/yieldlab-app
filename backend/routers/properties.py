@@ -254,3 +254,39 @@ async def update_property_settings(
     await db.commit()
     await db.refresh(prop)
     return prop
+
+
+class AlgorithmSettingsOut(BaseModel):
+    cold_start_mode: str
+    use_v2_engine: bool
+
+    model_config = {"from_attributes": True}
+
+
+class AlgorithmSettingsUpdate(BaseModel):
+    cold_start_mode: str | None = None   # "full" | "market_only"
+    use_v2_engine: bool | None = None
+
+
+@router.get("/{property_id}/algorithm-settings", response_model=AlgorithmSettingsOut)
+async def get_algorithm_settings(
+    prop: Property = Depends(get_authed_property),
+):
+    return prop
+
+
+@router.patch("/{property_id}/algorithm-settings", response_model=AlgorithmSettingsOut)
+async def update_algorithm_settings(
+    body: AlgorithmSettingsUpdate,
+    prop: Property = Depends(get_authed_property),
+    db: AsyncSession = Depends(get_db),
+):
+    if body.cold_start_mode is not None:
+        if body.cold_start_mode not in ("full", "market_only"):
+            raise HTTPException(status_code=400, detail="cold_start_mode は 'full' または 'market_only' を指定してください")
+        prop.cold_start_mode = body.cold_start_mode
+    if body.use_v2_engine is not None:
+        prop.use_v2_engine = body.use_v2_engine
+    await db.commit()
+    await db.refresh(prop)
+    return prop

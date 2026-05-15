@@ -104,3 +104,26 @@ export function updatePropertySettingsFull(
     body: JSON.stringify(data),
   });
 }
+
+// ---- Algorithm Settings ----
+
+export interface AlgorithmSettings {
+  cold_start_mode: "full" | "market_only";
+  use_v2_engine: boolean;
+}
+
+export function fetchAlgorithmSettings(propertyId: number) {
+  return apiFetch<AlgorithmSettings>(
+    `/properties/${propertyId}/algorithm-settings`
+  );
+}
+
+export function updateAlgorithmSettings(
+  propertyId: number,
+  data: Partial<AlgorithmSettings>
+) {
+  return apiFetch<AlgorithmSettings>(
+    `/properties/${propertyId}/algorithm-settings`,
+    { method: "PATCH", body: JSON.stringify(data) }
+  );
+}

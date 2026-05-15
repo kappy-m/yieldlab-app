@@ -21,6 +21,8 @@ from .inquiry_entry import InquiryEntry
 from .guest_stay import GuestStay
 from .reservation import Reservation
 from .guest_conversation import GuestConversation, GuestMessage
+from .price_freeze_log import PriceFreezeLog
+from .google_trends_cache import GoogleTrendsCache
 
 __all__ = [
     "Base",
@@ -47,4 +49,6 @@ __all__ = [
     "Reservation",
     "GuestConversation",
     "GuestMessage",
+    "PriceFreezeLog",
+    "GoogleTrendsCache",
 ]

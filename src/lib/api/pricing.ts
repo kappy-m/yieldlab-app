@@ -146,3 +146,26 @@ export function fetchPricingAiSummary(propertyId: number) {
     `/properties/${propertyId}/pricing/ai-summary`
   );
 }
+
+// ---- Rating Circuit Breaker ----
+
+export interface CircuitBreakerStatus {
+  is_frozen: boolean;
+  baseline_overall: number | null;
+  trigger_overall: number | null;
+  trigger_reason: string | null;
+  frozen_from: string | null;
+}
+
+export function fetchCircuitBreakerStatus(propertyId: number) {
+  return apiFetch<CircuitBreakerStatus>(
+    `/properties/${propertyId}/pricing/circuit-breaker`
+  );
+}
+
+export function releaseCircuitBreaker(propertyId: number) {
+  return apiFetch<{ released: boolean }>(
+    `/properties/${propertyId}/pricing/circuit-breaker/release`,
+    { method: "POST" }
+  );
+}

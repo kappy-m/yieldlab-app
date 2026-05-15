@@ -366,6 +366,47 @@ async def poll_imap_all_properties():
         await poll_imap_and_ingest(prop.id)
 
 
+async def run_google_trends_batch() -> None:
+    """
+    Google Trends バッチ取得（毎週月曜 03:00 JST）。
+    全プロパティのエリアコードを収集してユニーク化し、エリア単位でフェッチする。
+    """
+    from ..services.trend_fetcher import fetch_all_areas
+
+    logger.info("[Scheduler] Google Trends バッチ開始")
+    async with AsyncSessionLocal() as db:
+        props_result = await db.execute(select(Property))
+        properties = props_result.scalars().all()
+        areas = list({p.event_area for p in properties if p.event_area})
+        if not areas:
+            areas = ["nihonbashi"]
+
+        results = await fetch_all_areas(areas, db)
+        logger.info("[Scheduler] Google Trends バッチ完了: %s", results)
+
+
+async def run_circuit_breaker_check() -> None:
+    """
+    Rating Circuit Breaker の定期チェック（毎週月曜 04:00 JST）。
+    評価データ更新後に実行し、凍結状態を更新する。
+    """
+    from ..services.pricing_engine import check_and_update_circuit_breaker
+
+    logger.info("[Scheduler] Circuit Breaker チェック開始")
+    async with AsyncSessionLocal() as db:
+        props_result = await db.execute(select(Property))
+        properties = props_result.scalars().all()
+        for prop in properties:
+            try:
+                await check_and_update_circuit_breaker(prop.id, db)
+            except Exception as exc:
+                logger.error(
+                    "[Scheduler] Circuit Breaker チェック失敗 (property=%d): %s",
+                    prop.id, exc,
+                )
+    logger.info("[Scheduler] Circuit Breaker チェック完了")
+
+
 def create_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler(timezone="Asia/Tokyo")
     scheduler.add_job(
@@ -387,6 +428,20 @@ def create_scheduler() -> AsyncIOScheduler:
         trigger=IntervalTrigger(minutes=5),
         id="imap_poll",
         name="IMAP guest mail polling (5min)",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        run_google_trends_batch,
+        trigger=CronTrigger(day_of_week="mon", hour=3, minute=0),
+        id="google_trends_batch",
+        name="Weekly Google Trends fetch (Mon 03:00 JST)",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        run_circuit_breaker_check,
+        trigger=CronTrigger(day_of_week="mon", hour=4, minute=0),
+        id="circuit_breaker_check",
+        name="Weekly Rating Circuit Breaker check (Mon 04:00 JST)",
         replace_existing=True,
     )
     return scheduler

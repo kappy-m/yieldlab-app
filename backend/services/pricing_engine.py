@@ -1,21 +1,32 @@
 """
-YieldLab プライシングエンジン v2
+YieldLab プライシングエンジン v3
 
-Module 1: DemandForecaster   - 季節性・イベント・客層から需要指数を算出
-Module 2: SupplyAnalyzer     - 競合価格の速度・分散から供給圧縮を推定（稼働率非対応）
+Module 1: DemandForecaster   - 季節性・イベント・客層・天気・キャンセル率から需要指数を算出
+Module 2: SupplyAnalyzer     - 競合価格の速度・分散から供給圧縮を推定
 Module 3: PaceAnalyzer       - 自社予約ペースを理想曲線と比較
-Module 4: PositionEvaluator  - ブランドフロアと Rating アドバンテージを算出
+Module 4: PositionEvaluator  - ブランドフロア・Rating・Circuit Breaker を評価
 Module 5: WeightOptimizer    - 過去実績から scipy Nelder-Mead で信号重みを自動学習
-Module 6: PriceOptimizer     - 加重スコアを BAR 変動幅に変換
+                               Cold Start 対応: full / cohort / market_only の3モード
+Module 6: PriceOptimizer     - 加重スコアを BAR 変動幅に変換（Circuit Breaker 適用）
 Module 7: HierarchyConstraint- 部屋タイプ間の価格逆転を後処理で修正
+
+v3 新機能 (CP2a/CP3/CP5 = Phase 1):
+  - WeatherSignal: OpenMeteo API → 台風・大雪時に demand_index を減衰
+  - RatingCircuitBreaker: overall_rating 30日下落 -0.1 で値上げを凍結
+  - CancellationSignal: 曜日×月のキャンセル率が +1σ/+2σ 超えで demand_index を補正
+
+v3 新機能 (CP1/CP4b/CP6 = Phase 2):
+  - GoogleTrendsSignal: エリア×旅行クエリの週次トレンドを demand_index に反映
+  - SignalRegistry: BaseSignal 継承クラスをプラグイン方式で登録
+  - Cold Start market_only モード: 自社データ不要、競合+ペースのみで動作
 """
 
 from __future__ import annotations
 
 import logging
 import math
-from dataclasses import dataclass
-from datetime import date, timedelta
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta, timezone
 
 import numpy as np
 from scipy.optimize import minimize
@@ -35,6 +46,8 @@ from ..models import (
 )
 from ..models.property import Property
 from ..services.market_service import get_market_events
+from ..services.signals import CancellationSignal, GoogleTrendsSignal, WeatherSignal
+from ..services.signals.base import BaseSignal
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +55,6 @@ BAR_MIN = 1    # 最高値（高い方）
 BAR_MAX = 20   # 最安値（低い方）
 MIN_ROOM_SPREAD = 1  # 隣接部屋タイプ間の最小 BAR 段差
 
-# 学習データ不足時のフォールバック重み
 DEFAULT_WEIGHTS = np.array([0.35, 0.25, 0.25, 0.15])
 
 
@@ -52,9 +64,10 @@ DEFAULT_WEIGHTS = np.array([0.35, 0.25, 0.25, 0.15])
 
 @dataclass
 class PositionConstraint:
-    brand_floor_level: int      # これ以上の BAR 番号（安すぎ）は禁止
-    rating_premium_levels: int  # Rating 優位による追加値上げ余地
-    brand_target_percentile: float  # 競合内の目標価格パーセンタイル
+    brand_floor_level: int
+    rating_premium_levels: int
+    brand_target_percentile: float
+    price_increase_frozen: bool = False  # Rating Circuit Breaker が有効かどうか
 
 
 @dataclass
@@ -66,11 +79,50 @@ class SignalBundle:
 
 
 # ─────────────────────────────────────────
+# SignalRegistry
+# ─────────────────────────────────────────
+
+class SignalRegistry:
+    """
+    BaseSignal インスタンスを名前で登録し、一括 compute を提供する。
+    各シグナルは乗算係数 (1.0 = 中立) を返す。失敗時は 1.0 にフォールバック。
+    """
+
+    def __init__(self) -> None:
+        self._signals: dict[str, BaseSignal] = {}
+
+    def register(self, name: str, signal: BaseSignal) -> None:
+        self._signals[name] = signal
+
+    async def compute_all(
+        self,
+        dates: list[date],
+        db: AsyncSession,
+        **kwargs: object,
+    ) -> dict[str, dict[date, float]]:
+        """登録済みシグナル全件を compute して返す。エラーは 1.0 にフォールバック。"""
+        results: dict[str, dict[date, float]] = {}
+        for name, sig in self._signals.items():
+            try:
+                results[name] = await sig.compute(dates, db, **kwargs)
+            except Exception as exc:
+                logger.warning("[SignalRegistry] %s 失敗 → 1.0 フォールバック: %s", name, exc)
+                results[name] = {d: 1.0 for d in dates}
+        return results
+
+
+# ─────────────────────────────────────────
 # Module 1: DemandForecaster
 # ─────────────────────────────────────────
 
 class DemandForecaster:
     """エリア需要を DemandIndex (0.5〜2.0) で表現する。1.0 = 平常需要。"""
+
+    def __init__(self) -> None:
+        self._registry = SignalRegistry()
+        self._registry.register("weather", WeatherSignal())
+        self._registry.register("cancellation", CancellationSignal())
+        self._registry.register("google_trends", GoogleTrendsSignal())
 
     async def forecast(
         self,
@@ -83,13 +135,31 @@ class DemandForecaster:
         event_lifts = await self._event_lifts(target_dates, event_area)
         holiday_mult = await self._segment_holiday_multiplier(property_id, db)
 
+        # 外部シグナルを一括取得
+        signals = await self._registry.compute_all(
+            target_dates,
+            db,
+            event_area=event_area,
+            property_id=property_id,
+        )
+        weather_map = signals.get("weather", {})
+        cancel_map = signals.get("cancellation", {})
+        trends_map = signals.get("google_trends", {})
+
         result: dict[date, float] = {}
         for d in target_dates:
             sf = seasonal.get(d, 1.0)
             el = event_lifts.get(d, 0.0)
-            # イベントリフトがある日のみセグメント感応度を乗算
             h_mult = holiday_mult if el > 0.05 else 1.0
+
+            # 基本需要指数
             index = sf * (1.0 + el) * h_mult
+
+            # 外部シグナル乗算（すべて係数。1.0 = 中立）
+            index *= weather_map.get(d, 1.0)
+            index *= cancel_map.get(d, 1.0)
+            index *= trends_map.get(d, 1.0)
+
             result[d] = max(0.5, min(2.0, index))
 
         return result
@@ -132,7 +202,6 @@ class DemandForecaster:
             if avg is not None:
                 factors[d] = avg / overall_avg
             else:
-                # 曜日だけで補完
                 dow_vals = [
                     v for (dow, _), vals in dow_month.items()
                     if dow == d.weekday()
@@ -248,8 +317,6 @@ class SupplyAnalyzer:
         for d in target_dates:
             velocity = self._price_velocity(d, price_by_date)
             dispersion = self._price_dispersion(d, price_by_date)
-            # velocity 正 = 価格上昇 = 市場圧縮
-            # dispersion 低 = 横並び価格 = 在庫逼迫
             raw = velocity * 0.6 + (1.0 - dispersion) * 0.4 - 0.5
             signals[d] = max(-1.0, min(1.0, raw * 2))
 
@@ -260,7 +327,6 @@ class SupplyAnalyzer:
         d: date,
         price_by_date: dict[date, list[int]],
     ) -> float:
-        """直近7日の競合平均価格変化率（±20% → ±1.0 にスケール）"""
         today_p = price_by_date.get(d, [])
         past_p: list[int] = []
         for delta in range(1, 8):
@@ -281,7 +347,6 @@ class SupplyAnalyzer:
         d: date,
         price_by_date: dict[date, list[int]],
     ) -> float:
-        """競合価格の変動係数 (CV)。低 = 横並び = 圧縮。0〜1 で返す。"""
         prices = price_by_date.get(d, [])
         if len(prices) < 2:
             return 0.5
@@ -292,7 +357,7 @@ class SupplyAnalyzer:
 
         variance = sum((p - avg) ** 2 for p in prices) / len(prices)
         cv = math.sqrt(variance) / avg
-        return min(1.0, cv * 3)  # CV 0.33 → 1.0 に正規化
+        return min(1.0, cv * 3)
 
     async def price_position(
         self,
@@ -369,7 +434,6 @@ class PaceAnalyzer:
             if ideal is None or total_rooms == 0:
                 result[d] = 0.0
             else:
-                # 33% 偏差 → ±1.0 にスケール
                 result[d] = max(-1.0, min(1.0, (actual - ideal) / total_rooms * 3))
 
         return result
@@ -379,7 +443,6 @@ class PaceAnalyzer:
         property_id: int,
         db: AsyncSession,
     ) -> dict[int, float]:
-        """全 BookingSnapshot から days_before → 平均予約室数のマップを構築"""
         res = await db.execute(
             select(
                 BookingSnapshot.target_date,
@@ -402,7 +465,6 @@ class PaceAnalyzer:
         property_id: int,
         db: AsyncSession,
     ) -> dict[date, int]:
-        """今日時点の各宿泊日の予約室数スナップショットを返す"""
         res = await db.execute(
             select(BookingSnapshot.target_date, BookingSnapshot.booked_rooms).where(
                 and_(
@@ -423,10 +485,13 @@ class PaceAnalyzer:
 # ─────────────────────────────────────────
 
 class PositionEvaluator:
-    """ブランドフロアと Rating アドバンテージを算出する"""
+    """ブランドフロア・Rating プレミアム・Circuit Breaker を評価する"""
 
     _BRAND_FLOOR: dict[int, int] = {5: 10, 4: 14, 3: 17, 2: 19}
     _BRAND_TARGET_PCT: dict[int, float] = {5: 0.80, 4: 0.70, 3: 0.55, 2: 0.45}
+
+    # Circuit Breaker トリガー閾値
+    _CB_TRIGGER_DELTA = -0.1   # 30日間でこれ以上下落したら凍結
 
     async def evaluate(
         self,
@@ -438,11 +503,13 @@ class PositionEvaluator:
         brand_floor = self._BRAND_FLOOR.get(star, 18)
         target_pct = self._BRAND_TARGET_PCT.get(star, 0.55)
         rating_premium = await self._rating_premium(property_id, db)
+        is_frozen = await self._rating_circuit_breaker(property_id, db)
 
         return PositionConstraint(
             brand_floor_level=brand_floor,
             rating_premium_levels=rating_premium,
             brand_target_percentile=target_pct,
+            price_increase_frozen=is_frozen,
         )
 
     async def _rating_premium(self, property_id: int, db: AsyncSession) -> int:
@@ -472,6 +539,112 @@ class PositionEvaluator:
             return 1
         return 0
 
+    async def _rating_circuit_breaker(self, property_id: int, db: AsyncSession) -> bool:
+        """
+        アクティブな価格凍結が存在するか確認する。
+        凍結判定・更新は check_and_update_circuit_breaker() が担当するため、
+        ここでは price_freeze_logs テーブルを読むだけ。
+        """
+        from ..models.price_freeze_log import PriceFreezeLog
+        res = await db.execute(
+            select(PriceFreezeLog.is_active).where(
+                and_(
+                    PriceFreezeLog.property_id == property_id,
+                    PriceFreezeLog.is_active == True,
+                )
+            )
+        )
+        row = res.first()
+        return row is not None
+
+
+async def check_and_update_circuit_breaker(property_id: int, db: AsyncSession) -> None:
+    """
+    最新の overall_rating を取得し、Circuit Breaker の凍結状態を更新する。
+    評価更新ジョブ（週1回）から呼び出す。
+
+    ロジック:
+      1. 自社の own overall_rating を取得
+      2. アクティブな freeze_log があれば baseline と比較
+         - current - baseline < -0.1 → 凍結継続
+         - current - baseline >= -0.05 → 解除（自動回復）
+      3. アクティブな freeze_log がなければ基準値を記録（凍結しない）
+    """
+    from ..models.price_freeze_log import PriceFreezeLog
+
+    # 自社の現在 overall_rating
+    res = await db.execute(
+        select(CompetitorRating.overall).where(
+            and_(
+                CompetitorRating.property_id == property_id,
+                CompetitorRating.is_own_property == True,
+                CompetitorRating.overall.is_not(None),
+            )
+        ).order_by(CompetitorRating.overall.desc()).limit(1)
+    )
+    row = res.first()
+    if row is None:
+        return
+    current_overall: float = row.overall
+
+    # アクティブな凍結レコードを取得
+    freeze_res = await db.execute(
+        select(PriceFreezeLog).where(
+            and_(
+                PriceFreezeLog.property_id == property_id,
+                PriceFreezeLog.is_active == True,
+            )
+        ).limit(1)
+    )
+    freeze = freeze_res.scalar_one_or_none()
+
+    if freeze is not None:
+        delta = current_overall - freeze.baseline_overall
+        if delta >= -0.05:
+            # 回復 → 自動解除
+            freeze.is_active = False
+            freeze.released_at = datetime.now(timezone.utc)
+            freeze.trigger_reason += f" | 自動解除: current={current_overall:.2f}"
+            logger.info(
+                "[CircuitBreaker] 自動解除 (property=%d, delta=%.3f)",
+                property_id, delta,
+            )
+    else:
+        # 凍結レコードがない = 初回または前回解除済み
+        # 最新の非アクティブレコードからベースラインを取得
+        prev_res = await db.execute(
+            select(PriceFreezeLog).where(
+                PriceFreezeLog.property_id == property_id,
+            ).order_by(PriceFreezeLog.id.desc()).limit(1)
+        )
+        prev = prev_res.scalar_one_or_none()
+
+        if prev is None:
+            # 初回: 基準値として記録するだけ（凍結しない）
+            baseline = current_overall
+        else:
+            baseline = prev.baseline_overall
+
+        delta = current_overall - baseline
+        if delta < -0.1:
+            new_freeze = PriceFreezeLog(
+                property_id=property_id,
+                is_active=True,
+                baseline_overall=baseline,
+                trigger_overall=current_overall,
+                trigger_reason=(
+                    f"overall_rating 30日トレンドが -{abs(delta):.3f} 下落 "
+                    f"(baseline={baseline:.2f} → current={current_overall:.2f})"
+                ),
+            )
+            db.add(new_freeze)
+            logger.warning(
+                "[CircuitBreaker] 凍結開始 (property=%d, delta=%.3f)",
+                property_id, delta,
+            )
+
+    await db.commit()
+
 
 # ─────────────────────────────────────────
 # Module 5: WeightOptimizer
@@ -480,13 +653,35 @@ class PositionEvaluator:
 class WeightOptimizer:
     """
     過去の実績データから信号の重みを SciPy Nelder-Mead で自動学習する。
-    目的関数: weighted_score vs 正規化 RevPAR の残差二乗和を最小化。
+
+    cold_start_mode:
+      "full"        - 1stパーティデータあり。180日実績で学習（既存挙動）
+      "cohort"      - 新規館。同星数・エリアの cohort_weights テーブルから流用（Phase 3）
+      "market_only" - 自社データ非公開。供給+ペースのみ（w=[0,0.5,0.5,0]）
     """
 
     MIN_SAMPLES = 30
     LOOKBACK_DAYS = 180
 
-    async def fit(self, property_id: int, db: AsyncSession) -> np.ndarray:
+    _MARKET_ONLY_WEIGHTS = np.array([0.0, 0.5, 0.5, 0.0])
+
+    async def fit(
+        self,
+        property_id: int,
+        db: AsyncSession,
+        cold_start_mode: str = "full",
+    ) -> np.ndarray:
+        if cold_start_mode == "market_only":
+            logger.info("[WeightOptimizer] market_only モード (property=%d)", property_id)
+            return self._MARKET_ONLY_WEIGHTS.copy()
+
+        if cold_start_mode == "cohort":
+            cohort_w = await self._cohort_weights(property_id, db)
+            if cohort_w is not None:
+                logger.info("[WeightOptimizer] cohort 重み使用 (property=%d)", property_id)
+                return cohort_w
+
+        # full モード（既存ロジック）
         X, y = await self._build_training_data(property_id, db)
 
         if X.shape[0] < self.MIN_SAMPLES:
@@ -517,6 +712,20 @@ class WeightOptimizer:
         logger.info("[WeightOptimizer] 学習済み重み: %s (n=%d)", np.round(weights, 3), X.shape[0])
         return weights
 
+    async def _cohort_weights(
+        self,
+        property_id: int,
+        db: AsyncSession,
+    ) -> np.ndarray | None:
+        """
+        同星数・エリアの cohort_weights テーブルから重みを取得する（Phase 3 実装後に有効化）。
+        コホート館数 < 3 の場合は None を返してデフォルト重みにフォールバック。
+        """
+        # Phase 3 データ蓄積後に実装
+        # from ..models.cohort_weights import CohortWeights
+        # ...
+        return None
+
     async def _build_training_data(
         self,
         property_id: int,
@@ -525,15 +734,14 @@ class WeightOptimizer:
         """
         特徴量 X と目的変数 y を過去実績から構築する。
 
-        X[:, 0] = demand proxy : 季節指数（曜日×月の稼働率 / 全体平均 - 1）
-        X[:, 1] = supply proxy : 競合価格速度（当日平均 / 前週平均 - 1）
-        X[:, 2] = pace proxy   : 30日前の予約偏差（実績 / 理想 - 1）
-        X[:, 3] = position     : 定数 0.1（position は制約項として扱う）
+        X[:, 0] = demand proxy : 季節指数 - 1
+        X[:, 1] = supply proxy : 競合価格速度
+        X[:, 2] = pace proxy   : 30日前の予約偏差
+        X[:, 3] = position     : 定数 0.1
         y       = 正規化 RevPAR (-1.0〜+1.0)
         """
         cutoff = date.today() - timedelta(days=self.LOOKBACK_DAYS)
 
-        # DailyPerformance
         perf_res = await db.execute(
             select(DailyPerformance).where(
                 and_(
@@ -548,7 +756,6 @@ class WeightOptimizer:
         if not perfs:
             return np.empty((0, 4)), np.empty(0)
 
-        # 季節指数マップ
         dow_month: dict[tuple[int, int], list[float]] = {}
         for p in perfs:
             key = (p.date.weekday(), p.date.month)
@@ -556,7 +763,6 @@ class WeightOptimizer:
         dow_month_avg = {k: sum(v) / len(v) for k, v in dow_month.items()}
         overall_avg = sum(p.occupancy_rate for p in perfs) / len(perfs)
 
-        # 競合価格マップ
         comp_res = await db.execute(
             select(CompetitorPrice.target_date, CompetitorPrice.price).where(
                 and_(
@@ -571,7 +777,6 @@ class WeightOptimizer:
             td = row.target_date if isinstance(row.target_date, date) else date.fromisoformat(str(row.target_date))
             comp_by_date.setdefault(td, []).append(row.price)
 
-        # BookingSnapshot マップ: (target_date, days_before) → booked_rooms
         snap_res = await db.execute(
             select(
                 BookingSnapshot.target_date,
@@ -596,7 +801,6 @@ class WeightOptimizer:
 
         ideal_30d = sum(snap_by_days.get(30, [])) / len(snap_by_days[30]) if snap_by_days.get(30) else 0.0
 
-        # RevPAR 正規化
         revpars = [p.revpar for p in perfs]
         min_r, max_r = min(revpars), max(revpars)
         range_r = max_r - min_r if max_r != min_r else 1.0
@@ -605,12 +809,10 @@ class WeightOptimizer:
         y_rows: list[float] = []
 
         for p in perfs:
-            # demand proxy
             key = (p.date.weekday(), p.date.month)
             seasonal = dow_month_avg.get(key, overall_avg) / overall_avg if overall_avg > 0 else 1.0
             demand_proxy = max(-2.0, min(2.0, seasonal - 1.0))
 
-            # supply proxy
             today_p = comp_by_date.get(p.date, [])
             past_p: list[int] = []
             for delta in range(1, 8):
@@ -620,7 +822,6 @@ class WeightOptimizer:
             else:
                 supply_proxy = 0.0
 
-            # pace proxy（30日前の予約偏差）
             booked_30d = snap_map.get((p.date, 30), 0)
             pace_proxy = max(-1.0, min(1.0, (booked_30d - ideal_30d) / ideal_30d)) if ideal_30d > 0 else 0.0
 
@@ -649,7 +850,6 @@ class PriceOptimizer:
             (new_bar_level, delta_levels)
             delta_levels: 正 = 価格UP（BAR番号DOWN）, 負 = 価格DOWN（BAR番号UP）
         """
-        # 需要指数を -1.0〜+1.0 に正規化（1.0 = 標準）
         demand_norm = (signals.demand_index - 1.0) / 1.0
         demand_norm = max(-1.0, min(1.0, demand_norm))
 
@@ -660,14 +860,15 @@ class PriceOptimizer:
             + weights[3] * signals.position_gap
         )
 
-        # 最大 ±6 段階に変換
         delta = round(raw_score * 6)
 
-        # ブランドフロア適用（BAR 番号が floor より大きくなれない = 安くなれない）
+        # Rating Circuit Breaker: 値上げ方向を封印
+        if constraint.price_increase_frozen and delta > 0:
+            delta = 0
+
         floor = constraint.brand_floor_level
         new_level = max(BAR_MIN, min(floor, current_bar_level - delta))
 
-        # Rating プレミアム: 上限方向に余裕を追加（より高い価格へ）
         premium_cap = max(BAR_MIN, current_bar_level - delta - constraint.rating_premium_levels)
         new_level = max(BAR_MIN, min(new_level, premium_cap + constraint.rating_premium_levels))
 
@@ -682,7 +883,6 @@ class PriceOptimizer:
 class HierarchyConstraint:
     """
     全部屋タイプの推奨確定後、sort_order 順に BAR 逆転を後処理で修正する。
-    sort_order が大きい = 上位客室 = より低い BAR 番号（高い価格）が必要。
     """
 
     def apply(
@@ -693,15 +893,12 @@ class HierarchyConstraint:
         if len(room_types) <= 1:
             return recs
 
-        # sort_order 昇順（安い順）でソート
         sorted_rt = sorted(room_types, key=lambda r: r.sort_order)
-        # room_type_id → target_date → rec のマップ
         rec_map: dict[tuple[int, date], Recommendation] = {}
         for rec in recs:
             td = rec.target_date if isinstance(rec.target_date, date) else date.fromisoformat(str(rec.target_date))
             rec_map[(rec.room_type_id, td)] = rec
 
-        # 対象日付を収集
         all_dates = {
             (rec.target_date if isinstance(rec.target_date, date) else date.fromisoformat(str(rec.target_date)))
             for rec in recs
@@ -709,8 +906,8 @@ class HierarchyConstraint:
 
         for d in all_dates:
             for i in range(len(sorted_rt) - 1):
-                lower_rt = sorted_rt[i]       # 安い部屋（BAR番号が大きい）
-                higher_rt = sorted_rt[i + 1]  # 高い部屋（BAR番号が小さい）
+                lower_rt = sorted_rt[i]
+                higher_rt = sorted_rt[i + 1]
 
                 rec_lower = rec_map.get((lower_rt.id, d))
                 rec_higher = rec_map.get((higher_rt.id, d))
@@ -721,7 +918,6 @@ class HierarchyConstraint:
                 lower_level = int(rec_lower.recommended_bar_level)
                 higher_level = int(rec_higher.recommended_bar_level)
 
-                # 高い部屋の BAR 番号 >= 安い部屋の BAR 番号 → 逆転
                 if higher_level >= lower_level - MIN_ROOM_SPREAD + 1:
                     corrected = lower_level - MIN_ROOM_SPREAD
                     corrected = max(BAR_MIN, corrected)
@@ -756,17 +952,21 @@ class PricingEngine:
         days_ahead: int,
         threshold: int,
         db: AsyncSession,
+        cold_start_mode: str = "full",
     ) -> list[Recommendation]:
         today = date.today()
         target_dates = [today + timedelta(days=i) for i in range(days_ahead)]
 
-        # ── 各信号を並列的に取得 ──
-        demand_map = await self._demand.forecast(
-            prop.id, target_dates, prop.event_area, db
-        )
+        # market_only モードは DemandForecaster をスキップ（自社データ不要）
+        if cold_start_mode == "market_only":
+            demand_map = {d: 1.0 for d in target_dates}
+        else:
+            demand_map = await self._demand.forecast(
+                prop.id, target_dates, prop.event_area, db
+            )
+
         supply_map = await self._supply.analyze(prop.id, target_dates, db)
 
-        # ── 部屋タイプ・BAR ラダー取得 ──
         rt_res = await db.execute(
             select(RoomType).where(RoomType.property_id == prop.id).order_by(RoomType.sort_order)
         )
@@ -779,7 +979,6 @@ class PricingEngine:
         )
         bar_ladders: dict[str, int] = {str(b.level): b.price for b in bar_res.scalars().all()}
 
-        # ── 自社価格マップ（price_position 計算用）──
         grid_res = await db.execute(
             select(PricingGrid.room_type_id, PricingGrid.target_date, PricingGrid.price).where(
                 and_(
@@ -793,26 +992,20 @@ class PricingEngine:
             td = row.target_date if isinstance(row.target_date, date) else date.fromisoformat(str(row.target_date))
             own_prices[(row.room_type_id, td)] = row.price
 
-        # ── ポジション制約 & 重みの学習 ──
         constraint = await self._position.evaluate(prop.id, prop.star_rating, db)
-        weights = await self._weight_opt.fit(prop.id, db)
+        weights = await self._weight_opt.fit(prop.id, db, cold_start_mode=cold_start_mode)
 
-        # ── 価格ポジションシグナル ──
         position_map = await self._supply.price_position(
             prop.id, target_dates, own_prices, constraint.brand_target_percentile, db
         )
 
-        # ── 予約ペース（プロパティ全体で算出）──
         total_rooms = sum(rt.total_rooms for rt in room_types)
         pace_map = await self._pace.analyze(prop.id, total_rooms or 1, target_dates, db)
 
-        # ── 推奨生成 ──
         new_recs: list[Recommendation] = []
 
         for rt in room_types:
             for d in target_dates:
-                grid = own_prices.get((rt.id, d))
-                # PricingGrid から現在レベルを取得
                 grid_row_res = await db.execute(
                     select(PricingGrid).where(
                         and_(
@@ -841,7 +1034,7 @@ class PricingEngine:
                     continue
 
                 rec_price = bar_ladders.get(str(new_level), current_price)
-                reason = self._build_reason(signals, delta)
+                reason = self._build_reason(signals, delta, constraint)
                 status = "pending" if abs(delta) > threshold else "auto_approved"
 
                 rec = Recommendation(
@@ -859,13 +1052,20 @@ class PricingEngine:
                 db.add(rec)
                 new_recs.append(rec)
 
-        # ── ヒエラルキー制約を適用 ──
         new_recs = self._hierarchy.apply(new_recs, list(room_types))
 
         return new_recs
 
-    def _build_reason(self, signals: SignalBundle, delta: int) -> str:
+    def _build_reason(
+        self,
+        signals: SignalBundle,
+        delta: int,
+        constraint: PositionConstraint,
+    ) -> str:
         parts: list[str] = []
+
+        if constraint.price_increase_frozen:
+            parts.append("⚠️ Rating下落のため値上げ凍結中")
 
         if signals.demand_index >= 1.3:
             parts.append(f"需要指数高({signals.demand_index:.2f})")

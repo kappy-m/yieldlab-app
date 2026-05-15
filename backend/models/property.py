@@ -1,4 +1,4 @@
-from sqlalchemy import String, Integer, ForeignKey, DateTime, func
+from sqlalchemy import String, Integer, Boolean, ForeignKey, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..database import Base
 
@@ -22,6 +22,8 @@ class Property(Base):
     website_url: Mapped[str | None] = mapped_column(String(300))    # 公式サイト
     own_rakuten_hotel_no: Mapped[str | None] = mapped_column(String(20), nullable=True)  # 自社の楽天ホテル番号
     event_area: Mapped[str] = mapped_column(String(30), default="nihonbashi")            # マーケットイベントエリア: nihonbashi | ginza
+    cold_start_mode: Mapped[str] = mapped_column(String(20), default="full")             # プライシングエンジンモード: full | market_only
+    use_v2_engine: Mapped[bool] = mapped_column(Boolean, default=True)                   # v2 ML エンジン使用フラグ
 
     organization: Mapped["Organization"] = relationship(back_populates="properties")
     bar_ladders: Mapped[list["BarLadder"]] = relationship(back_populates="property")
@@ -38,3 +40,4 @@ class Property(Base):
     guest_stays:        Mapped[list["GuestStay"]]       = relationship(back_populates="property")
     reservations:       Mapped[list["Reservation"]]     = relationship(back_populates="property")
     guest_conversations: Mapped[list["GuestConversation"]] = relationship(back_populates="property")
+    price_freeze_logs: Mapped[list["PriceFreezeLog"]] = relationship(back_populates="property")
