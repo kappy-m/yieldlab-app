@@ -980,7 +980,12 @@ class PricingEngine:
         bar_ladders: dict[str, int] = {str(b.level): b.price for b in bar_res.scalars().all()}
 
         grid_res = await db.execute(
-            select(PricingGrid.room_type_id, PricingGrid.target_date, PricingGrid.price).where(
+            select(
+                PricingGrid.room_type_id,
+                PricingGrid.target_date,
+                PricingGrid.price,
+                PricingGrid.bar_level,
+            ).where(
                 and_(
                     PricingGrid.property_id == prop.id,
                     PricingGrid.target_date.in_(target_dates),
@@ -988,9 +993,11 @@ class PricingEngine:
             )
         )
         own_prices: dict[tuple[int, date], int] = {}
+        own_bar_levels: dict[tuple[int, date], int] = {}
         for row in grid_res.all():
             td = row.target_date if isinstance(row.target_date, date) else date.fromisoformat(str(row.target_date))
             own_prices[(row.room_type_id, td)] = row.price
+            own_bar_levels[(row.room_type_id, td)] = int(row.bar_level)
 
         constraint = await self._position.evaluate(prop.id, prop.star_rating, db)
         weights = await self._weight_opt.fit(prop.id, db, cold_start_mode=cold_start_mode)
@@ -1006,18 +1013,8 @@ class PricingEngine:
 
         for rt in room_types:
             for d in target_dates:
-                grid_row_res = await db.execute(
-                    select(PricingGrid).where(
-                        and_(
-                            PricingGrid.property_id == prop.id,
-                            PricingGrid.room_type_id == rt.id,
-                            PricingGrid.target_date == d,
-                        )
-                    )
-                )
-                grid_row = grid_row_res.scalar_one_or_none()
-                current_level_int = int(grid_row.bar_level) if grid_row else 10
-                current_price = grid_row.price if grid_row else bar_ladders.get("10", 12000)
+                current_level_int = own_bar_levels.get((rt.id, d), 10)
+                current_price = own_prices.get((rt.id, d), bar_ladders.get("10", 12000))
 
                 signals = SignalBundle(
                     demand_index=demand_map.get(d, 1.0),

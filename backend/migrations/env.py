@@ -1,10 +1,8 @@
-import asyncio
 import os
 import sys
 from logging.config import fileConfig
 
-from sqlalchemy import pool
-from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy import create_engine, pool
 
 from alembic import context
 
@@ -37,10 +35,6 @@ def _get_sync_url() -> str:
     return url
 
 
-def _get_async_url() -> str:
-    return settings.DATABASE_URL
-
-
 def run_migrations_offline() -> None:
     url = _get_sync_url()
     context.configure(
@@ -65,22 +59,13 @@ def do_run_migrations(connection):
         context.run_migrations()
 
 
-async def run_async_migrations() -> None:
-    config.set_main_option("sqlalchemy.url", _get_async_url())
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-
-    await connectable.dispose()
-
-
 def run_migrations_online() -> None:
-    asyncio.run(run_async_migrations())
+    # asyncpg（非同期）ではなく psycopg2（同期）で接続する。
+    # asyncpg を asyncio.run() で呼び出す旧実装は Railway の PostgreSQL 接続で
+    # ハングし、Alembic が完了せず uvicorn が起動しないためヘルスチェックが失敗する。
+    connectable = create_engine(_get_sync_url(), poolclass=pool.NullPool)
+    with connectable.connect() as connection:
+        do_run_migrations(connection)
 
 
 if context.is_offline_mode():
